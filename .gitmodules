@@ -4,3 +4,6 @@
 [submodule "lib/chronicle-std"]
 	path = lib/chronicle-std
 	url = https://github.com/chronicleprotocol/chronicle-std
+[submodule "lib/solidity-generators"]
+	path = lib/solidity-generators
+	url = https://github.com/mds1/solidity-generators
