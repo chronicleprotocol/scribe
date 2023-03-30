@@ -10,7 +10,7 @@ import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
 
 import {LibHelpers} from "../utils/LibHelpers.sol";
 
-contract Handler is CommonBase, StdUtils {
+contract ScribeHandler is CommonBase, StdUtils {
     using LibSecp256k1 for LibSecp256k1.Point;
 
     uint public constant MAX_BAR = 10;

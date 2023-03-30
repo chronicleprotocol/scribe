@@ -12,19 +12,16 @@ $ forge install chronicleprotocol/scribe
 
 The project uses the Foundry toolchain. You can find installation instructions [here](https://getfoundry.sh/).
 
-This repo includes a go cli tool - `scribe-ecc-ref` - to differential fuzz test
-the secp256k1 and schnorr signature code against. The test suite expects this
-tool to be in the `bin/` directory.
-
 Setup:
 ```bash
 $ git clone https://github.com/chronicleprotocol/scribe
 $ cd scribe/
 $ forge install
-$ cd scribe-ecc-ref/
-$ go build . # If dependencies are missing, install them via `got get ...`
-$ cp scribe-ecc-ref ../bin
 ```
+
+This repo includes a cli tool - `scribe-ecc-ref` - to differential fuzz test the secp256k1 and schnorr signature code against. For compilation instructions, see the [README](./scribe-ecc-ref/README.md).
+
+After compilation, copy the binary to the `bin/` directory.
 
 Run tests:
 ```bash

@@ -105,6 +105,21 @@ library LibHelpers {
                                  OTHERS
     //////////////////////////////////////////////////////////////*/
 
+    function constructOpCommitment(
+        IScribe.PokeData memory pokeData,
+        IScribe.SchnorrSignatureData memory schnorrSignatureData
+    ) internal pure returns (bytes32) {
+        return keccak256(
+            abi.encodePacked(
+                pokeData.val,
+                pokeData.age,
+                abi.encodePacked(schnorrSignatureData.signers),
+                schnorrSignatureData.signature,
+                schnorrSignatureData.commitment
+            )
+        );
+    }
+
     function sortAddresses(address[] memory addrs)
         internal
         pure

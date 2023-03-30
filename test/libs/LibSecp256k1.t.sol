@@ -2,14 +2,12 @@ pragma solidity ^0.8.16;
 
 import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
-import {stdJson} from "forge-std/StdJson.sol";
 
 import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
 
 import {LibScribeECCRef} from "../utils/LibScribeECCRef.sol";
 
 contract LibSecp256k1Test is Test {
-    using stdJson for string;
     using LibSecp256k1 for LibSecp256k1.Point;
     using LibSecp256k1 for LibSecp256k1.Point[];
 

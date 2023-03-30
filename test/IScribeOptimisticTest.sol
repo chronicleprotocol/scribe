@@ -62,8 +62,10 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         opScribe.opPoke(pokeData, schnorrSignatureData, ecdsaSignatureData);
 
         assertEq(opScribe.opFeed(), feeds[0].pubKey.toAddress());
-        // @todo Check for opCommitment. Need helper function.
-        assertTrue(opScribe.opCommitment() != bytes32(0));
+        assertEq(
+            opScribe.opCommitment(),
+            LibHelpers.constructOpCommitment(pokeData, schnorrSignatureData)
+        );
 
         // Wait until challenge period over and opPokeData finalizes.
         _warpToEndOfOpChallengePeriod();
@@ -75,8 +77,10 @@ abstract contract IScribeOptimisticTest is IScribeTest {
 
         // Note that the opFeed & opCommitment is not deleted after finalization.
         assertEq(opScribe.opFeed(), feeds[0].pubKey.toAddress());
-        // @todo Check for opCommitment. Need helper function.
-        assertTrue(opScribe.opCommitment() != bytes32(0));
+        assertEq(
+            opScribe.opCommitment(),
+            LibHelpers.constructOpCommitment(pokeData, schnorrSignatureData)
+        );
     }
 
     function test_opPoke_Initial_FailsIf_AgeIsZero() public {
@@ -139,8 +143,10 @@ abstract contract IScribeOptimisticTest is IScribeTest {
                 opScribe.opFeed(),
                 (i % 2 == 0 ? feeds[0] : feeds[1]).pubKey.toAddress()
             );
-            // @todo Check for opCommitment. Need helper function.
-            assertTrue(opScribe.opCommitment() != bytes32(0));
+            assertEq(
+                opScribe.opCommitment(),
+                LibHelpers.constructOpCommitment(pokeDatas[i], schnorrSignatureData)
+            );
 
             // Wait until challenge period over and opPokeData finalizes.
             _warpToEndOfOpChallengePeriod();

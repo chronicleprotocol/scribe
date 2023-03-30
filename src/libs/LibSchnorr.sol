@@ -72,9 +72,9 @@ import {LibSecp256k1} from "./LibSecp256k1.sol";
  *                   = [e]P + [k - (e * x)]G     | P = [x]G
  *                   = [e * x]G + [k - e * x]G   | Distributive Law
  *                   = [e * x + k - e * x]G      | Commutative Law
- *                   = [k - e * x + e * x]       | -(e * x) + (e * x) = 0
+ *                   = [k - e * x + e * x]G      | -(e * x) + (e * x) = 0
  *                   = [k]G                      | R = [k]G
- *                   = R                         | Let ₑ be the Ethereum address of the Point
+ *                   = R                         | Let ()ₑ be the Ethereum address of a Point
  *                   → Rₑ
  *
  *          3. Verification succeeds iff ([e]P + [s]G)ₑ = Rₑ

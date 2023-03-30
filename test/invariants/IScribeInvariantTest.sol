@@ -12,17 +12,17 @@ import {IScribeAuth} from "src/IScribeAuth.sol";
 
 import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
 
-import {Handler} from "./Handler.sol";
+import {ScribeHandler} from "./ScribeHandler.sol";
 
 abstract contract IScribeInvariantTest is Test {
     using LibSecp256k1 for LibSecp256k1.Point;
 
     IScribe scribe;
-    Handler handler;
+    ScribeHandler handler;
 
     function setUp(address scribe_) internal {
         scribe = IScribe(scribe_);
-        handler = new Handler(scribe);
+        handler = new ScribeHandler(scribe);
 
         // Toll address(this).
         IToll(address(scribe)).kiss(address(this));
@@ -36,12 +36,12 @@ abstract contract IScribeInvariantTest is Test {
 
         // Set handler as target contract.
         bytes4[] memory selectors = new bytes4[](6);
-        selectors[0] = Handler.warp.selector;
-        selectors[1] = Handler.poke.selector;
-        selectors[2] = Handler.pokeFaulty.selector;
-        selectors[3] = Handler.setBar.selector;
-        selectors[4] = Handler.lift.selector;
-        selectors[5] = Handler.drop.selector;
+        selectors[0] = ScribeHandler.warp.selector;
+        selectors[1] = ScribeHandler.poke.selector;
+        selectors[2] = ScribeHandler.pokeFaulty.selector;
+        selectors[3] = ScribeHandler.setBar.selector;
+        selectors[4] = ScribeHandler.lift.selector;
+        selectors[5] = ScribeHandler.drop.selector;
         targetSelector(
             FuzzSelector({addr: address(handler), selectors: selectors})
         );
