@@ -25,9 +25,9 @@ contract ScribeOptimistic is
 
     PokeData private _opPokeData;
 
-    modifier dropsOpPokeData() {
+    modifier dropOpPokeData() {
         _;
-        // @todo Optimize to only use one SLOAD.
+
         emit OpPokeDataDropped(msg.sender, _opPokeData.val, _opPokeData.age);
         delete _opPokeData;
     }
@@ -67,9 +67,12 @@ contract ScribeOptimistic is
             revert InChallengePeriod();
         }
 
-        // Recover ECDSA signer for given pokeData.
+        // Construct the message expected to be signed via ECDSA.
+        bytes32 ecdsaMessage = _constructECDSAMessage(pokeData, schnorrSignatureData);
+
+        // Recover ECDSA signer.
         address signer = ecrecover(
-            _constructECDSAMessage(pokeData, schnorrSignatureData),
+            ecdsaMessage,
             ecdsaSignatureData.v,
             ecdsaSignatureData.r,
             ecdsaSignatureData.s
@@ -82,8 +85,12 @@ contract ScribeOptimistic is
 
         // Store the signer and bind them to their pokeData and corresponding
         // schnorrSignatureData.
+        // Note that the ecdsaMessage is used as commitment. While ecdsaMessage
+        // also includes the wat and "Ethereum signed message" prefix, which are
+        // not necessary for the commitment, its saves some gas not having to
+        // compute another hash.
         opFeed = signer;
-        opCommitment = _constructCommitment(pokeData, schnorrSignatureData);
+        opCommitment = ecdsaMessage;
 
         // If opPokeData exists, consider moving it to the pokeData storage.
         // This frees the opPokeData storage. Note that opPokeData is already
@@ -103,6 +110,8 @@ contract ScribeOptimistic is
     }
 
     // @audit DOS via schnorrSignatureData.signers length?
+    //        YES! Should require length == bar!
+    //        For consistency, also require in Scribe.
     function opChallenge(
         PokeData calldata pokeData,
         SchnorrSignatureData calldata schnorrSignatureData
@@ -117,13 +126,15 @@ contract ScribeOptimistic is
         // schnorrSignatureData does not match the data opFeed committed
         // themselves to.
         // @todo ^^ Rephrase to use "integrity of arguments".
+        // @todo Adjust comment to reflect change to ecdsa message as commitment.
         if (
-            _constructCommitment(pokeData, schnorrSignatureData) != opCommitment
+            _constructECDSAMessage(pokeData, schnorrSignatureData) != opCommitment
         ) {
             revert ArgumentsDoNotMatchOpCommitment(
-                _constructCommitment(pokeData, schnorrSignatureData),
+                _constructECDSAMessage(pokeData, schnorrSignatureData),
                 opCommitment
             );
+            // @todo Check gas changes if ecdsa message/commitment is stored in var.
         }
 
         // Decide whether schnorrSignatureData, initially provided by opFeed,
@@ -182,14 +193,20 @@ contract ScribeOptimistic is
             );
         }
 
-        // @todo Stopped here with commenting.
-        // Either kick opFeed or finalize opPokeData.
-        if (ok && _opPokeData.age > _pokeData.age) {
-            _pokeData = _opPokeData;
+        if (ok) {
+            // If opPoke was ok, finalize opPokeData by moving it to the
+            // _pokeData slot. Note to only finalize opPokeData if its age is
+            // actually fresher than _pokeData's age.
+            if (_opPokeData.age > _pokeData.age) {
+                _pokeData = _opPokeData;
+            }
         } else {
+            // If opPoke was not ok, kick opFeed.
             delete _feeds[opFeed];
         }
 
+        // Delete _opPokeData. Either it's stored already in the _pokeData slot
+        // or it's invalid.
         delete _opPokeData;
     }
 
@@ -229,16 +246,16 @@ contract ScribeOptimistic is
     function setOpChallengePeriod(uint16 opChallengePeriod_)
         external
         auth
-        dropsOpPokeData
+        dropOpPokeData
     {
         require(opChallengePeriod_ != 0);
 
-        // @todo Should be idempotent wrt event emission?
-
-        emit OpChallengePeriodUpdated(
-            msg.sender, opChallengePeriod, opChallengePeriod_
-        );
-        opChallengePeriod = opChallengePeriod_;
+        if (opChallengePeriod != opChallengePeriod_) {
+            emit OpChallengePeriodUpdated(
+                msg.sender, opChallengePeriod, opChallengePeriod_
+            );
+            opChallengePeriod = opChallengePeriod_;
+        }
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -248,7 +265,7 @@ contract ScribeOptimistic is
     function _drop(LibSecp256k1.Point memory pubKey)
         internal
         override(Scribe)
-        dropsOpPokeData
+        dropOpPokeData
     {
         super._drop(pubKey);
     }
@@ -256,12 +273,12 @@ contract ScribeOptimistic is
     function _drop(LibSecp256k1.Point[] memory pubKeys)
         internal
         override(Scribe)
-        dropsOpPokeData
+        dropOpPokeData
     {
         super._drop(pubKeys);
     }
 
-    function _setBar(uint8 bar_) internal override(Scribe) dropsOpPokeData {
+    function _setBar(uint8 bar_) internal override(Scribe) dropOpPokeData {
         super._setBar(bar_);
     }
 
@@ -282,21 +299,6 @@ contract ScribeOptimistic is
                 schnorrSignatureData.signature,
                 schnorrSignatureData.commitment,
                 wat
-            )
-        );
-    }
-
-    function _constructCommitment(
-        PokeData memory pokeData,
-        SchnorrSignatureData memory schnorrSignatureData
-    ) private pure returns (bytes32) {
-        return keccak256(
-            abi.encodePacked(
-                pokeData.val,
-                pokeData.age,
-                abi.encodePacked(schnorrSignatureData.signers),
-                schnorrSignatureData.signature,
-                schnorrSignatureData.commitment
             )
         );
     }

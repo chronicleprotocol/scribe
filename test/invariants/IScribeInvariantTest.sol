@@ -20,9 +20,9 @@ abstract contract IScribeInvariantTest is Test {
     IScribe scribe;
     ScribeHandler handler;
 
-    function setUp(address scribe_) internal {
+    function setUp(address scribe_, address handler_) internal virtual {
         scribe = IScribe(scribe_);
-        handler = new ScribeHandler(scribe);
+        handler = ScribeHandler(handler_); //new ScribeHandler(scribe_);
 
         // Toll address(this).
         IToll(address(scribe)).kiss(address(this));
@@ -32,9 +32,17 @@ abstract contract IScribeInvariantTest is Test {
 
         // Finish handler initialization.
         // Needs to be done after handler is auth'ed.
-        handler.init();
+        handler.init(scribe_);
 
         // Set handler as target contract.
+        bytes4[] memory selectors = _targetSelectors();
+        targetSelector(
+            FuzzSelector({addr: address(handler), selectors: selectors})
+        );
+        targetContract(address(handler));
+    }
+
+    function _targetSelectors() internal virtual returns (bytes4[] memory) {
         bytes4[] memory selectors = new bytes4[](6);
         selectors[0] = ScribeHandler.warp.selector;
         selectors[1] = ScribeHandler.poke.selector;
@@ -42,10 +50,8 @@ abstract contract IScribeInvariantTest is Test {
         selectors[3] = ScribeHandler.setBar.selector;
         selectors[4] = ScribeHandler.lift.selector;
         selectors[5] = ScribeHandler.drop.selector;
-        targetSelector(
-            FuzzSelector({addr: address(handler), selectors: selectors})
-        );
-        targetContract(address(handler));
+
+        return selectors;
     }
 
     /*//////////////////////////////////////////////////////////////

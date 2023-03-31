@@ -215,8 +215,11 @@ abstract contract IScribeAuthTest is Test {
     function testFuzz_setBar(uint8 bar) public {
         vm.assume(bar != 0);
 
-        vm.expectEmit(true, true, true, true);
-        emit BarUpdated(address(this), scribe.bar(), bar);
+        // Only expect event if bar actually changes.
+        if (bar != scribe.bar()) {
+            vm.expectEmit(true, true, true, true);
+            emit BarUpdated(address(this), scribe.bar(), bar);
+        }
 
         scribe.setBar(bar);
 

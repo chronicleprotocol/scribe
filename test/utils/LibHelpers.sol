@@ -3,6 +3,7 @@ pragma solidity ^0.8.16;
 import {Vm} from "forge-std/Vm.sol";
 
 import {IScribe} from "src/IScribe.sol";
+import {IScribeOptimistic} from "src/IScribeOptimistic.sol";
 
 import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
 
@@ -83,7 +84,7 @@ library LibHelpers {
         IScribe.PokeData memory pokeData,
         IScribe.SchnorrSignatureData memory schnorrSignatureData,
         bytes32 wat
-    ) internal pure returns (IScribe.ECDSASignatureData memory) {
+    ) internal pure returns (IScribeOptimistic.ECDSASignatureData memory) {
         bytes32 message = keccak256(
             abi.encodePacked(
                 "\x19Ethereum Signed Message:\n32",
@@ -98,7 +99,7 @@ library LibHelpers {
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signer.privKey, message);
 
-        return IScribe.ECDSASignatureData(v, r, s);
+        return IScribeOptimistic.ECDSASignatureData(v, r, s);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -107,15 +108,20 @@ library LibHelpers {
 
     function constructOpCommitment(
         IScribe.PokeData memory pokeData,
-        IScribe.SchnorrSignatureData memory schnorrSignatureData
+        IScribe.SchnorrSignatureData memory schnorrSignatureData,
+        bytes32 wat
     ) internal pure returns (bytes32) {
+        // Note that opCommitment is constructed the same way as an ECDSA
+        // message.
         return keccak256(
             abi.encodePacked(
+                "\x19Ethereum Signed Message:\n32",
                 pokeData.val,
                 pokeData.age,
                 abi.encodePacked(schnorrSignatureData.signers),
                 schnorrSignatureData.signature,
-                schnorrSignatureData.commitment
+                schnorrSignatureData.commitment,
+                wat
             )
         );
     }

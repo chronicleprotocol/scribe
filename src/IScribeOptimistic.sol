@@ -3,6 +3,12 @@ pragma solidity ^0.8.16;
 import {IScribe} from "./IScribe.sol";
 
 interface IScribeOptimistic is IScribe {
+    struct ECDSASignatureData {
+        uint8 v;
+        bytes32 r;
+        bytes32 s;
+    }
+
     error InChallengePeriod();
 
     error ArgumentsDoNotMatchOpCommitment(

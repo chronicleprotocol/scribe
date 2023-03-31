@@ -15,9 +15,9 @@ contract ScribeHandler is CommonBase, StdUtils {
 
     uint public constant MAX_BAR = 10;
 
-    bytes32 public immutable WAT;
+    bytes32 public WAT;
 
-    IScribe public immutable scribe;
+    IScribe public scribe;
 
     LibHelpers.Feed[] internal _ghost_feeds;
     LibHelpers.Feed[] internal _ghost_feedsTouched;
@@ -38,17 +38,15 @@ contract ScribeHandler is CommonBase, StdUtils {
     }
 
     /*//////////////////////////////////////////////////////////////
-                      CONSTRUCTOR & INITIALIZATION
+                             INITIALIZATION
     //////////////////////////////////////////////////////////////*/
 
-    constructor(IScribe scribe_) {
-        scribe = scribe_;
+    function init(address scribe_) external {
+        scribe = IScribe(scribe_);
 
         // Cache wat constant.
         WAT = scribe.wat();
-    }
 
-    function init() external {
         // @todo Use feeds.json to reduce startup time. feeds.json is a list of
         //       precomputed key pairs.
 

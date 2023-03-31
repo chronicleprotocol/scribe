@@ -57,10 +57,13 @@ abstract contract IScribeOptimisticAuthTest is IScribeAuthTest {
     function testFuzz_setOpChallengePeriod(uint16 opChallengePeriod) public {
         vm.assume(opChallengePeriod != 0);
 
-        vm.expectEmit(true, true, true, true);
-        emit OpChallengePeriodUpdated(
-            address(this), opScribe.opChallengePeriod(), opChallengePeriod
-        );
+        // Only expect event if opChallengePeriod actually changes.
+        if (opChallengePeriod != opScribe.opChallengePeriod()) {
+            vm.expectEmit(true, true, true, true);
+            emit OpChallengePeriodUpdated(
+                address(this), opScribe.opChallengePeriod(), opChallengePeriod
+            );
+        }
 
         opScribe.setOpChallengePeriod(opChallengePeriod);
 
@@ -137,7 +140,7 @@ abstract contract IScribeOptimisticAuthTest is IScribeAuthTest {
             LibHelpers.makeSchnorrSignature(feeds, pokeData, WAT);
 
         // forgefmt: disable-next-item
-        IScribe.ECDSASignatureData memory ecdsaSignatureData =
+        IScribeOptimistic.ECDSASignatureData memory ecdsaSignatureData =
             LibHelpers.makeECDSASignature(
                 feeds[0],
                 pokeData,

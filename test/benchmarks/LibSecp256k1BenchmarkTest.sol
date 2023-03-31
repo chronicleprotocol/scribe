@@ -9,12 +9,12 @@ import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
 
 import {LibScribeECCRef} from "../utils/LibScribeECCRef.sol";
 
-contract LibSecp256k1Benchmark is Test {
+abstract contract LibSecp256k1BenchmarkTest is Test {
     using LibSecp256k1 for LibSecp256k1.Point;
     using LibSecp256k1 for LibSecp256k1.Point[];
     using LibSecp256k1 for LibSecp256k1.JacobianPoint;
 
-    function test_gas_aggregate() public {
+    function testBenchmark_aggregate() public {
         uint[] memory list = arange(uint(0), 100, 5);
 
         console2.log("# LibSecp256k1::aggregate Benchmark:");
@@ -25,7 +25,8 @@ contract LibSecp256k1Benchmark is Test {
                 continue;
             }
 
-            LibSecp256k1.Point[] memory points = new LibSecp256k1.Point[](list[i]);
+            LibSecp256k1.Point[] memory points =
+                new LibSecp256k1.Point[](list[i]);
 
             // Fill list of points to compute with the generator.
             for (uint j; j < points.length; j++) {
@@ -49,7 +50,7 @@ contract LibSecp256k1Benchmark is Test {
         }
     }
 
-    function test_gas_toAffine() public {
+    function testBenchmark_toAffine() public {
         console2.log("# LibSecp256k1::toAffine Benchmark:");
         console2.log("");
 

@@ -4,7 +4,6 @@ import {LibSecp256k1} from "./LibSecp256k1.sol";
 
 // @todo Replace ecrecover's python impl by formal definition.
 // @todo Document multi signing procedure.
-// @todo Rename commitment `e` to witness?
 /**
  * @title LibSchnorr
  *
@@ -29,7 +28,8 @@ import {LibSecp256k1} from "./LibSecp256k1.sol";
  *          Pₚ  = Parity of P's y coordinate, i.e. 0 if even, 1 if odd,
  *                as type uint8
  *
- *          m   = Message as type bytes32
+ *          m   = Message as type bytes32. Note that the message SHOULD
+ *                be a keccak256 digest
  *          k   = Nonce as type uint256
  *
  *      (Single) Signing:
@@ -46,7 +46,7 @@ import {LibSecp256k1} from "./LibSecp256k1.sol";
  *          3. Construct Rₑ being the Ethereum address of R
  *             Let Rₑ be the _commitment_.
  *
- *          4. Construct e = H(Pₓ ‖ Pₚ ‖ Rₑ ‖ H(m))
+ *          4. Construct e = H(Pₓ ‖ Pₚ ‖ Rₑ ‖ m)
  *             Let e be the _challenge_.
  *
  *          5. Compute s = k - (e * x)
@@ -159,7 +159,7 @@ import {LibSecp256k1} from "./LibSecp256k1.sol";
  *             = [k - (e * x) * Pₓ]G + [e * Pₓ * x]G
  *
  *          N  = Qr * Pₓ⁻¹                                           | Qr = [k - (e * x) * Pₓ]G + [e * Pₓ * x]G
- *             = [k - (e * x) * Pₓ]G + [e * Pₓ * x]G * Pₓ⁻¹          | Distributive law
+ *             = ([k - (e * x) * Pₓ]G + [e * Pₓ * x]G) * Pₓ⁻¹        | Distributive law
  *             = [k - (e * x) * Pₓ * Pₓ⁻¹]G + [e * Pₓ * x * Pₓ⁻¹]G   | Pₓ * Pₓ⁻¹ = 1
  *             = [k - (e * x)]G + [e * x]G                           | sig = k - (e * x) ∧ P = [x]G
  *             = [sig]G + [e]P
@@ -172,6 +172,11 @@ import {LibSecp256k1} from "./LibSecp256k1.sol";
 library LibSchnorr {
     using LibSecp256k1 for LibSecp256k1.Point;
 
+    /// @dev Returns false if commitment is address(0).
+    /// @dev Returns false if pubKey.x is zero.
+    /// @dev Expects message to not be zero.
+    ///      Note that message SHOULD be a keccak256 digest.
+    ///
     /// @custom:invariant Reverts iff out of gas.
     /// @custom:invariant Does not run into an infinite loop.
     function verifySignature(
@@ -180,12 +185,16 @@ library LibSchnorr {
         bytes32 signature,
         address commitment
     ) internal pure returns (bool) {
-        // @todo Should be sufficient to only check for commitment != address(0)?
-        // Fail if trivial input given.
-        if (
-            pubKey.x == 0 || signature == 0 || message == 0
-                || commitment == address(0)
-        ) {
+        // Return false if commitment is address(0).
+        //
+        // Note that ecrecover recovers address(0) if the r-value is zero.
+        // As r = Pₓ = pubKey.x and commitment ≠ address(0), a non-zero check
+        // for pubKey.x can be abdicated.
+        //
+        // @todo Check again ^^
+        // @todo signature != 0 check necessary?
+        // @todo Write in assembly to save few gas ;)
+        if (signature == 0 || commitment == address(0)) {
             return false;
         }
 
@@ -208,45 +217,33 @@ library LibSchnorr {
         // to the ecrecover precompile! Note further, that the Schnorr
         // signature scheme does not have this vulnerability.
         //
-        // Therefore, eventhough the public key's x coordinate is used as
-        // s-value in an ecrecover call, the requirement for the public key's
-        // x coordinate to be less than or equal to Q/2 can be abdicated.
+        // Therefore, a check whether the s = e * Pₓ > Q/2 can be abdicated.
         //
         // See "Appendix F: Signing Transactions" §311 in the Yellow Paper and
         // "EIP-2: Homestead Hard-fork Changes".
         //
-        // if (pubKey.x > (LibSecp256k1.Q() << 1)) {
-        //     return false;
-        // }
-        //
-        // @todo ^^ But pubKey.x should not be greater than Q.
-        //          LibSecp256k1 could return such a pubKey.x.
-        //          -> If >Q, ecrecover always returns 0
-        //             (@todo ^^ Prove via fuzz test)
-        //             -> Leads to invalid/kick
-        //                -> feeds offchain should ensure this!
+        // However, note that ecrecover recovers address(0) for a s-value ≥ Q.
+        // It is therefore a feeds responsibility to ensure the s-value
+        // computed via their Schnorr signature is never ≥ Q!
 
-        // Construct challenge = H(Pₓ ‖ Pₚ ‖ Rₑ ‖ H(m)).
-        // @todo message is already a hash. Do we need to hash again?
+        // Construct challenge = H(Pₓ ‖ Pₚ ‖ Rₑ ‖ m).
         bytes32 challenge = keccak256(
-            // @audit Is there malleability danger due to encodePacked?
-            abi.encodePacked(
-                pubKey.x,
-                uint8(pubKey.yParity()),
-                commitment,
-                keccak256(abi.encodePacked(message))
-            )
+            // Note to use abi.encode instead of abi.encodePacked to prevent
+            // challenge malleability issues.
+            // @todo ^^ Not 100% whether necessary. Better safe than sorry for the
+            //       moment.
+            abi.encode(pubKey.x, uint8(pubKey.yParity()), commitment, message)
         );
 
-        // Compute msghash = -sig * Pₓ      (mod Q)
+        // Compute msgHash = -sig * Pₓ      (mod Q)
         //                 = Q - (sig * Pₓ) (mod Q)
         //
         // Unchecked because the only protected operation performed is the
         // subtraction from Q where the subtrahend is the result of a (mod Q)
         // computation, i.e. the subtrahend is guaranteed to be less than Q.
-        uint msghash;
+        uint msgHash;
         unchecked {
-            msghash = LibSecp256k1.Q()
+            msgHash = LibSecp256k1.Q()
                 - mulmod(uint(signature), pubKey.x, LibSecp256k1.Q());
         }
 
@@ -268,7 +265,7 @@ library LibSchnorr {
         // Perform ecrecover call.
         // Note to perform necessary castings.
         address recovered =
-            ecrecover(bytes32(msghash), uint8(v), bytes32(r), bytes32(s));
+            ecrecover(bytes32(msgHash), uint8(v), bytes32(r), bytes32(s));
 
         // Verification succeeds if the ecrecover'ed address equals Rₑ, i.e.
         // the commitment.

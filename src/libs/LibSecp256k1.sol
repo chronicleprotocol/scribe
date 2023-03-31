@@ -146,9 +146,6 @@ library LibSecp256k1 {
         uint z;
     }
 
-    // @todo Check whether possible to write into existing memory, i.e.reuse
-    //       the already allocated memory. Note that this makes the `self`
-    //       struct inaccessible.
     /// @dev Returns Jacobian point `self` in Affine representation.
     ///
     /// @custom:invariant Reverts iff out of gas.
@@ -177,6 +174,28 @@ library LibSecp256k1 {
         return result;
     }
 
+    // @todo Write affine point into self's memory.
+    //       Circumvents new memory allocation. Part of optimization
+    //       explored in ScribeAggregate.
+    function intoAffine(JacobianPoint memory self) internal pure {
+        // Compute z⁻¹, i.e. the modular inverse of self.z.
+        uint zInv = invMod(self.z);
+
+        // Compute (z⁻¹)² (mod P)
+        uint zInv_2 = mulmod(zInv, zInv, _P);
+
+        // Compute self.x * (z⁻¹)² (mod P), i.e. the x coordinate of given
+        // Jacobian point in Affine representation.
+        self.x = mulmod(self.x, zInv_2, _P);
+
+        // Compute self.y * (z⁻¹)³ (mod P), i.e. the y coordinate of given
+        // Jacobian point in Affine representation.
+        self.y = mulmod(self.y, mulmod(zInv, zInv_2, _P), _P);
+
+        // Clean freed memory.
+        self.z = 0;
+    }
+
     /// @dev Adds Affine point `p` to Jacobian point `self`.
     ///
     ///      It is the caller's responsibility to ensure given points are on the
@@ -187,7 +206,7 @@ library LibSecp256k1 {
     ///      Note that the formula assumes z2 = 1, which always holds if z2's
     ///      point is given in Affine representation.
     ///
-    ///      Note that even though the function is marked as pure, to be
+    ///      Note that eventhough the function is marked as pure, to be
     ///      understood as only being dependent on the input arguments, it
     ///      nevertheless has side effects by writing the result into the
     ///      `self` memory variable.

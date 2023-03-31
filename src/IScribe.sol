@@ -9,13 +9,7 @@ interface IScribe {
     struct SchnorrSignatureData {
         address[] signers;
         bytes32 signature;
-        address commitment; // @todo Rename to witness?
-    }
-
-    struct ECDSASignatureData {
-        uint8 v;
-        bytes32 r;
-        bytes32 s;
+        address commitment;
     }
 
     error StaleMessage(uint32 givenAge, uint32 currentAge);

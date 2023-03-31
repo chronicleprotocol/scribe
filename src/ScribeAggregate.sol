@@ -9,10 +9,16 @@ import {IScribeAuth} from "./IScribeAuth.sol";
 import {LibSchnorr} from "./libs/LibSchnorr.sol";
 import {LibSecp256k1} from "./libs/LibSecp256k1.sol";
 
-contract Scribe is IScribe, IScribeAuth, Auth, Toll {
+/**
+ * IMPORTANT: Testing optimizations.
+ *            THIS IS NOT THE "PRODUCTION" IMPLEMENTATION!
+ *            IT MAY NOT WORK!
+ */
+contract ScribeAggregate is IScribe, IScribeAuth, Auth, Toll {
     using LibSchnorr for LibSecp256k1.Point;
     using LibSecp256k1 for LibSecp256k1.Point;
     using LibSecp256k1 for LibSecp256k1.Point[];
+    using LibSecp256k1 for LibSecp256k1.JacobianPoint;
 
     bytes32 public constant wat = "ETH/USD";
 
@@ -53,43 +59,72 @@ contract Scribe is IScribe, IScribeAuth, Auth, Toll {
             );
         }
 
-        // Declare array of secp256k1 points (public keys) with enough capacity
-        // to hold each signer's public key.
-        LibSecp256k1.Point[] memory pubKeys =
-            new LibSecp256k1.Point[](schnorrSignatureData.signers.length);
+        // Allocate two points in memory.
+        //
+        // The first point is in Affine representation and initially used to
+        // hold the public key/point of the current signer in the following
+        // loop.
+        //
+        // The second point is in Jacobian representation. It holds the
+        // aggregated public key.
+        LibSecp256k1.Point memory point;
+        LibSecp256k1.JacobianPoint memory jacPoint;
 
-        // Iterate over the set of signers.
-        for (uint i; i < schnorrSignatureData.signers.length; i++) {
+        // Let the current point be the first signer's public key.
+        point = _feeds[schnorrSignatureData.signers[0]];
+
+        // Revert if signer is not feed.
+        if (point.isZeroPoint()) {
+            revert SignerNotFeed(schnorrSignatureData.signers[0]);
+        }
+
+        // Let the aggregated public key (in Jacobian representation) be the
+        // sum of the signer public keys processed so far.
+        jacPoint = point.toJacobian();
+
+        // Iterate over the list of signers. Note to start at index 1 because
+        // the first signer is processed already.
+        for (uint i = 1; i < schnorrSignatureData.signers.length; i++) {
             address signer = schnorrSignatureData.signers[i];
 
+            // Use point's memory to hold the current signer.
+            point = _feeds[signer];
+
             // Revert if signer is not feed.
-            if (_feeds[signer].isZeroPoint()) {
+            if (point.isZeroPoint()) {
                 revert SignerNotFeed(signer);
             }
 
             // Revert if signers are not in ascending order.
             // Note that this prevents double signing and ensures there exists
             // only one valid sequence of signers for each set of signers.
-            if (i != 0) {
-                uint160 pre = uint160(schnorrSignatureData.signers[i - 1]);
-                if (pre >= uint160(signer)) {
-                    revert SignersNotOrdered();
-                }
+            uint160 pre = uint160(schnorrSignatureData.signers[i - 1]);
+            if (pre >= uint160(signer)) {
+                revert SignersNotOrdered();
             }
 
-            // Add signer's public key to array.
-            pubKeys[i] = _feeds[signer];
+            if (jacPoint.x == point.x) {
+                jacPoint = LibSecp256k1.JacobianPoint(0, 0, 0);
+                break;
+            }
+
+            // Add the current signer's public key, i.e. the point hold in the
+            // point memory allocation, to the aggregated public key.
+            // Note that the function stores the result directly inside
+            // the jacPoint memory allocation.
+            jacPoint.addAffinePoint(point);
         }
 
-        // Compute the aggregated public key from the set of signers.
-        // @todo Note that the aggregate function iterates over the set of
-        //       signers again. Optimizing this is possible but _could_ lead
-        //       to problems regarding "separation of concerns".
-        LibSecp256k1.Point memory aggPubKey = pubKeys.aggregate();
+        // @todo Further optimize poke via memory tricks?
+        // Note that it's possible to further optimize by using intoAffine,
+        // which writes into the same memory. Saves around ~100 gas (xD).
+        // However, if worth it, could further check to prove/make sure
+        // everything is constant memory (I think it is already though).
+        point = jacPoint.toAffine();
 
         // Revert if Schnorr signature verification fails for given pokeData.
         if (
-            !aggPubKey.verifySignature(
+            !point.verifySignature(
                 _constructSchnorrMessage(pokeData),
                 schnorrSignatureData.signature,
                 schnorrSignatureData.commitment

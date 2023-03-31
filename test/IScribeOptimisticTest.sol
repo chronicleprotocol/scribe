@@ -51,7 +51,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
             LibHelpers.makeSchnorrSignature(feeds, pokeData, WAT);
 
         // forgefmt: disable-next-item
-        IScribe.ECDSASignatureData memory ecdsaSignatureData =
+        IScribeOptimistic.ECDSASignatureData memory ecdsaSignatureData =
             LibHelpers.makeECDSASignature(
                 feeds[0],
                 pokeData,
@@ -64,7 +64,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         assertEq(opScribe.opFeed(), feeds[0].pubKey.toAddress());
         assertEq(
             opScribe.opCommitment(),
-            LibHelpers.constructOpCommitment(pokeData, schnorrSignatureData)
+            LibHelpers.constructOpCommitment(pokeData, schnorrSignatureData, WAT)
         );
 
         // Wait until challenge period over and opPokeData finalizes.
@@ -79,7 +79,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         assertEq(opScribe.opFeed(), feeds[0].pubKey.toAddress());
         assertEq(
             opScribe.opCommitment(),
-            LibHelpers.constructOpCommitment(pokeData, schnorrSignatureData)
+            LibHelpers.constructOpCommitment(pokeData, schnorrSignatureData, WAT)
         );
     }
 
@@ -92,7 +92,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
             LibHelpers.makeSchnorrSignature(feeds, pokeData, WAT);
 
         // forgefmt: disable-next-item
-        IScribe.ECDSASignatureData memory ecdsaSignatureData =
+        IScribeOptimistic.ECDSASignatureData memory ecdsaSignatureData =
             LibHelpers.makeECDSASignature(
                 feeds[0],
                 pokeData,
@@ -127,7 +127,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
                 LibHelpers.makeSchnorrSignature(feeds, pokeDatas[i], WAT);
 
             // forgefmt: disable-next-item
-            IScribe.ECDSASignatureData memory ecdsaSignatureData =
+            IScribeOptimistic.ECDSASignatureData memory ecdsaSignatureData =
                 LibHelpers.makeECDSASignature(
                     i % 2 == 0 ? feeds[0] : feeds[1],
                     pokeDatas[i],
@@ -145,7 +145,9 @@ abstract contract IScribeOptimisticTest is IScribeTest {
             );
             assertEq(
                 opScribe.opCommitment(),
-                LibHelpers.constructOpCommitment(pokeDatas[i], schnorrSignatureData)
+                LibHelpers.constructOpCommitment(
+                    pokeDatas[i], schnorrSignatureData, WAT
+                )
             );
 
             // Wait until challenge period over and opPokeData finalizes.
@@ -179,7 +181,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
             LibHelpers.makeSchnorrSignature(feeds, pokeData, WAT);
 
         // forgefmt: disable-next-item
-        IScribe.ECDSASignatureData memory ecdsaSignatureData =
+        IScribeOptimistic.ECDSASignatureData memory ecdsaSignatureData =
             LibHelpers.makeECDSASignature(
                 feeds[0],
                 pokeData,
@@ -215,7 +217,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
             LibHelpers.makeSchnorrSignature(feeds, pokeData, WAT);
 
         // forgefmt: disable-next-item
-        IScribe.ECDSASignatureData memory ecdsaSignatureData =
+        IScribeOptimistic.ECDSASignatureData memory ecdsaSignatureData =
             LibHelpers.makeECDSASignature(
                 feeds[0],
                 pokeData,
@@ -250,7 +252,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
             LibHelpers.makeSchnorrSignature(feeds, pokeData, WAT);
 
         // forgefmt: disable-next-item
-        IScribe.ECDSASignatureData memory ecdsaSignatureData =
+        IScribeOptimistic.ECDSASignatureData memory ecdsaSignatureData =
             LibHelpers.makeECDSASignature(
                 feeds[0],
                 pokeData,
@@ -276,7 +278,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
             LibHelpers.makeSchnorrSignature(feeds, pokeData, WAT);
 
         // forgefmt: disable-next-item
-        IScribe.ECDSASignatureData memory ecdsaSignatureData =
+        IScribeOptimistic.ECDSASignatureData memory ecdsaSignatureData =
             LibHelpers.makeECDSASignature(
                 feeds[0],
                 pokeData,
@@ -306,7 +308,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
             address(uint160(schnorrSignatureData.commitment) ^ commitmentMask);
 
         // forgefmt: disable-next-item
-        IScribe.ECDSASignatureData memory ecdsaSignatureData =
+        IScribeOptimistic.ECDSASignatureData memory ecdsaSignatureData =
             LibHelpers.makeECDSASignature(
                 feeds[0],
                 pokeData,
@@ -331,7 +333,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
             LibHelpers.makeSchnorrSignature(feeds, pokeData, WAT);
 
         // forgefmt: disable-next-item
-        IScribe.ECDSASignatureData memory ecdsaSignatureData =
+        IScribeOptimistic.ECDSASignatureData memory ecdsaSignatureData =
             LibHelpers.makeECDSASignature(
                 feeds[0],
                 pokeData,
@@ -360,7 +362,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
             LibHelpers.makeSchnorrSignature(feeds, pokeData, WAT);
 
         // forgefmt: disable-next-item
-        IScribe.ECDSASignatureData memory ecdsaSignatureData =
+        IScribeOptimistic.ECDSASignatureData memory ecdsaSignatureData =
             LibHelpers.makeECDSASignature(
                 feeds[0],
                 pokeData,
