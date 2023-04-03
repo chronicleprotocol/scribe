@@ -18,6 +18,8 @@ interface IScribe {
     error SignersNotOrdered();
     error SchnorrSignatureInvalid();
 
+    event Poked(address indexed caller, uint128 val, uint32 age);
+
     function poke(
         PokeData calldata pokeData,
         SchnorrSignatureData calldata schnorrSignatureData

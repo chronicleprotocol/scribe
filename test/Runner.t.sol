@@ -38,21 +38,6 @@ contract ScribeBenchmarkTest is IScribeBenchmarkTest {
     }
 }
 
-// Dev Test:
-import {ScribeAggregate} from "src/ScribeAggregate.sol";
-
-contract ScribeAggregateTest is IScribeTest {
-    function setUp() public {
-        setUp(address(new ScribeAggregate()));
-    }
-}
-
-contract ScribeAggregateBenchmarkTest is IScribeBenchmarkTest {
-    function setUp() public {
-        setUp(address(new ScribeAggregate()));
-    }
-}
-
 /*//////////////////////////////////////////////////////////////
              TEST: Optimistic Scribe IMPLEMENTATION
 //////////////////////////////////////////////////////////////*/

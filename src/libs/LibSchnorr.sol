@@ -2,6 +2,7 @@ pragma solidity ^0.8.16;
 
 import {LibSecp256k1} from "./LibSecp256k1.sol";
 
+// @todo Make comment that Yellow Paper is from xxx commit.
 // @todo Replace ecrecover's python impl by formal definition.
 // @todo Document multi signing procedure.
 /**
@@ -37,8 +38,8 @@ import {LibSecp256k1} from "./LibSecp256k1.sol";
  *
  *          1. Select a _cryptographically secure_ k ∊ [1, Q-1].
  *             Note that k can be deterministically computed using
- *             H(H(m) ‖ x) (mod Q), which keeps k random for everyone not
- *             knowing the private key x while also ensures a nonce is never
+ *             H(m ‖ x) (mod Q), which keeps k random for everyone not
+ *             knowing the private key x while it also ensures a nonce is never
  *             reused for different messages.
  *
  *          2. Compute point R = [k]G
@@ -188,7 +189,7 @@ library LibSchnorr {
         // Return false if commitment is address(0).
         //
         // Note that ecrecover recovers address(0) if the r-value is zero.
-        // As r = Pₓ = pubKey.x and commitment ≠ address(0), a non-zero check
+        // As r = Pₓ = pubKey.x and commitment != address(0), a non-zero check
         // for pubKey.x can be abdicated.
         //
         // @todo Check again ^^
@@ -217,13 +218,13 @@ library LibSchnorr {
         // to the ecrecover precompile! Note further, that the Schnorr
         // signature scheme does not have this vulnerability.
         //
-        // Therefore, a check whether the s = e * Pₓ > Q/2 can be abdicated.
+        // Therefore, a check whether s = e * Pₓ > Q/2 can be abdicated.
         //
         // See "Appendix F: Signing Transactions" §311 in the Yellow Paper and
         // "EIP-2: Homestead Hard-fork Changes".
         //
         // However, note that ecrecover recovers address(0) for a s-value ≥ Q.
-        // It is therefore a feeds responsibility to ensure the s-value
+        // It is therefore the feeds responsibility to ensure the s-value
         // computed via their Schnorr signature is never ≥ Q!
 
         // Construct challenge = H(Pₓ ‖ Pₚ ‖ Rₑ ‖ m).

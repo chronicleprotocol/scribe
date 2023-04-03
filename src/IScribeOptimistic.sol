@@ -16,18 +16,35 @@ interface IScribeOptimistic is IScribe {
     );
     error NoOpPokeToChallenge();
 
+    event OpPoked(
+        address indexed caller,
+        address indexed opFeed,
+        uint val,
+        uint32 age,
+        bytes32 opCommitment
+    );
     event OpPokeDataDropped(address indexed caller, uint128 val, uint32 age);
+
+    event OpPokeSuccessfullyChallenged(
+        address indexed caller,
+        bytes32 opCommitment,
+        uint bounty,
+        bytes schnorrSignatureDataError
+    );
+    event OpPokeUnsuccessfullyChallenged(
+        address indexed caller, bytes32 opCommitment
+    );
 
     function opPoke(
         PokeData calldata pokeData,
         SchnorrSignatureData calldata schnorrSignatureData,
         ECDSASignatureData calldata ecdsaSignatureData
-    ) external;
+    ) external payable;
 
     function opChallenge(
         PokeData calldata pokeData,
         SchnorrSignatureData calldata schnorrSignatureData
-    ) external;
+    ) external payable;
 
     function opFeed() external view returns (address);
     function opCommitment() external view returns (bytes32);

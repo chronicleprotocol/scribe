@@ -108,7 +108,7 @@ abstract contract IScribeTest is Test {
     {
         // Ensure pokeDatas' val is never zero and their age is strictly
         // increasing.
-        uint32 lastAge = 1;
+        uint32 lastAge = uint32(block.timestamp);
         for (uint i; i < pokeDatas.length; i++) {
             vm.assume(pokeDatas[i].val != 0);
 

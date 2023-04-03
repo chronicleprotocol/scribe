@@ -13,6 +13,8 @@ library LibSecp256k1 {
     using LibSecp256k1 for LibSecp256k1.Point;
     using LibSecp256k1 for LibSecp256k1.JacobianPoint;
 
+    // @todo Make comment that Yellow Paper is from xxx commit.
+
     // -- Constants
     //
     // Taken from https://www.secg.org/sec2-v2.pdf.

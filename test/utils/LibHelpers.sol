@@ -86,7 +86,7 @@ library LibHelpers {
         bytes32 wat
     ) internal pure returns (IScribeOptimistic.ECDSASignatureData memory) {
         bytes32 message = keccak256(
-            abi.encodePacked(
+            abi.encode(
                 "\x19Ethereum Signed Message:\n32",
                 pokeData.val,
                 pokeData.age,
@@ -106,6 +106,7 @@ library LibHelpers {
                                  OTHERS
     //////////////////////////////////////////////////////////////*/
 
+    // @todo Same as makeECDSASignature?
     function constructOpCommitment(
         IScribe.PokeData memory pokeData,
         IScribe.SchnorrSignatureData memory schnorrSignatureData,
@@ -114,7 +115,7 @@ library LibHelpers {
         // Note that opCommitment is constructed the same way as an ECDSA
         // message.
         return keccak256(
-            abi.encodePacked(
+            abi.encode(
                 "\x19Ethereum Signed Message:\n32",
                 pokeData.val,
                 pokeData.age,

@@ -12,7 +12,7 @@ import {LibSecp256k1} from "./libs/LibSecp256k1.sol";
 contract Scribe is IScribe, IScribeAuth, Auth, Toll {
     using LibSchnorr for LibSecp256k1.Point;
     using LibSecp256k1 for LibSecp256k1.Point;
-    using LibSecp256k1 for LibSecp256k1.Point[];
+    using LibSecp256k1 for LibSecp256k1.JacobianPoint;
 
     bytes32 public constant wat = "ETH/USD";
 
@@ -33,79 +33,138 @@ contract Scribe is IScribe, IScribeAuth, Auth, Toll {
     }
 
     /*//////////////////////////////////////////////////////////////
-                             POKE FUNCTION
+                           POKE FUNCTIONALITY
     //////////////////////////////////////////////////////////////*/
 
     function poke(
         PokeData calldata pokeData,
-        SchnorrSignatureData calldata schnorrSignatureData
+        SchnorrSignatureData calldata schnorrData
     ) external {
-        // Revert if pokeData's age is not fresher than current finalized
-        // pokeData's age.
+        // Revert if pokeData's age is not fresher than current age.
         if (pokeData.age <= _pokeData.age) {
             revert StaleMessage(pokeData.age, _pokeData.age);
         }
 
-        // Revert if number of signers is less than bar.
-        if (schnorrSignatureData.signers.length < bar) {
-            revert BarNotReached(
-                uint8(schnorrSignatureData.signers.length), bar
-            );
-        }
+        // Verify schnorrSignatureData.
+        bool ok;
+        bytes memory err;
+        (ok, err) = verifySchnorrSignature(pokeData, schnorrData);
 
-        // Declare array of secp256k1 points (public keys) with enough capacity
-        // to hold each signer's public key.
-        LibSecp256k1.Point[] memory pubKeys =
-            new LibSecp256k1.Point[](schnorrSignatureData.signers.length);
-
-        // Iterate over the set of signers.
-        for (uint i; i < schnorrSignatureData.signers.length; i++) {
-            address signer = schnorrSignatureData.signers[i];
-
-            // Revert if signer is not feed.
-            if (_feeds[signer].isZeroPoint()) {
-                revert SignerNotFeed(signer);
+        // Revert with err if verification fails.
+        if (!ok) {
+            assembly ("memory-safe") {
+                let size := mload(err)
+                let offset := add(err, 0x20)
+                revert(offset, size)
             }
-
-            // Revert if signers are not in ascending order.
-            // Note that this prevents double signing and ensures there exists
-            // only one valid sequence of signers for each set of signers.
-            if (i != 0) {
-                uint160 pre = uint160(schnorrSignatureData.signers[i - 1]);
-                if (pre >= uint160(signer)) {
-                    revert SignersNotOrdered();
-                }
-            }
-
-            // Add signer's public key to array.
-            pubKeys[i] = _feeds[signer];
         }
 
-        // Compute the aggregated public key from the set of signers.
-        // @todo Note that the aggregate function iterates over the set of
-        //       signers again. Optimizing this is possible but _could_ lead
-        //       to problems regarding "separation of concerns".
-        LibSecp256k1.Point memory aggPubKey = pubKeys.aggregate();
-
-        // Revert if Schnorr signature verification fails for given pokeData.
-        if (
-            !aggPubKey.verifySignature(
-                _constructSchnorrMessage(pokeData),
-                schnorrSignatureData.signature,
-                schnorrSignatureData.commitment
-            )
-        ) {
-            revert SchnorrSignatureInvalid();
-        }
-
-        // Store given pokeData in pokeData storage. Note to set the pokeData's
-        // age to the current timestamp and NOT the given pokeData's age.
+        // Store given pokeData in _pokeData storage.
         _pokeData.val = pokeData.val;
         _pokeData.age = uint32(block.timestamp);
+
+        // @todo Test for event emission.
+        emit Poked(msg.sender, pokeData.val, uint32(block.timestamp));
+    }
+
+    function verifySchnorrSignature(
+        PokeData calldata pokeData,
+        SchnorrSignatureData calldata schnorrData
+    ) public view returns (bool, bytes memory) {
+        // Expect number of signers to equal bar.
+        // @todo Should be == bar to prevent DOS.
+        if (schnorrData.signers.length < bar) {
+            bytes memory err = abi.encodeWithSelector(
+                IScribe.BarNotReached.selector,
+                uint8(schnorrData.signers.length),
+                bar
+            );
+
+            return (false, err);
+        }
+
+        address lastSigner;
+        address signer = schnorrData.signers[0];
+        LibSecp256k1.Point memory signerPubKey = _feeds[signer];
+
+        // Let aggPubKey be the sum of already processed signers' public keys.
+        LibSecp256k1.JacobianPoint memory aggPubKey = signerPubKey.toJacobian();
+
+        // Expect signer to be feed by verifying their public key is non-zero.
+        if (signerPubKey.isZeroPoint()) {
+            bytes memory err = abi.encodeWithSelector(
+                IScribe.SignerNotFeed.selector, signer
+            );
+
+            return (false, err);
+        }
+
+        for (uint i = 1; i < schnorrData.signers.length; i++) {
+            lastSigner = signer;
+            signer = schnorrData.signers[i];
+            signerPubKey = _feeds[signer];
+
+            // Expect signer to be feed by verifying their public key is
+            // non-zero.
+            if (signerPubKey.isZeroPoint()) {
+                bytes memory err = abi.encodeWithSelector(
+                    IScribe.SignerNotFeed.selector, signer
+                );
+
+                return (false, err);
+            }
+
+            // Expect signers to be ordered to prevent double signing.
+            if (uint160(lastSigner) >= uint160(signer)) {
+                bytes memory err =
+                    abi.encodeWithSelector(IScribe.SignersNotOrdered.selector);
+
+                return (false, err);
+            }
+
+            // Either PaI or not mutual inverse.
+            if (aggPubKey.x == signerPubKey.x) {
+                // @todo Remove by expecting signed message when feed added.
+                //       This should prevent this situation to ever occur.
+                // @todo return err.
+                break;
+            }
+
+            aggPubKey.addAffinePoint(signerPubKey);
+        }
+
+        // Construct Schnorr signed message.
+        // @todo Malleability due to encodePacked vs encode?
+        bytes32 schnorrMessage = keccak256(
+            abi.encode(
+                "\x19Ethereum Signed Message:\n32",
+                pokeData.val,
+                pokeData.age,
+                wat
+            )
+        );
+
+        // Perform signature verification.
+        bool ok = aggPubKey.toAffine().verifySignature(
+            schnorrMessage,
+            schnorrData.signature,
+            schnorrData.commitment
+        );
+
+        // Expect signature verification to succeed.
+        if (!ok) {
+            bytes memory err =
+                abi.encodeWithSelector(IScribe.SchnorrSignatureInvalid.selector);
+
+            return (false, err);
+        }
+
+        // Otherwise Schnorr signature is valid.
+        return (true, new bytes(0));
     }
 
     /*//////////////////////////////////////////////////////////////
-                         TOLLED VIEW FUNCTIONS
+                           READ FUNCTIONALITY
     //////////////////////////////////////////////////////////////*/
 
     function read() external view virtual toll returns (uint) {
@@ -114,6 +173,12 @@ contract Scribe is IScribe, IScribeAuth, Auth, Toll {
         return val;
     }
 
+    function tryRead() external view virtual toll returns (bool, uint) {
+        uint val = _pokeData.val;
+        return (val != 0, val);
+    }
+
+    // legacy version.
     function peek() external view virtual toll returns (uint, bool) {
         uint val = _pokeData.val;
         return (val, val != 0);
@@ -149,7 +214,7 @@ contract Scribe is IScribe, IScribeAuth, Auth, Toll {
     }
 
     /*//////////////////////////////////////////////////////////////
-                           AUTH'ED FUNCTIONS
+                         AUTH'ED FUNCTIONALITY
     //////////////////////////////////////////////////////////////*/
 
     function lift(LibSecp256k1.Point memory pubKey) external auth {
@@ -182,18 +247,6 @@ contract Scribe is IScribe, IScribeAuth, Auth, Toll {
         _drop(pubKey);
     }
 
-    function drop(LibSecp256k1.Point[] memory pubKeys) external auth {
-        _drop(pubKeys);
-    }
-
-    function setBar(uint8 bar_) external auth {
-        _setBar(bar_);
-    }
-
-    /*//////////////////////////////////////////////////////////////
-                            INTERNAL HELPERS
-    //////////////////////////////////////////////////////////////*/
-
     function _drop(LibSecp256k1.Point memory pubKey) internal virtual {
         address feed = pubKey.toAddress();
 
@@ -201,6 +254,10 @@ contract Scribe is IScribe, IScribeAuth, Auth, Toll {
             emit FeedDropped(msg.sender, feed);
             delete _feeds[feed];
         }
+    }
+
+    function drop(LibSecp256k1.Point[] memory pubKeys) external auth {
+        _drop(pubKeys);
     }
 
     function _drop(LibSecp256k1.Point[] memory pubKeys) internal virtual {
@@ -214,6 +271,10 @@ contract Scribe is IScribe, IScribeAuth, Auth, Toll {
         }
     }
 
+    function setBar(uint8 bar_) external auth {
+        _setBar(bar_);
+    }
+
     function _setBar(uint8 bar_) internal virtual {
         require(bar_ != 0);
 
@@ -221,21 +282,6 @@ contract Scribe is IScribe, IScribeAuth, Auth, Toll {
             emit BarUpdated(msg.sender, bar, bar_);
             bar = bar_;
         }
-    }
-
-    function _constructSchnorrMessage(PokeData memory pokeData)
-        internal
-        pure
-        returns (bytes32)
-    {
-        return keccak256(
-            abi.encodePacked(
-                "\x19Ethereum Signed Message:\n32",
-                pokeData.val,
-                pokeData.age,
-                wat
-            )
-        );
     }
 
     /*//////////////////////////////////////////////////////////////
