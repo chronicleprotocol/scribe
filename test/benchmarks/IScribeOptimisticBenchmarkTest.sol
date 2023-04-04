@@ -1,7 +1,6 @@
 pragma solidity ^0.8.16;
 
 import {IScribeOptimistic} from "src/IScribeOptimistic.sol";
-import {IScribeOptimisticAuth} from "src/IScribeOptimisticAuth.sol";
 
 import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
 

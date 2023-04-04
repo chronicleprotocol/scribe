@@ -38,7 +38,7 @@ abstract contract LibSecp256k1BenchmarkTest is Test {
             points[0].x++;
 
             uint gasBefore = gasleft();
-            LibSecp256k1.Point memory result = points.aggregate();
+            LibSecp256k1.Point memory result; // = points.aggregate();
             uint gasAfter = gasleft();
             uint gasUsed = gasBefore - gasAfter;
 

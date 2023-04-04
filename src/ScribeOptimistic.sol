@@ -1,7 +1,6 @@
 pragma solidity ^0.8.16;
 
 import {IScribeOptimistic} from "./IScribeOptimistic.sol";
-import {IScribeOptimisticAuth} from "./IScribeOptimisticAuth.sol";
 
 import {Scribe} from "./Scribe.sol";
 import {IScribe} from "./IScribe.sol";
@@ -9,18 +8,28 @@ import {IScribe} from "./IScribe.sol";
 import {LibSchnorr} from "./libs/LibSchnorr.sol";
 import {LibSecp256k1} from "./libs/LibSecp256k1.sol";
 
-contract ScribeOptimistic is
-    IScribeOptimistic,
-    IScribeOptimisticAuth,
-    Scribe
-{
+/**
+ * @title ScribeOptimistic
+ *
+ * @notice Optimistic!
+ *         Thats what the scribe yawps
+ *         Can you tame them?
+ *         Challenge their view
+ *
+ * @dev
+ */
+contract ScribeOptimistic is IScribeOptimistic, Scribe {
     using LibSchnorr for LibSecp256k1.Point;
     using LibSecp256k1 for LibSecp256k1.Point;
     using LibSecp256k1 for LibSecp256k1.Point[];
 
+    /// @inheritdoc IScribeOptimistic
     uint16 public opChallengePeriod;
 
+    /// @inheritdoc IScribeOptimistic
     address public opFeed;
+
+    /// @inheritdoc IScribeOptimistic
     bytes32 public opCommitment;
 
     PokeData private _opPokeData;
@@ -31,7 +40,8 @@ contract ScribeOptimistic is
 
     constructor() {
         // Note to have a non-zero challenge period.
-        opChallengePeriod = 1 hours;
+        // @todo Low opChallengePeriod for testing.
+        opChallengePeriod = 1 seconds;
         emit OpChallengePeriodUpdated(msg.sender, 0, 1 hours);
     }
 
@@ -55,6 +65,7 @@ contract ScribeOptimistic is
     //
     // - opPokeData  : _opPokeData memory cache.
 
+    /// @inheritdoc IScribeOptimistic
     function opPoke(
         PokeData calldata pokeData,
         SchnorrSignatureData calldata schnorrData,
@@ -123,8 +134,7 @@ contract ScribeOptimistic is
         );
     }
 
-    // @todo Rename all schnorrSignatureData to schnorrData. Same for ECDSA.
-
+    /// @inheritdoc IScribeOptimistic
     function opChallenge(
         PokeData calldata pokeData,
         SchnorrSignatureData calldata schnorrData
@@ -165,22 +175,12 @@ contract ScribeOptimistic is
             if (!opPokeDataStale) {
                 _pokeData = _opPokeData;
             }
-
-            // @todo Test for event emission.
-            emit OpPokeUnsuccessfullyChallenged(msg.sender, commitment);
         } else {
-            // Kick opFeed and delete _opPokeData.
-            delete _feeds[opFeed];
-            delete _opPokeData;
+            // Drop opFeed and delete invalid _opPokeData.
+            _drop(_feeds[opFeed]);
 
-            // Reward challenger the bounty of the contract's current ETH balance.
-            uint bounty = address(this).balance;
-            payable(msg.sender).call{value: bounty}("");
-
-            // @todo Test for event emission.
-            emit OpPokeSuccessfullyChallenged(
-                msg.sender, commitment, bounty, err
-            );
+            // Pay challenge bounty to caller.
+            _payChallengeBountyTo(payable(msg.sender));
         }
     }
 
@@ -188,6 +188,7 @@ contract ScribeOptimistic is
                            READ FUNCTIONALITY
     //////////////////////////////////////////////////////////////*/
 
+    /// @inheritdoc IScribe
     function read()
         external
         view
@@ -200,11 +201,12 @@ contract ScribeOptimistic is
         return val;
     }
 
+    /// @inheritdoc IScribe
     function tryRead()
         external
         view
         virtual
-        override( /*IScribe,*/ Scribe)
+        override(IScribe, Scribe)
         toll
         returns (bool, uint)
     {
@@ -212,7 +214,7 @@ contract ScribeOptimistic is
         return (val != 0, val);
     }
 
-    // legacy
+    /// @inheritdoc IScribe
     function peek()
         external
         view
@@ -224,6 +226,7 @@ contract ScribeOptimistic is
         return (val, val != 0);
     }
 
+    /// @dev Returns the oracle's current value.
     function _currentVal() private view returns (uint128) {
         // Load pokeData slots from storage.
         PokeData memory pokeData = _pokeData;
@@ -245,6 +248,7 @@ contract ScribeOptimistic is
                          AUTH'ED FUNCTIONALITY
     //////////////////////////////////////////////////////////////*/
 
+    /// @inheritdoc IScribeOptimistic
     function setOpChallengePeriod(uint16 opChallengePeriod_) external auth {
         require(opChallengePeriod_ != 0);
 
@@ -258,6 +262,8 @@ contract ScribeOptimistic is
         _dropOpPokeData();
     }
 
+    /// @dev Overwritten from upstream contract to enforce _opPokeData is
+    ///      dropped.
     function _drop(LibSecp256k1.Point memory pubKey)
         internal
         override(Scribe)
@@ -267,6 +273,8 @@ contract ScribeOptimistic is
         _dropOpPokeData();
     }
 
+    /// @dev Overwritten from upstream contract to enforce _opPokeData is
+    ///      dropped.
     function _drop(LibSecp256k1.Point[] memory pubKeys)
         internal
         override(Scribe)
@@ -276,12 +284,15 @@ contract ScribeOptimistic is
         _dropOpPokeData();
     }
 
+    /// @dev Overwritten from upstream contract to enforce _opPokeData is
+    ///      dropped.
     function _setBar(uint8 bar_) internal override(Scribe) {
         super._setBar(bar_);
 
         _dropOpPokeData();
     }
 
+    /// @dev Drops the _opPokeData.
     function _dropOpPokeData() private {
         // @todo Should include commitment? Events needs refactor anyway.
         emit OpPokeDataDropped(msg.sender, _opPokeData.val, _opPokeData.age);
@@ -301,11 +312,20 @@ contract ScribeOptimistic is
                 "\x19Ethereum Signed Message:\n32",
                 pokeData.val,
                 pokeData.age,
+                // @todo Packed problem??
                 abi.encodePacked(schnorrData.signers),
                 schnorrData.signature,
                 schnorrData.commitment,
                 wat
             )
         );
+    }
+
+    function _payChallengeBountyTo(address payable receiver) internal {
+        // Reward challenger the bounty of the contract's current ETH balance.
+        uint bounty = address(this).balance;
+        receiver.call{value: bounty}("");
+        // @todo Make event: Challenge Bounty Paid.
+        // @todo Return value of call?
     }
 }

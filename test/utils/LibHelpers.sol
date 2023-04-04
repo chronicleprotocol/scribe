@@ -82,24 +82,34 @@ library LibHelpers {
     function makeECDSASignature(
         Feed memory signer,
         IScribe.PokeData memory pokeData,
-        IScribe.SchnorrSignatureData memory schnorrSignatureData,
+        IScribe.SchnorrSignatureData memory schnorrData,
         bytes32 wat
-    ) internal pure returns (IScribeOptimistic.ECDSASignatureData memory) {
+    ) internal pure returns (IScribe.ECDSASignatureData memory) {
         bytes32 message = keccak256(
             abi.encode(
                 "\x19Ethereum Signed Message:\n32",
                 pokeData.val,
                 pokeData.age,
-                abi.encodePacked(schnorrSignatureData.signers),
-                schnorrSignatureData.signature,
-                schnorrSignatureData.commitment,
+                abi.encodePacked(schnorrData.signers),
+                schnorrData.signature,
+                schnorrData.commitment,
                 wat
             )
         );
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(signer.privKey, message);
 
-        return IScribeOptimistic.ECDSASignatureData(v, r, s);
+        return IScribe.ECDSASignatureData(v, r, s);
+    }
+
+    function makeECDSASignature(Feed memory signer, bytes32 message)
+        internal
+        pure
+        returns (IScribe.ECDSASignatureData memory)
+    {
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(signer.privKey, message);
+
+        return IScribe.ECDSASignatureData(v, r, s);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -109,7 +119,7 @@ library LibHelpers {
     // @todo Same as makeECDSASignature?
     function constructOpCommitment(
         IScribe.PokeData memory pokeData,
-        IScribe.SchnorrSignatureData memory schnorrSignatureData,
+        IScribe.SchnorrSignatureData memory schnorrData,
         bytes32 wat
     ) internal pure returns (bytes32) {
         // Note that opCommitment is constructed the same way as an ECDSA
@@ -119,9 +129,9 @@ library LibHelpers {
                 "\x19Ethereum Signed Message:\n32",
                 pokeData.val,
                 pokeData.age,
-                abi.encodePacked(schnorrSignatureData.signers),
-                schnorrSignatureData.signature,
-                schnorrSignatureData.commitment,
+                abi.encodePacked(schnorrData.signers),
+                schnorrData.signature,
+                schnorrData.commitment,
                 wat
             )
         );

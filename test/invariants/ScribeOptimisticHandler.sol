@@ -1,7 +1,6 @@
 pragma solidity ^0.8.16;
 
 import {IScribeOptimistic} from "src/IScribeOptimistic.sol";
-import {IScribeOptimisticAuth} from "src/IScribeOptimisticAuth.sol";
 
 import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
 
@@ -29,8 +28,6 @@ contract ScribeOptimisticHandler is ScribeHandler {
             uint16(bound(opChallengePeriodSeed, 1, MAX_OP_CHALLENGE_PERIOD));
 
         // Reverts if newOpChallengePeriod is 0.
-        IScribeOptimisticAuth(address(opScribe)).setOpChallengePeriod(
-            newOpChallengePeriod
-        );
+        opScribe.setOpChallengePeriod(newOpChallengePeriod);
     }
 }

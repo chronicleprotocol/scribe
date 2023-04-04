@@ -8,7 +8,6 @@ import {IToll} from "chronicle-std/toll/IToll.sol";
 
 import {Scribe} from "src/Scribe.sol";
 import {IScribe} from "src/IScribe.sol";
-import {IScribeAuth} from "src/IScribeAuth.sol";
 
 import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
 
@@ -17,8 +16,8 @@ import {ScribeHandler} from "./ScribeHandler.sol";
 abstract contract IScribeInvariantTest is Test {
     using LibSecp256k1 for LibSecp256k1.Point;
 
-    IScribe scribe;
-    ScribeHandler handler;
+    IScribe private scribe;
+    ScribeHandler private handler;
 
     function setUp(address scribe_, address handler_) internal virtual {
         scribe = IScribe(scribe_);
@@ -144,9 +143,7 @@ abstract contract IScribeInvariantTest is Test {
             IScribe.SchnorrSignatureData memory last =
                 schnorrSignatureDatas[len - 1];
 
-            assertTrue(
-                last.signers.length >= IScribeAuth(address(scribe)).bar()
-            );
+            assertTrue(last.signers.length >= scribe.bar());
         }
     }
 
@@ -183,7 +180,7 @@ abstract contract IScribeInvariantTest is Test {
                 schnorrSignatureDatas[len - 1];
 
             for (uint i; i < last.signers.length; i++) {
-                assertTrue(IScribeAuth(address(scribe)).feeds(last.signers[i]));
+                assertTrue(scribe.feeds(last.signers[i]));
             }
         }
     }
@@ -198,20 +195,20 @@ abstract contract IScribeInvariantTest is Test {
     //////////////////////////////////////////////////////////////*/
 
     function invariant_feeds_OnlyContainsLiftedFeedAddresses() public {
-        address[] memory feeds = IScribeAuth(address(scribe)).feeds();
+        address[] memory feeds = scribe.feeds();
 
         for (uint i; i < feeds.length; i++) {
-            assertTrue(IScribeAuth(address(scribe)).feeds(feeds[i]));
+            assertTrue(scribe.feeds(feeds[i]));
         }
     }
 
     function invariant_feeds_ContainsAllLiftedFeedAddresses() public {
         address[] memory feedsTouched = handler.ghost_feedsTouched();
-        address[] memory feeds = IScribeAuth(address(scribe)).feeds();
+        address[] memory feeds = scribe.feeds();
 
         for (uint i; i < feedsTouched.length; i++) {
             // If touched feed is still feed...
-            if (IScribeAuth(address(scribe)).feeds(feedsTouched[i])) {
+            if (scribe.feeds(feedsTouched[i])) {
                 // ...feeds list must contain it.
                 for (uint j; j < feeds.length; j++) {
                     // Break inner loop if feed found.
@@ -232,10 +229,10 @@ abstract contract IScribeInvariantTest is Test {
         address zeroPointAddr = LibSecp256k1.Point(0, 0).toAddress();
 
         // Check via feeds(address)(bool)
-        assertFalse(IScribeAuth(address(scribe)).feeds(zeroPointAddr));
+        assertFalse(scribe.feeds(zeroPointAddr));
 
         // Check via feeds()(address[])
-        address[] memory feeds = IScribeAuth(address(scribe)).feeds();
+        address[] memory feeds = scribe.feeds();
         for (uint i; i < feeds.length; i++) {
             assertFalse(feeds[i] == zeroPointAddr);
         }
@@ -246,6 +243,6 @@ abstract contract IScribeInvariantTest is Test {
     //////////////////////////////////////////////////////////////*/
 
     function invariant_bar_IsNeverZero() public {
-        assertTrue(IScribeAuth(address(scribe)).bar() != 0);
+        assertTrue(scribe.bar() != 0);
     }
 }

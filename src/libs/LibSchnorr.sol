@@ -162,7 +162,8 @@ import {LibSecp256k1} from "./LibSecp256k1.sol";
  *          N  = Qr * Pₓ⁻¹                                           | Qr = [k - (e * x) * Pₓ]G + [e * Pₓ * x]G
  *             = ([k - (e * x) * Pₓ]G + [e * Pₓ * x]G) * Pₓ⁻¹        | Distributive law
  *             = [k - (e * x) * Pₓ * Pₓ⁻¹]G + [e * Pₓ * x * Pₓ⁻¹]G   | Pₓ * Pₓ⁻¹ = 1
- *             = [k - (e * x)]G + [e * x]G                           | sig = k - (e * x) ∧ P = [x]G
+ *             = [k - (e * x)]G + [e * x]G                           | sig = k - (e * x)
+ *             = [sig]G + [e * x]G                                   | P = [x]G
  *             = [sig]G + [e]P
  *
  *      References:
@@ -173,6 +174,7 @@ import {LibSecp256k1} from "./LibSecp256k1.sol";
 library LibSchnorr {
     using LibSecp256k1 for LibSecp256k1.Point;
 
+    // @todo Invariant: Uses constant gas
     /// @dev Returns false if commitment is address(0).
     /// @dev Returns false if pubKey.x is zero.
     /// @dev Expects message to not be zero.
@@ -200,7 +202,7 @@ library LibSchnorr {
         }
 
         // Note that signatures must be less than Q to prevent signature
-        // malleability. However, this check is disabled because the Chronis
+        // malleability. However, this check is disabled because the Scribe
         // contracts only accept messages with strictly monotonically
         // increasing timestamps, circumventing replay attack vectors and
         // therefore also signature malleability issues at a higher level.

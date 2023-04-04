@@ -4,23 +4,43 @@ import {Auth} from "chronicle-std/auth/Auth.sol";
 import {Toll} from "chronicle-std/toll/Toll.sol";
 
 import {IScribe} from "./IScribe.sol";
-import {IScribeAuth} from "./IScribeAuth.sol";
 
 import {LibSchnorr} from "./libs/LibSchnorr.sol";
 import {LibSecp256k1} from "./libs/LibSecp256k1.sol";
 
-contract Scribe is IScribe, IScribeAuth, Auth, Toll {
+/**
+ * @title Scribe
+ *
+ * @notice Schnorr Signatures
+ *         Aggregated, strong and true
+ *         Delivering the truth
+ *         Just for you
+ *
+ * @dev
+ */
+contract Scribe is IScribe, Auth, Toll {
     using LibSchnorr for LibSecp256k1.Point;
     using LibSecp256k1 for LibSecp256k1.Point;
     using LibSecp256k1 for LibSecp256k1.JacobianPoint;
 
+    /// @inheritdoc IScribe
     bytes32 public constant wat = "ETH/USD";
+
+    /// @inheritdoc IScribe
+    bytes32 public constant feedLiftMessage =
+        keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", wat));
 
     PokeData internal _pokeData;
 
+    /// @dev Mapping storing feed addresses to their public keys.
     mapping(address => LibSecp256k1.Point) internal _feeds;
+
+    /// @dev List of addresses possibly being a feed.
+    /// @dev May contain duplicates.
+    /// @dev May contain addresses not being feed anymore.
     address[] internal _feedsTouched;
 
+    /// @inheritdoc IScribe
     uint8 public bar;
 
     /*//////////////////////////////////////////////////////////////
@@ -36,6 +56,7 @@ contract Scribe is IScribe, IScribeAuth, Auth, Toll {
                            POKE FUNCTIONALITY
     //////////////////////////////////////////////////////////////*/
 
+    /// @inheritdoc IScribe
     function poke(
         PokeData calldata pokeData,
         SchnorrSignatureData calldata schnorrData
@@ -52,21 +73,17 @@ contract Scribe is IScribe, IScribeAuth, Auth, Toll {
 
         // Revert with err if verification fails.
         if (!ok) {
-            assembly ("memory-safe") {
-                let size := mload(err)
-                let offset := add(err, 0x20)
-                revert(offset, size)
-            }
+            _revert(err);
         }
 
         // Store given pokeData in _pokeData storage.
         _pokeData.val = pokeData.val;
         _pokeData.age = uint32(block.timestamp);
 
-        // @todo Test for event emission.
-        emit Poked(msg.sender, pokeData.val, uint32(block.timestamp));
+        emit Poked(msg.sender, pokeData.val, pokeData.age);
     }
 
+    /// @inheritdoc IScribe
     function verifySchnorrSignature(
         PokeData calldata pokeData,
         SchnorrSignatureData calldata schnorrData
@@ -83,7 +100,8 @@ contract Scribe is IScribe, IScribeAuth, Auth, Toll {
             return (false, err);
         }
 
-        address lastSigner;
+        // Let signer and signerPubKey be the currently processed signer's
+        // address and corresponding public key.
         address signer = schnorrData.signers[0];
         LibSecp256k1.Point memory signerPubKey = _feeds[signer];
 
@@ -92,14 +110,14 @@ contract Scribe is IScribe, IScribeAuth, Auth, Toll {
 
         // Expect signer to be feed by verifying their public key is non-zero.
         if (signerPubKey.isZeroPoint()) {
-            bytes memory err = abi.encodeWithSelector(
-                IScribe.SignerNotFeed.selector, signer
-            );
+            bytes memory err =
+                abi.encodeWithSelector(IScribe.SignerNotFeed.selector, signer);
 
             return (false, err);
         }
 
-        for (uint i = 1; i < schnorrData.signers.length; i++) {
+        address lastSigner;
+        for (uint i = 1; i < schnorrData.signers.length;) {
             lastSigner = signer;
             signer = schnorrData.signers[i];
             signerPubKey = _feeds[signer];
@@ -124,13 +142,20 @@ contract Scribe is IScribe, IScribeAuth, Auth, Toll {
 
             // Either PaI or not mutual inverse.
             if (aggPubKey.x == signerPubKey.x) {
+                // @todo Make error type.
+                bytes memory err = bytes("ERROR");
                 // @todo Remove by expecting signed message when feed added.
                 //       This should prevent this situation to ever occur.
-                // @todo return err.
-                break;
+                return (false, err);
             }
 
+            // Add signer's public key to the aggregated public key.
             aggPubKey.addAffinePoint(signerPubKey);
+
+            // Unchecked because the maximum length of an array is uint256.
+            unchecked {
+                i++;
+            }
         }
 
         // Construct Schnorr signed message.
@@ -146,9 +171,7 @@ contract Scribe is IScribe, IScribeAuth, Auth, Toll {
 
         // Perform signature verification.
         bool ok = aggPubKey.toAffine().verifySignature(
-            schnorrMessage,
-            schnorrData.signature,
-            schnorrData.commitment
+            schnorrMessage, schnorrData.signature, schnorrData.commitment
         );
 
         // Expect signature verification to succeed.
@@ -167,18 +190,23 @@ contract Scribe is IScribe, IScribeAuth, Auth, Toll {
                            READ FUNCTIONALITY
     //////////////////////////////////////////////////////////////*/
 
+    /// @inheritdoc IScribe
+    /// @dev Only callable by toll'ed address.
     function read() external view virtual toll returns (uint) {
         uint val = _pokeData.val;
         require(val != 0);
         return val;
     }
 
+    /// @inheritdoc IScribe
+    /// @dev Only callable by toll'ed address.
     function tryRead() external view virtual toll returns (bool, uint) {
         uint val = _pokeData.val;
         return (val != 0, val);
     }
 
-    // legacy version.
+    /// @inheritdoc IScribe
+    /// @dev Only callable by toll'ed address.
     function peek() external view virtual toll returns (uint, bool) {
         uint val = _pokeData.val;
         return (val, val != 0);
@@ -188,10 +216,12 @@ contract Scribe is IScribe, IScribeAuth, Auth, Toll {
                          PUBLIC VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
+    /// @inheritdoc IScribe
     function feeds(address who) external view returns (bool) {
         return !_feeds[who].isZeroPoint();
     }
 
+    /// @inheritdoc IScribe
     function feeds() external view returns (address[] memory) {
         // Initiate array with upper limit length.
         address[] memory feedsList = new address[](_feedsTouched.length);
@@ -217,23 +247,45 @@ contract Scribe is IScribe, IScribeAuth, Auth, Toll {
                          AUTH'ED FUNCTIONALITY
     //////////////////////////////////////////////////////////////*/
 
-    function lift(LibSecp256k1.Point memory pubKey) external auth {
+    /// @inheritdoc IScribe
+    function lift(
+        LibSecp256k1.Point memory pubKey,
+        ECDSASignatureData memory ecdsaData
+    ) external auth {
         require(!pubKey.isZeroPoint());
 
         address feed = pubKey.toAddress();
+        address signer =
+            ecrecover(feedLiftMessage, ecdsaData.v, ecdsaData.r, ecdsaData.s);
 
-        if (_feeds[feed].isZeroPoint()) {
-            emit FeedLifted(msg.sender, feed);
+        require(feed == signer);
+
+        if (_feeds[signer].isZeroPoint()) {
+            emit FeedLifted(msg.sender, signer);
             _feeds[feed] = pubKey;
-            _feedsTouched.push(feed);
+            _feedsTouched.push(signer);
         }
     }
 
-    function lift(LibSecp256k1.Point[] memory pubKeys) external auth {
+    /// @inheritdoc IScribe
+    function lift(
+        LibSecp256k1.Point[] memory pubKeys,
+        ECDSASignatureData[] memory ecdsaDatas
+    ) external auth {
+        require(pubKeys.length == ecdsaDatas.length);
+
         for (uint i; i < pubKeys.length; i++) {
             require(!pubKeys[i].isZeroPoint());
 
             address feed = pubKeys[i].toAddress();
+            address signer = ecrecover(
+                feedLiftMessage,
+                ecdsaDatas[i].v,
+                ecdsaDatas[i].r,
+                ecdsaDatas[i].s
+            );
+
+            require(feed == signer);
 
             if (_feeds[feed].isZeroPoint()) {
                 emit FeedLifted(msg.sender, feed);
@@ -243,10 +295,13 @@ contract Scribe is IScribe, IScribeAuth, Auth, Toll {
         }
     }
 
+    /// @inheritdoc IScribe
     function drop(LibSecp256k1.Point memory pubKey) external auth {
         _drop(pubKey);
     }
 
+    /// @dev Implemented as virtual internal function to allow downstream
+    ///      contracts to overwrite the function.
     function _drop(LibSecp256k1.Point memory pubKey) internal virtual {
         address feed = pubKey.toAddress();
 
@@ -256,10 +311,13 @@ contract Scribe is IScribe, IScribeAuth, Auth, Toll {
         }
     }
 
+    /// @inheritdoc IScribe
     function drop(LibSecp256k1.Point[] memory pubKeys) external auth {
         _drop(pubKeys);
     }
 
+    /// @dev Implemented as virtual internal function to allow downstream
+    ///      contracts to overwrite the function.
     function _drop(LibSecp256k1.Point[] memory pubKeys) internal virtual {
         for (uint i; i < pubKeys.length; i++) {
             address feed = pubKeys[i].toAddress();
@@ -271,10 +329,13 @@ contract Scribe is IScribe, IScribeAuth, Auth, Toll {
         }
     }
 
+    /// @inheritdoc IScribe
     function setBar(uint8 bar_) external auth {
         _setBar(bar_);
     }
 
+    /// @dev Implemented as virtual internal function to allow downstream
+    ///      contracts to overwrite the function.
     function _setBar(uint8 bar_) internal virtual {
         require(bar_ != 0);
 
@@ -285,8 +346,22 @@ contract Scribe is IScribe, IScribeAuth, Auth, Toll {
     }
 
     /*//////////////////////////////////////////////////////////////
+                            INTERNAL HELPERS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @dev Halts execution by reverting with `err`.
+    function _revert(bytes memory err) internal {
+        assembly ("memory-safe") {
+            let size := mload(err)
+            let offset := add(err, 0x20)
+            revert(offset, size)
+        }
+    }
+
+    /*//////////////////////////////////////////////////////////////
                        OVERRIDDEN TOLL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
+    /// @dev Defines the authorization for IToll's authenticated functions.
     function toll_auth() internal override(Toll) auth {}
 }

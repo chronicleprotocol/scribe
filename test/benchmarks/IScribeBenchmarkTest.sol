@@ -7,7 +7,6 @@ import {IAuth} from "chronicle-std/auth/IAuth.sol";
 import {IToll} from "chronicle-std/toll/IToll.sol";
 
 import {IScribe} from "src/IScribe.sol";
-import {IScribeAuth} from "src/IScribeAuth.sol";
 
 import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
 
@@ -32,10 +31,14 @@ abstract contract IScribeBenchmarkTest is Test {
         WAT = scribe.wat();
 
         // Create and whitelist bar many feeds.
-        LibHelpers.Feed[] memory feeds_ =
-            LibHelpers.makeFeeds(1, IScribeAuth(address(scribe)).bar());
+        LibHelpers.Feed[] memory feeds_ = LibHelpers.makeFeeds(1, scribe.bar());
         for (uint i; i < feeds_.length; i++) {
-            IScribeAuth(address(scribe)).lift(feeds_[i].pubKey);
+            scribe.lift(
+                feeds_[i].pubKey,
+                LibHelpers.makeECDSASignature(
+                    feeds_[i], scribe.feedLiftMessage()
+                )
+            );
 
             // Note to copy feed individually to prevent
             // "UnimplementedFeatureError" when compiling without --via-ir.

@@ -6,9 +6,7 @@ import {IAuth} from "chronicle-std/auth/IAuth.sol";
 import {IToll} from "chronicle-std/toll/IToll.sol";
 
 import {IScribe} from "src/IScribe.sol";
-import {IScribeAuth} from "src/IScribeAuth.sol";
 import {IScribeOptimistic} from "src/IScribeOptimistic.sol";
-import {IScribeOptimisticAuth} from "src/IScribeOptimisticAuth.sol";
 
 import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
 
@@ -24,6 +22,15 @@ abstract contract IScribeOptimisticTest is IScribeTest {
 
     IScribeOptimistic opScribe;
 
+    // Events copied from IScribeOptimistic.
+    // @todo Add missing events + test for emission.
+    event OpPokeDataDropped(address indexed caller, uint128 val, uint32 age);
+    event OpChallengePeriodUpdated(
+        address indexed caller,
+        uint16 oldOpChallengePeriod,
+        uint16 newOpChallengePeriod
+    );
+
     function setUp(address scribe_) internal override(IScribeTest) {
         super.setUp(scribe_);
 
@@ -37,8 +44,12 @@ abstract contract IScribeOptimisticTest is IScribeTest {
     function test_deployment() public override(IScribeTest) {
         super.test_deployment();
 
+        // opFeed and opCommitment not set.
         assertEq(opScribe.opFeed(), address(0));
         assertEq(opScribe.opCommitment(), bytes32(0));
+
+        // OpChallengePeriod is set to 1 hour.
+        assertEq(opScribe.opChallengePeriod(), 1 hours);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -74,8 +85,8 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         // Wait until challenge period over and opPokeData finalizes.
         _warpToEndOfOpChallengePeriod();
 
-        assertEq(scribe.read(), pokeData.val);
-        (uint val, bool ok) = scribe.peek();
+        assertEq(opScribe.read(), pokeData.val);
+        (uint val, bool ok) = opScribe.peek();
         assertEq(val, pokeData.val);
         assertTrue(ok);
 
@@ -159,8 +170,8 @@ abstract contract IScribeOptimisticTest is IScribeTest {
             // Wait until challenge period over and opPokeData finalizes.
             _warpToEndOfOpChallengePeriod();
 
-            assertEq(scribe.read(), pokeDatas[i].val);
-            (uint val, bool ok) = scribe.peek();
+            assertEq(opScribe.read(), pokeDatas[i].val);
+            (uint val, bool ok) = opScribe.peek();
             assertEq(val, pokeDatas[i].val);
             assertTrue(ok);
         }
@@ -173,7 +184,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         vm.assume(pokeData.age != 0);
 
         // Poke once.
-        scribe.poke(
+        opScribe.poke(
             pokeData, LibHelpers.makeSchnorrSignature(feeds, pokeData, WAT)
         );
 
@@ -210,7 +221,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         vm.assume(pokeData.val != 0);
         vm.assume(pokeData.age != 0);
 
-        uint bar = IScribeAuth(address(scribe)).bar();
+        uint bar = opScribe.bar();
         uint numberSigners = bound(numberSignersSeed, 0, bar - 1);
 
         // Create set of feeds with less than bar feeds.
@@ -242,7 +253,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         vm.assume(pokeData.val != 0);
         vm.assume(pokeData.age != 0);
 
-        uint bar = IScribeAuth(address(scribe)).bar();
+        uint bar = opScribe.bar();
 
         // Create set of feeds with bar feeds.
         LibHelpers.Feed[] memory feeds_ = new LibHelpers.Feed[](bar);
@@ -379,8 +390,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         opScribe.opPoke(pokeData, schnorrSignatureData, ecdsaSignatureData);
 
         // Warp to some time before challenge period over.
-        uint opChallengePeriod =
-            IScribeOptimisticAuth(address(opScribe)).opChallengePeriod();
+        uint opChallengePeriod = opScribe.opChallengePeriod();
         vm.warp(block.timestamp + bound(warpSeed, 0, opChallengePeriod - 1));
 
         // Adjust pokeData's age to not run into "StaleMessage".
@@ -415,7 +425,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         vm.assume(pokeData.val != 0);
         vm.assume(pokeData.age != 0);
 
-        uint bar = IScribeAuth(address(scribe)).bar();
+        uint bar = opScribe.bar();
         uint numberSigners = bound(numberSignersSeed, 0, bar - 1);
 
         // Create set of feeds with less than bar feeds.
@@ -445,9 +455,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         opScribe.opChallenge(pokeData, schnorrSignatureData);
 
         // opFeed kicked.
-        assertFalse(
-            IScribeAuth(address(opScribe)).feeds(opFeed.pubKey.toAddress())
-        );
+        assertFalse(opScribe.feeds(opFeed.pubKey.toAddress()));
         // opPokeData not finalized.
         (uint val, bool ok) = opScribe.peek();
         assertFalse(ok);
@@ -460,7 +468,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         vm.assume(pokeData.val != 0);
         vm.assume(pokeData.age != 0);
 
-        uint bar = IScribeAuth(address(scribe)).bar();
+        uint bar = opScribe.bar();
 
         // Create set of feeds with bar feeds.
         LibHelpers.Feed[] memory feeds_ = new LibHelpers.Feed[](bar);
@@ -492,9 +500,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         opScribe.opChallenge(pokeData, schnorrSignatureData);
 
         // opFeed kicked.
-        assertFalse(
-            IScribeAuth(address(opScribe)).feeds(opFeed.pubKey.toAddress())
-        );
+        assertFalse(opScribe.feeds(opFeed.pubKey.toAddress()));
         // opPokeData not finalized.
         (uint val, bool ok) = opScribe.peek();
         assertFalse(ok);
@@ -529,9 +535,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         opScribe.opChallenge(pokeData, schnorrSignatureData);
 
         // opFeed kicked.
-        assertFalse(
-            IScribeAuth(address(opScribe)).feeds(opFeed.pubKey.toAddress())
-        );
+        assertFalse(opScribe.feeds(opFeed.pubKey.toAddress()));
         // opPokeData not finalized.
         (uint val, bool ok) = opScribe.peek();
         assertFalse(ok);
@@ -615,12 +619,112 @@ abstract contract IScribeOptimisticTest is IScribeTest {
     }
 
     /*//////////////////////////////////////////////////////////////
+                     TEST: AUTH PROTECTED FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
+    function testFuzz_setOpChallengePeriod(uint16 opChallengePeriod) public {
+        vm.assume(opChallengePeriod != 0);
+
+        // Only expect event if opChallengePeriod actually changes.
+        if (opChallengePeriod != opScribe.opChallengePeriod()) {
+            vm.expectEmit(true, true, true, true);
+            emit OpChallengePeriodUpdated(
+                address(this), opScribe.opChallengePeriod(), opChallengePeriod
+            );
+        }
+
+        opScribe.setOpChallengePeriod(opChallengePeriod);
+
+        assertEq(opScribe.opChallengePeriod(), opChallengePeriod);
+    }
+
+    function test_setOpChallengePeriod_FailsIf_OpChallengePeriodIsZero()
+        public
+    {
+        vm.expectRevert();
+        opScribe.setOpChallengePeriod(0);
+    }
+
+    function test_setOpChallengePeriod_IsAuthProtected() public {
+        vm.prank(address(0xbeef));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAuth.NotAuthorized.selector, address(0xbeef)
+            )
+        );
+        opScribe.setOpChallengePeriod(0);
+    }
+
+    function test_setOpChallengePeriod_DropsOpPokeData() public {
+        _setUpFeedsAndOpPokeOnce(1, uint32(block.timestamp));
+
+        vm.expectEmit(true, true, true, true);
+        emit OpPokeDataDropped(address(this), 1, uint32(block.timestamp));
+
+        opScribe.setOpChallengePeriod(1);
+    }
+
+    function test_drop_Single_DropsOpPokeData() public {
+        _setUpFeedsAndOpPokeOnce(1, uint32(block.timestamp));
+
+        vm.expectEmit(true, true, true, true);
+        emit OpPokeDataDropped(address(this), 1, uint32(block.timestamp));
+
+        opScribe.drop(LibSecp256k1.Point(1, 1));
+    }
+
+    function test_drop_Multiple_DropsOpPokeData() public {
+        _setUpFeedsAndOpPokeOnce(1, uint32(block.timestamp));
+
+        vm.expectEmit(true, true, true, true);
+        emit OpPokeDataDropped(address(this), 1, uint32(block.timestamp));
+
+        opScribe.drop(new LibSecp256k1.Point[](0));
+    }
+
+    function test_setBar_DropsOpPokeData() public {
+        _setUpFeedsAndOpPokeOnce(1, uint32(block.timestamp));
+
+        vm.expectEmit(true, true, true, true);
+        emit OpPokeDataDropped(address(this), 1, uint32(block.timestamp));
+
+        opScribe.setBar(1);
+    }
+
+    /*//////////////////////////////////////////////////////////////
                             PRIVATE HELPERS
     //////////////////////////////////////////////////////////////*/
 
+    function _setUpFeedsAndOpPokeOnce(uint128 val, uint32 age) private {
+        // Create and whitelist bar many feeds.
+        LibHelpers.Feed[] memory feeds_ =
+            LibHelpers.makeFeeds(1, opScribe.bar());
+        for (uint i; i < feeds_.length; i++) {
+            // @todo Fix IScribeOptimistic tests lift/drop issue.
+            //opScribe.lift(feeds_[i].pubKey);
+        }
+
+        IScribe.PokeData memory pokeData = IScribe.PokeData(val, age);
+
+        IScribe.SchnorrSignatureData memory schnorrSignatureData =
+            LibHelpers.makeSchnorrSignature(feeds_, pokeData, WAT);
+
+        // forgefmt: disable-next-item
+        IScribeOptimistic.ECDSASignatureData memory ecdsaSignatureData =
+            LibHelpers.makeECDSASignature(
+                feeds_[0],
+                pokeData,
+                schnorrSignatureData,
+                WAT
+            );
+
+        IScribeOptimistic(address(opScribe)).opPoke(
+            pokeData, schnorrSignatureData, ecdsaSignatureData
+        );
+    }
+
     function _warpToEndOfOpChallengePeriod() private {
-        uint opChallengePeriod =
-            IScribeOptimisticAuth(address(opScribe)).opChallengePeriod();
+        uint opChallengePeriod = opScribe.opChallengePeriod();
 
         vm.warp(block.timestamp + opChallengePeriod);
     }

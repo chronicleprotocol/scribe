@@ -3,22 +3,26 @@ pragma solidity ^0.8.16;
 /**
  * @title LibSecp256k1
  *
- * @notice Library for secp256k1 elliptic curve point aggregation
+ * @notice Library for secp256k1 elliptic curve computations
  *
  * @dev This library was developed to efficiently compute aggregated public
  *      keys for Schnorr signatures based on secp256k1, i.e. it is _not_ a
  *      general purpose elliptic curve library!
+ *
+ *      References to the Ethereum Yellow Paper are based on the following
+ *      version: "BERLIN VERSION beacfbd – 2022-10-24".
  */
 library LibSecp256k1 {
     using LibSecp256k1 for LibSecp256k1.Point;
     using LibSecp256k1 for LibSecp256k1.JacobianPoint;
 
-    // @todo Make comment that Yellow Paper is from xxx commit.
-
-    // -- Constants
+    /*//////////////////////////////////////////////////////////////
+                               CONSTANTS
+    //////////////////////////////////////////////////////////////*/
     //
     // Taken from https://www.secg.org/sec2-v2.pdf.
     // See section 2.4.1 "Recommended Parameters secp256k1".
+
     uint private constant _A = 0;
     uint private constant _B = 7;
     uint private constant _P =
@@ -39,8 +43,11 @@ library LibSecp256k1 {
         });
     }
 
-    // -- (Affine) Point
+    /*//////////////////////////////////////////////////////////////
+                             (AFFINE) POINT
+    //////////////////////////////////////////////////////////////*/
 
+    /// @dev Point encapsulates a secp256k1 point in Affine coordinates.
     struct Point {
         uint x;
         uint y;
@@ -56,7 +63,7 @@ library LibSecp256k1 {
         return address(uint160(uint(keccak256(abi.encode(self.x, self.y)))));
     }
 
-    /// @dev Returns Affine point `self` in Jacobian representation.
+    /// @dev Returns Affine point `self` in Jacobian coordinates.
     function toJacobian(Point memory self)
         internal
         pure
@@ -79,76 +86,19 @@ library LibSecp256k1 {
         return self.y % 2;
     }
 
-    // @todo Invariant: Constant memory usage
-    //
-    /// @dev Returns the aggregated point of `points` as Affine point, or zero
-    ///      point if unrecoverable state reached.
-    ///
-    ///      Note that the aggregated point is the sum of points `points`.
-    ///      However, the aggregate function differs from a sum function in that
-    ///      regard, that two points with the same x coordinate cannot be
-    ///      aggregated. Therefore, the zero point is returned if the sum of the
-    ///      `points[:n]` and the point `points[n+1]` have equal x coordinates.
-    ///      The zero point is also returned if the length of `points` is zero.
-    ///
-    ///      Note that the function MUST NOT revert.
-    ///
-    /// @custom:invariant Reverts iff out of gas.
-    /// @custom:invariant Does not run into an infinite loop.
-    ///
-    function aggregate(Point[] memory points)
-        internal
-        pure
-        returns (Point memory)
-    {
-        // Return if no points given. This ensures we do not run into an array
-        // out of bounds revert.
-        if (points.length == 0) {
-            return Point(0, 0);
-        }
+    /*//////////////////////////////////////////////////////////////
+                             JACOBIAN POINT
+    //////////////////////////////////////////////////////////////*/
 
-        // Let result be the sum of the current processed points.
-        JacobianPoint memory result = points[0].toJacobian();
-
-        for (uint i = 1; i < points.length;) {
-            // Load current point from array.
-            Point memory cur = points[i];
-
-            // If the x coordinates of two points are equal, one of the
-            // following cases hold:
-            // a) The two points are equal
-            // b) The sum of the two points is the "Point at Infinity"
-            //
-            // See slide 24 at https://www.math.brown.edu/johsilve/Presentations/WyomingEllipticCurve.pdf.
-            //
-            // Both cases represent an unrecoverable state:
-            // a) Indicates a double signing attack
-            // b) Indicates an invalid public key
-            if (result.x == cur.x) {
-                return Point(0, 0);
-            }
-
-            // Add current point to result.
-            result.addAffinePoint(cur);
-
-            // Unchecked because the maximum length of an array is uint256.
-            unchecked {
-                i++;
-            }
-        }
-
-        return result.toAffine();
-    }
-
-    // -- Jacobian Point
-
+    /// @dev JacobianPoint encapsulates a secp256k1 point in Jacobian
+    ///      coordinates.
     struct JacobianPoint {
         uint x;
         uint y;
         uint z;
     }
 
-    /// @dev Returns Jacobian point `self` in Affine representation.
+    /// @dev Returns Jacobian point `self` in Affine coordinates.
     ///
     /// @custom:invariant Reverts iff out of gas.
     /// @custom:invariant Does not run into an infinite loop.
@@ -176,28 +126,7 @@ library LibSecp256k1 {
         return result;
     }
 
-    // @todo Write affine point into self's memory.
-    //       Circumvents new memory allocation. Part of optimization
-    //       explored in ScribeAggregate.
-    function intoAffine(JacobianPoint memory self) internal pure {
-        // Compute z⁻¹, i.e. the modular inverse of self.z.
-        uint zInv = invMod(self.z);
-
-        // Compute (z⁻¹)² (mod P)
-        uint zInv_2 = mulmod(zInv, zInv, _P);
-
-        // Compute self.x * (z⁻¹)² (mod P), i.e. the x coordinate of given
-        // Jacobian point in Affine representation.
-        self.x = mulmod(self.x, zInv_2, _P);
-
-        // Compute self.y * (z⁻¹)³ (mod P), i.e. the y coordinate of given
-        // Jacobian point in Affine representation.
-        self.y = mulmod(self.y, mulmod(zInv, zInv_2, _P), _P);
-
-        // Clean freed memory.
-        self.z = 0;
-    }
-
+    // @todo Invariant: Uses constant gas.
     /// @dev Adds Affine point `p` to Jacobian point `self`.
     ///
     ///      It is the caller's responsibility to ensure given points are on the
@@ -349,7 +278,9 @@ library LibSecp256k1 {
         }
     }
 
-    // -- Private Helpers
+    /*//////////////////////////////////////////////////////////////
+                            PRIVATE HELPERS
+    //////////////////////////////////////////////////////////////*/
 
     /// @dev Returns the modular inverse of `x` for modulo `_P`.
     ///

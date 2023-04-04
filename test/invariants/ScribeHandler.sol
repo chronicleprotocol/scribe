@@ -4,7 +4,6 @@ import {CommonBase} from "forge-std/Base.sol";
 import {StdUtils} from "forge-std/StdUtils.sol";
 
 import {IScribe} from "src/IScribe.sol";
-import {IScribeAuth} from "src/IScribeAuth.sol";
 
 import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
 
@@ -12,6 +11,7 @@ import {LibHelpers} from "../utils/LibHelpers.sol";
 
 contract ScribeHandler is CommonBase, StdUtils {
     using LibSecp256k1 for LibSecp256k1.Point;
+    // @todo use LibHelper for Feeds. Can be done in all tests.
 
     uint public constant MAX_BAR = 10;
 
@@ -57,7 +57,12 @@ contract ScribeHandler is CommonBase, StdUtils {
             _feedIndexesPerPrivKey[feeds[i].privKey] = i;
             _ghost_feedsTouched.push(feeds[i]);
 
-            IScribeAuth(address(scribe)).lift(feeds[i].pubKey);
+            scribe.lift(
+                feeds[i].pubKey,
+                LibHelpers.makeECDSASignature(
+                    feeds[i], scribe.feedLiftMessage()
+                )
+            );
         }
     }
 
@@ -83,11 +88,8 @@ contract ScribeHandler is CommonBase, StdUtils {
         // Make list of signers.
         // Note that the number of signers is random, but bounded to always
         // reach bar.
-        uint numberSigners = bound(
-            numberSignersSeed,
-            IScribeAuth(address(scribe)).bar(),
-            _ghost_feeds.length
-        );
+        uint numberSigners =
+            bound(numberSignersSeed, scribe.bar(), _ghost_feeds.length);
         LibHelpers.Feed[] memory signers = new LibHelpers.Feed[](numberSigners);
         for (uint i; i < numberSigners; i++) {
             signers[i] = _ghost_feeds[i];
@@ -123,8 +125,7 @@ contract ScribeHandler is CommonBase, StdUtils {
         // Make list of signers.
         // Note that the number of signers is random, but bounded in a way that
         // gives a 50:50 chance of whether bar is reached.
-        uint numberSigners =
-            bound(numberSignersSeed, 0, 2 * IScribeAuth(address(scribe)).bar());
+        uint numberSigners = bound(numberSignersSeed, 0, 2 * scribe.bar());
         LibHelpers.Feed[] memory signers = new LibHelpers.Feed[](numberSigners);
         for (uint i; i < numberSigners; i++) {
             signers[i] = _ghost_feeds[i];
@@ -161,7 +162,7 @@ contract ScribeHandler is CommonBase, StdUtils {
         uint8 newBar = uint8(bound(barSeed, 0, MAX_BAR));
 
         // Reverts if newBar is 0.
-        IScribeAuth(address(scribe)).setBar(newBar);
+        scribe.setBar(newBar);
 
         // Set barUpdated flag to true.
         ghost_barUpdated = true;
@@ -178,7 +179,10 @@ contract ScribeHandler is CommonBase, StdUtils {
         _ghost_feeds.push(feed);
         _feedIndexesPerPrivKey[privKey] = _ghost_feeds.length - 1;
         _ghost_feedsTouched.push(feed);
-        IScribeAuth(address(scribe)).lift(feed.pubKey);
+        scribe.lift(
+            feed.pubKey,
+            LibHelpers.makeECDSASignature(feed, scribe.feedLiftMessage())
+        );
 
         // Set feedsLifted flag to true.
         ghost_FeedsLifted = true;
@@ -187,7 +191,7 @@ contract ScribeHandler is CommonBase, StdUtils {
     function drop(uint feedSeed) external {
         uint feedIndex = bound(feedSeed, 0, _ghost_feeds.length);
 
-        IScribeAuth(address(scribe)).drop(_ghost_feeds[feedIndex].pubKey);
+        scribe.drop(_ghost_feeds[feedIndex].pubKey);
 
         // Remove feed from internal list of feeds.
         delete _feedIndexesPerPrivKey[_ghost_feeds[feedIndex].privKey];

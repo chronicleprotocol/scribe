@@ -8,7 +8,6 @@ import {IToll} from "chronicle-std/toll/IToll.sol";
 
 import {ScribeOptimistic} from "src/ScribeOptimistic.sol";
 import {IScribeOptimistic} from "src/IScribeOptimistic.sol";
-import {IScribeOptimisticAuth} from "src/IScribeOptimisticAuth.sol";
 
 import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
 
@@ -18,8 +17,8 @@ import {ScribeOptimisticHandler} from "./ScribeOptimisticHandler.sol";
 abstract contract IScribeOptimisticInvariantTest is IScribeInvariantTest {
     using LibSecp256k1 for LibSecp256k1.Point;
 
-    IScribeOptimistic opScribe;
-    ScribeOptimisticHandler opHandler;
+    IScribeOptimistic private opScribe;
+    ScribeOptimisticHandler private opHandler;
 
     function setUp(address scribe_, address handler_)
         internal
@@ -57,8 +56,6 @@ abstract contract IScribeOptimisticInvariantTest is IScribeInvariantTest {
     //////////////////////////////////////////////////////////////*/
 
     function invariant_opChallengePeriod_IsNeverZero() public {
-        assertTrue(
-            IScribeOptimisticAuth(address(opScribe)).opChallengePeriod() != 0
-        );
+        assertTrue(opScribe.opChallengePeriod() != 0);
     }
 }
