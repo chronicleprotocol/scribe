@@ -19,7 +19,6 @@ library LibSecp256k1 {
     /*//////////////////////////////////////////////////////////////
                                CONSTANTS
     //////////////////////////////////////////////////////////////*/
-    //
     // Taken from https://www.secg.org/sec2-v2.pdf.
     // See section 2.4.1 "Recommended Parameters secp256k1".
 

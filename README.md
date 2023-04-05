@@ -1,3 +1,5 @@
+<img align="right" width="150" height="150" top="100" src="./assets/logo.png">
+
 # Scribe •
 
 

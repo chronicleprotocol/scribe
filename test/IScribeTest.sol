@@ -21,6 +21,7 @@ abstract contract IScribeTest is Test {
     IScribe private scribe;
 
     bytes32 internal WAT;
+    bytes32 internal FEED_LIFT_MESSAGE;
 
     LibHelpers.Feed[] internal feeds;
     LibHelpers.Feed internal notFeed;
@@ -37,29 +38,31 @@ abstract contract IScribeTest is Test {
     function setUp(address scribe_) internal virtual {
         scribe = IScribe(scribe_);
 
-        // Cache wat constant.
+        // Cache constants.
         WAT = scribe.wat();
-
-        // Create and whitelist bar many feeds.
-        LibHelpers.Feed[] memory feeds_ = LibHelpers.makeFeeds(1, scribe.bar());
-        for (uint i; i < feeds_.length; i++) {
-            scribe.lift(
-                feeds_[i].pubKey,
-                LibHelpers.makeECDSASignature(
-                    feeds_[i], scribe.feedLiftMessage()
-                )
-            );
-
-            // Note to copy feed individually to prevent
-            // "UnimplementedFeatureError" when compiling without --via-ir.
-            feeds.push(feeds_[i]);
-        }
-
-        // Create not feed.
-        notFeed = LibHelpers.makeFeed({privKey: 0xdead});
+        FEED_LIFT_MESSAGE = scribe.feedLiftMessage();
 
         // Toll address(this).
         IToll(address(scribe)).kiss(address(this));
+    }
+
+    function _setUp_liftFeeds() internal {
+        // Create and lift bar many feeds.
+        LibHelpers.Feed[] memory feeds_ = LibHelpers.makeFeeds(1, scribe.bar());
+        for (uint i; i < feeds_.length; i++) {
+            // Note to copy feed individually to prevent
+            // "UnimplementedFeatureError" when compiling without --via-ir.
+            feeds.push(feeds_[i]);
+
+            // Lift the feed.
+            scribe.lift(
+                feeds_[i].pubKey,
+                LibHelpers.makeECDSASignature(feeds_[i], FEED_LIFT_MESSAGE)
+            );
+        }
+
+        // Create a notFeed.
+        notFeed = LibHelpers.makeFeed({privKey: 0xdead});
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -76,7 +79,7 @@ abstract contract IScribeTest is Test {
         // Bar set to 2.
         assertEq(scribe.bar(), 2);
 
-        // Set of feeds empty.
+        // Set of feeds is empty.
         assertEq(scribe.feeds().length, 0);
 
         // read()(uint) fails.
@@ -104,6 +107,8 @@ abstract contract IScribeTest is Test {
     //////////////////////////////////////////////////////////////*/
 
     function testFuzz_poke_Initial(IScribe.PokeData memory pokeData) public {
+        _setUp_liftFeeds();
+
         vm.assume(pokeData.val != 0);
         vm.assume(pokeData.age != 0);
 
@@ -118,6 +123,8 @@ abstract contract IScribeTest is Test {
     }
 
     function test_poke_Initial_FailsIf_AgeIsZero() public {
+        _setUp_liftFeeds();
+
         IScribe.PokeData memory pokeData;
         pokeData.val = 1;
         pokeData.age = 0;
@@ -133,13 +140,15 @@ abstract contract IScribeTest is Test {
     function testFuzz_poke_Continuously(IScribe.PokeData[] memory pokeDatas)
         public
     {
+        _setUp_liftFeeds();
+
         // Ensure pokeDatas' val is never zero and their age is strictly
         // increasing.
         uint32 lastAge = uint32(block.timestamp);
         for (uint i; i < pokeDatas.length; i++) {
             vm.assume(pokeDatas[i].val != 0);
 
-            // Upper bound age to lastAge + 1 weeks to no run into overflow.
+            // Upper bound age to lastAge + 1 weeks to not run into overflow.
             // Note that this does not guarantee overflow safety.
             // @todo Fix overflow danger if necessary.
             pokeDatas[i].age =
@@ -164,6 +173,8 @@ abstract contract IScribeTest is Test {
     function testFuzz_poke_FailsIf_PokeData_IsStale(
         IScribe.PokeData memory pokeData
     ) public {
+        _setUp_liftFeeds();
+
         vm.assume(pokeData.val != 0);
         vm.assume(pokeData.age != 0);
 
@@ -191,6 +202,8 @@ abstract contract IScribeTest is Test {
         IScribe.PokeData memory pokeData,
         uint numberSignersSeed
     ) public {
+        _setUp_liftFeeds();
+
         vm.assume(pokeData.val != 0);
         vm.assume(pokeData.age != 0);
 
@@ -217,6 +230,8 @@ abstract contract IScribeTest is Test {
         IScribe.PokeData memory pokeData,
         uint duplicateIndexSeed
     ) public {
+        _setUp_liftFeeds();
+
         vm.assume(pokeData.val != 0);
         vm.assume(pokeData.age != 0);
 
@@ -240,18 +255,29 @@ abstract contract IScribeTest is Test {
         );
     }
 
-    function test_poke_FailsIf_SchnorrSignatureData_HasNonFeedAsSigner()
-        public
-    {
-        IScribe.PokeData memory pokeData;
-        pokeData.val = 1;
-        pokeData.age = uint32(block.timestamp);
+    function testFuzz_poke_FailsIf_SchnorrSignatureData_HasNonFeedAsSigner(
+        IScribe.PokeData memory pokeData,
+        uint nonFeedIndexSeed
+    ) public {
+        _setUp_liftFeeds();
 
-        // Add non-feed to feeds.
-        feeds.push(notFeed);
+        vm.assume(pokeData.val != 0);
+        vm.assume(pokeData.age != 0);
+
+        uint bar = scribe.bar();
+
+        // Create set of feeds with bar feeds.
+        LibHelpers.Feed[] memory feeds_ = new LibHelpers.Feed[](bar);
+        for (uint i; i < feeds_.length; i++) {
+            feeds_[i] = feeds[i];
+        }
+
+        // But have a non-feed in the set.
+        uint index = bound(nonFeedIndexSeed, 1, feeds_.length - 1);
+        feeds_[index] = notFeed;
 
         IScribe.SchnorrSignatureData memory schnorrSignatureData =
-            LibHelpers.makeSchnorrSignature(feeds, pokeData, WAT);
+            LibHelpers.makeSchnorrSignature(feeds_, pokeData, WAT);
 
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -264,6 +290,8 @@ abstract contract IScribeTest is Test {
     function test_poke_FailsIf_SchnorrSignatureData_FailsSignatureVerification()
         public
     {
+        _setUp_liftFeeds();
+
         // @todo Implement once Schnorr signature verification enabled.
         console2.log("NOT IMPLEMENTED");
     }
@@ -282,8 +310,7 @@ abstract contract IScribeTest is Test {
         emit FeedLifted(address(this), feed.pubKey.toAddress());
 
         scribe.lift(
-            feed.pubKey,
-            LibHelpers.makeECDSASignature(feed, scribe.feedLiftMessage())
+            feed.pubKey, LibHelpers.makeECDSASignature(feed, FEED_LIFT_MESSAGE)
         );
 
         // Check via feeds(address)(bool).
@@ -325,9 +352,8 @@ abstract contract IScribeTest is Test {
         IScribe.ECDSASignatureData[] memory ecdsaDatas =
             new IScribe.ECDSASignatureData[](feeds_.length);
         for (uint i; i < feeds_.length; i++) {
-            ecdsaDatas[i] = LibHelpers.makeECDSASignature(
-                feeds_[i], scribe.feedLiftMessage()
-            );
+            ecdsaDatas[i] =
+                LibHelpers.makeECDSASignature(feeds_[i], FEED_LIFT_MESSAGE);
         }
 
         for (uint i; i < feeds_.length; i++) {
@@ -363,59 +389,66 @@ abstract contract IScribeTest is Test {
         }
     }
 
-    /*
-    // @todo Fix tests lift/drop.
     function test_lift_Multiple_FailsIf_PubKeyIsZero() public {
-        LibSecp256k1.Point[] memory pubKeys = new LibSecp256k1.Point[](3);
-
-        // Zero point as first element.
-        pubKeys[0] = LibSecp256k1.Point(0, 0);
-        pubKeys[1] = LibSecp256k1.Point(1, 1);
-        pubKeys[2] = LibSecp256k1.Point(1, 1);
         vm.expectRevert();
-        scribe.lift(pubKeys);
-
-        // Zero point as middle element.
-        pubKeys[0] = LibSecp256k1.Point(1, 1);
-        pubKeys[1] = LibSecp256k1.Point(0, 0);
-        pubKeys[2] = LibSecp256k1.Point(1, 1);
-        vm.expectRevert();
-        scribe.lift(pubKeys);
-
-        // Zero point as last element.
-        pubKeys[0] = LibSecp256k1.Point(1, 1);
-        pubKeys[1] = LibSecp256k1.Point(1, 1);
-        pubKeys[2] = LibSecp256k1.Point(0, 0);
-        vm.expectRevert();
-        scribe.lift(pubKeys);
+        scribe.lift(
+            new LibSecp256k1.Point[](1), new IScribe.ECDSASignatureData[](1)
+        );
     }
 
-    function testFuzz_drop_Single(LibSecp256k1.Point memory pubKey) public {
-        vm.assume(!pubKey.isZeroPoint());
+    function testFuzz_drop_Single(uint privKey) public {
+        // Bound private key to secp256k1's order, i.e. scalar ∊ [1, Q).
+        privKey = bound(privKey, 1, LibSecp256k1.Q() - 1);
 
-        scribe.lift(pubKey);
+        LibHelpers.Feed memory feed = LibHelpers.makeFeed(privKey);
+
+        scribe.lift(
+            feed.pubKey, LibHelpers.makeECDSASignature(feed, FEED_LIFT_MESSAGE)
+        );
 
         vm.expectEmit(true, true, true, true);
-        emit FeedDropped(address(this), pubKey.toAddress());
+        emit FeedDropped(address(this), feed.pubKey.toAddress());
 
-        scribe.drop(pubKey);
+        scribe.drop(feed.pubKey);
 
         // Check via feeds(address)(bool).
-        assertFalse(scribe.feeds(pubKey.toAddress()));
+        assertFalse(scribe.feeds(feed.pubKey.toAddress()));
 
         // Check via feeds()(address[]).
         assertEq(scribe.feeds().length, 0);
     }
 
-    function testFuzz_drop_Multiple(LibSecp256k1.Point[] memory pubKeys)
-        public
-    {
-        for (uint i; i < pubKeys.length; i++) {
-            vm.assume(!pubKeys[i].isZeroPoint());
+    function testFuzz_drop_Multiple(uint[] memory privKeys) public {
+        // Bound private keys to secp256k1's order, i.e. scalar ∊ [1, Q).
+        for (uint i; i < privKeys.length; i++) {
+            privKeys[i] = bound(privKeys[i], 1, LibSecp256k1.Q() - 1);
         }
 
-        scribe.lift(pubKeys);
+        // Make feeds.
+        LibHelpers.Feed[] memory feeds_ = new LibHelpers.Feed[](privKeys.length);
+        for (uint i; i < privKeys.length; i++) {
+            feeds_[i] = LibHelpers.makeFeed(privKeys[i]);
+        }
 
+        // Make list of public keys.
+        LibSecp256k1.Point[] memory pubKeys =
+            new LibSecp256k1.Point[](feeds_.length);
+        for (uint i; i < feeds_.length; i++) {
+            pubKeys[i] = feeds_[i].pubKey;
+        }
+
+        // Make signatures.
+        IScribe.ECDSASignatureData[] memory ecdsaDatas =
+            new IScribe.ECDSASignatureData[](feeds_.length);
+        for (uint i; i < feeds_.length; i++) {
+            ecdsaDatas[i] =
+                LibHelpers.makeECDSASignature(feeds_[i], FEED_LIFT_MESSAGE);
+        }
+
+        // Lift feeds.
+        scribe.lift(pubKeys, ecdsaDatas);
+
+        // Expect events.
         for (uint i; i < pubKeys.length; i++) {
             // Don't expect event for duplicates.
             if (!addressFilter[pubKeys[i].toAddress()]) {
@@ -426,6 +459,7 @@ abstract contract IScribeTest is Test {
             addressFilter[pubKeys[i].toAddress()] = true;
         }
 
+        // Drop feeds.
         scribe.drop(pubKeys);
 
         // Check via feeds(address)(bool).
@@ -437,31 +471,33 @@ abstract contract IScribeTest is Test {
         assertEq(scribe.feeds().length, 0);
     }
 
-    function test_liftDropLift(LibSecp256k1.Point memory pubKey) public {
-        vm.assume(!pubKey.isZeroPoint());
+    function testFuzz_liftDropLift(uint privKey) public {
+        // Bound private key to secp256k1's order, i.e. scalar ∊ [1, Q).
+        privKey = bound(privKey, 1, LibSecp256k1.Q() - 1);
 
-        scribe.lift(LibSecp256k1.Point(1, 1));
+        LibHelpers.Feed memory feed = LibHelpers.makeFeed(privKey);
 
-        scribe.lift(pubKey);
-        assertTrue(scribe.feeds(pubKey.toAddress()));
-        assertEq(scribe.feeds().length, 2);
+        IScribe.ECDSASignatureData memory ecdsaData =
+            LibHelpers.makeECDSASignature(feed, FEED_LIFT_MESSAGE);
 
-        scribe.drop(pubKey);
-        assertFalse(scribe.feeds(pubKey.toAddress()));
+        scribe.lift(feed.pubKey, ecdsaData);
+        assertTrue(scribe.feeds(feed.pubKey.toAddress()));
         assertEq(scribe.feeds().length, 1);
 
-        scribe.lift(pubKey);
-        assertTrue(scribe.feeds(pubKey.toAddress()));
+        scribe.drop(feed.pubKey);
+        assertFalse(scribe.feeds(feed.pubKey.toAddress()));
+        assertEq(scribe.feeds().length, 0);
+
+        scribe.lift(feed.pubKey, ecdsaData);
+        assertTrue(scribe.feeds(feed.pubKey.toAddress()));
 
         // Note that the list returned via feeds()(address[]) is allowed to
         // contain duplicates.
         address[] memory feeds_ = scribe.feeds();
-        assertEq(feeds_.length, 3);
-        assertEq(feeds_[0], LibSecp256k1.Point(1, 1).toAddress());
-        assertEq(feeds_[1], pubKey.toAddress());
-        assertEq(feeds_[2], pubKey.toAddress());
+        assertEq(feeds_.length, 2);
+        assertEq(feeds_[0], feed.pubKey.toAddress());
+        assertEq(feeds_[1], feed.pubKey.toAddress());
     }
-    */
 
     function testFuzz_setBar(uint8 bar) public {
         vm.assume(bar != 0);

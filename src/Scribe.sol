@@ -23,6 +23,10 @@ contract Scribe is IScribe, Auth, Toll {
     using LibSecp256k1 for LibSecp256k1.Point;
     using LibSecp256k1 for LibSecp256k1.JacobianPoint;
 
+    /*//////////////////////////////////////////////////////////////
+                               CONSTANTS
+    //////////////////////////////////////////////////////////////*/
+
     /// @inheritdoc IScribe
     bytes32 public constant wat = "ETH/USD";
 
@@ -30,7 +34,15 @@ contract Scribe is IScribe, Auth, Toll {
     bytes32 public constant feedLiftMessage =
         keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", wat));
 
+    /*//////////////////////////////////////////////////////////////
+                            POKEDATA STORAGE
+    //////////////////////////////////////////////////////////////*/
+
     PokeData internal _pokeData;
+
+    /*//////////////////////////////////////////////////////////////
+                             FEEDS STORAGE
+    //////////////////////////////////////////////////////////////*/
 
     /// @dev Mapping storing feed addresses to their public keys.
     mapping(address => LibSecp256k1.Point) internal _feeds;
@@ -39,6 +51,10 @@ contract Scribe is IScribe, Auth, Toll {
     /// @dev May contain duplicates.
     /// @dev May contain addresses not being feed anymore.
     address[] internal _feedsTouched;
+
+    /*//////////////////////////////////////////////////////////////
+                      SECURITY PARAMETERS STORAGE
+    //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc IScribe
     uint8 public bar;
@@ -49,7 +65,8 @@ contract Scribe is IScribe, Auth, Toll {
 
     constructor() {
         // Note to have an initial bar >1.
-        _setBar(2);
+        bar = 2;
+        emit BarUpdated(msg.sender, 0, 2);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -71,7 +88,7 @@ contract Scribe is IScribe, Auth, Toll {
         bytes memory err;
         (ok, err) = verifySchnorrSignature(pokeData, schnorrData);
 
-        // Revert with err if verification fails.
+        // Revert with err if verification failed.
         if (!ok) {
             _revert(err);
         }
@@ -89,8 +106,7 @@ contract Scribe is IScribe, Auth, Toll {
         SchnorrSignatureData calldata schnorrData
     ) public view returns (bool, bytes memory) {
         // Expect number of signers to equal bar.
-        // @todo Should be == bar to prevent DOS.
-        if (schnorrData.signers.length < bar) {
+        if (schnorrData.signers.length != bar) {
             bytes memory err = abi.encodeWithSelector(
                 IScribe.BarNotReached.selector,
                 uint8(schnorrData.signers.length),
@@ -140,14 +156,13 @@ contract Scribe is IScribe, Auth, Toll {
                 return (false, err);
             }
 
-            // Either PaI or not mutual inverse.
-            if (aggPubKey.x == signerPubKey.x) {
-                // @todo Make error type.
-                bytes memory err = bytes("ERROR");
-                // @todo Remove by expecting signed message when feed added.
-                //       This should prevent this situation to ever occur.
-                return (false, err);
-            }
+            // If the x coordinates of two points are equal, one of the
+            // following cases hold:
+            // 1) The two points are equal
+            // 2) The sum of the two points is the "Point at Infinity"
+            //
+            // See slide 24 at https://www.math.brown.edu/johsilve/Presentations/WyomingEllipticCurve.pdf.
+            assert(aggPubKey.x != signerPubKey.x);
 
             // Add signer's public key to the aggregated public key.
             aggPubKey.addAffinePoint(signerPubKey);
@@ -160,6 +175,8 @@ contract Scribe is IScribe, Auth, Toll {
 
         // Construct Schnorr signed message.
         // @todo Malleability due to encodePacked vs encode?
+        // @todo Calldata is already abi encoded. Possible to optimize?
+        //       See https://medium.com/coinmonks/full-knowledge-user-proofs-working-with-storage-without-paying-for-gas-e124cef0c078.
         bytes32 schnorrMessage = keccak256(
             abi.encode(
                 "\x19Ethereum Signed Message:\n32",
@@ -255,15 +272,16 @@ contract Scribe is IScribe, Auth, Toll {
         require(!pubKey.isZeroPoint());
 
         address feed = pubKey.toAddress();
-        address signer =
+        require(feed != address(0));
+
+        address recovered =
             ecrecover(feedLiftMessage, ecdsaData.v, ecdsaData.r, ecdsaData.s);
+        require(feed == recovered);
 
-        require(feed == signer);
-
-        if (_feeds[signer].isZeroPoint()) {
-            emit FeedLifted(msg.sender, signer);
+        if (_feeds[feed].isZeroPoint()) {
+            emit FeedLifted(msg.sender, feed);
             _feeds[feed] = pubKey;
-            _feedsTouched.push(signer);
+            _feedsTouched.push(feed);
         }
     }
 
@@ -274,18 +292,21 @@ contract Scribe is IScribe, Auth, Toll {
     ) external auth {
         require(pubKeys.length == ecdsaDatas.length);
 
+        address feed;
+        address recovered;
         for (uint i; i < pubKeys.length; i++) {
             require(!pubKeys[i].isZeroPoint());
 
-            address feed = pubKeys[i].toAddress();
-            address signer = ecrecover(
+            feed = pubKeys[i].toAddress();
+            require(feed != address(0));
+
+            recovered = ecrecover(
                 feedLiftMessage,
                 ecdsaDatas[i].v,
                 ecdsaDatas[i].r,
                 ecdsaDatas[i].s
             );
-
-            require(feed == signer);
+            require(feed == recovered);
 
             if (_feeds[feed].isZeroPoint()) {
                 emit FeedLifted(msg.sender, feed);
@@ -350,7 +371,7 @@ contract Scribe is IScribe, Auth, Toll {
     //////////////////////////////////////////////////////////////*/
 
     /// @dev Halts execution by reverting with `err`.
-    function _revert(bytes memory err) internal {
+    function _revert(bytes memory err) internal pure {
         assembly ("memory-safe") {
             let size := mload(err)
             let offset := add(err, 0x20)

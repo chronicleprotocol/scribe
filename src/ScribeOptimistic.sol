@@ -13,8 +13,8 @@ import {LibSecp256k1} from "./libs/LibSecp256k1.sol";
  *
  * @notice Optimistic!
  *         Thats what the scribe yawps
- *         Can you tame them?
- *         Challenge their view
+ *         Can you tame them
+ *         By challenging their poke?
  *
  * @dev
  */
@@ -35,21 +35,16 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
     PokeData private _opPokeData;
 
     /*//////////////////////////////////////////////////////////////
-                              CONSTRUCTOR
+                  CONSTRUCTOR & RECEIVE FUNCTIONALITY
     //////////////////////////////////////////////////////////////*/
 
     constructor() {
         // Note to have a non-zero challenge period.
-        // @todo Low opChallengePeriod for testing.
-        opChallengePeriod = 1 seconds;
+        opChallengePeriod = 1 hours;
         emit OpChallengePeriodUpdated(msg.sender, 0, 1 hours);
     }
 
     receive() external payable {}
-
-    /*
-     * @todo Disable op stuff after gov action for x hours.
-     */
 
     /*//////////////////////////////////////////////////////////////
                      OPTIMISTIC POKE FUNCTIONALITY
@@ -134,6 +129,8 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         );
     }
 
+    // @todo Should opChallenge return bool to indicate whether challenge
+    //       succeeded?
     /// @inheritdoc IScribeOptimistic
     function opChallenge(
         PokeData calldata pokeData,
@@ -259,50 +256,72 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
             opChallengePeriod = opChallengePeriod_;
         }
 
-        _dropOpPokeData();
+        _afterAuthedAction();
     }
 
-    /// @dev Overwritten from upstream contract to enforce _opPokeData is
-    ///      dropped.
+    /// @dev Overwritten from upstream contract to enforce _afterAuthedAction()
+    ///      is executed after the initial function execution.
     function _drop(LibSecp256k1.Point memory pubKey)
         internal
         override(Scribe)
     {
         super._drop(pubKey);
 
-        _dropOpPokeData();
+        _afterAuthedAction();
     }
 
-    /// @dev Overwritten from upstream contract to enforce _opPokeData is
-    ///      dropped.
+    /// @dev Overwritten from upstream contract to enforce _afterAuthedAction()
+    ///      is executed after the initial function execution.
     function _drop(LibSecp256k1.Point[] memory pubKeys)
         internal
         override(Scribe)
     {
         super._drop(pubKeys);
 
-        _dropOpPokeData();
+        _afterAuthedAction();
     }
 
-    /// @dev Overwritten from upstream contract to enforce _opPokeData is
-    ///      dropped.
+    /// @dev Overwritten from upstream contract to enforce _afterAuthedAction()
+    ///      is executed after the initial function execution.
     function _setBar(uint8 bar_) internal override(Scribe) {
         super._setBar(bar_);
 
-        _dropOpPokeData();
+        _afterAuthedAction();
     }
 
-    /// @dev Drops the _opPokeData.
-    function _dropOpPokeData() private {
-        // @todo Should include commitment? Events needs refactor anyway.
-        emit OpPokeDataDropped(msg.sender, _opPokeData.val, _opPokeData.age);
-        delete _opPokeData;
+    /// @dev Ensures an auth'ed configuration update does not enable
+    ///      successfully challenging a prior to the update valid opPoke.
+    function _afterAuthedAction() private {
+        // Decide whether _opPokeData is finalized
+        bool opPokeDataFinalized =
+            _opPokeData.age + opChallengePeriod <= uint32(block.timestamp);
+
+        // If _opPokeData is not finalized, drop it.
+        //
+        // Note that this ensures a valid opPoke cannot become invalid
+        // after an auth'ed configuration change.
+        if (!opPokeDataFinalized) {
+            emit OpPokeDataDropped(msg.sender, _opPokeData.val, _opPokeData.age);
+            delete _opPokeData;
+        }
+
+        // Set the age of contract's current value to block.timestamp.
+        //
+        // Note that this ensures an already signed, but now possibly outdated
+        // with regards to contract configurations, opPoke payload cannot be
+        // opPoke'd anymore.
+        if (opPokeDataFinalized && _opPokeData.age > _pokeData.age) {
+            _opPokeData.age = uint32(block.timestamp);
+        } else {
+            _pokeData.age = uint32(block.timestamp);
+        }
     }
 
     /*//////////////////////////////////////////////////////////////
                             PRIVATE HELPERS
     //////////////////////////////////////////////////////////////*/
 
+    // @todo Args as calldata? No need to abi.encode calldata.
     function _constructCommitment(
         PokeData memory pokeData,
         SchnorrSignatureData memory schnorrData
@@ -322,10 +341,18 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
     }
 
     function _payChallengeBountyTo(address payable receiver) internal {
-        // Reward challenger the bounty of the contract's current ETH balance.
-        uint bounty = address(this).balance;
-        receiver.call{value: bounty}("");
-        // @todo Make event: Challenge Bounty Paid.
-        // @todo Return value of call?
+        // @todo Why again in assembly?
+        assembly ("memory-safe") {
+            // The bounty is the contract's ETH balance.
+            let bounty := selfbalance()
+
+            // Transfer the ETH and
+            let callFailed := call(gas(), receiver, bounty, 0, 0, 0, 0)
+
+            // Return if sending ETH failed.
+            if callFailed { return(0, 0) }
+
+            // @todo Emit log.
+        }
     }
 }
