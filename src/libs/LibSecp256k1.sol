@@ -134,7 +134,7 @@ library LibSecp256k1 {
     ///      Computation based on: https://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian.html#addition-madd-2007-bl.
     ///
     ///      Note that the formula assumes z2 = 1, which always holds if z2's
-    ///      point is given in Affine representation.
+    ///      point is given in Affine coordinates.
     ///
     ///      Note that eventhough the function is marked as pure, to be
     ///      understood as only being dependent on the input arguments, it
@@ -180,6 +180,9 @@ library LibSecp256k1 {
         uint x1 = self.x;
         uint y1 = self.y;
         uint z1 = self.z;
+
+        // @todo Why not cache p's coordinates on stack?
+        // @todo Measure difference!
 
         // Compute z1_2 = z1²     (mod P)
         //              = z1 * z1 (mod P)

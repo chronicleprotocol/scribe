@@ -111,6 +111,12 @@ interface IScribe {
         SchnorrSignatureData calldata schnorrData
     ) external view returns (bool ok, bytes memory err);
 
+    // @todo IScribe NatSpec documentation.
+    function constructSchnorrMessage(PokeData calldata pokeData)
+        external
+        view
+        returns (bytes32);
+
     /// @notice Returns whether address `who` is a feed.
     /// @param who The address to check.
     /// @return isFeed True if `who` is a feed, false otherwise.
@@ -120,8 +126,6 @@ interface IScribe {
     /// @dev May contain duplicates.
     /// @return feeds List of feed addresses.
     function feeds() external view returns (address[] memory feeds);
-
-    // @todo Make function returning message to be signed for lift feed.
 
     /// @notice Returns the message to be signed to prove ownership of a public
     ///         key in order to be lifted to a feed.

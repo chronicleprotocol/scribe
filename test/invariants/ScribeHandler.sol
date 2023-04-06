@@ -11,7 +11,7 @@ import {LibHelpers} from "../utils/LibHelpers.sol";
 
 contract ScribeHandler is CommonBase, StdUtils {
     using LibSecp256k1 for LibSecp256k1.Point;
-    // @todo use LibHelper for Feeds. Can be done in all tests.
+    using LibHelpers for LibHelpers.Feed[];
 
     uint public constant MAX_BAR = 10;
 
@@ -96,15 +96,15 @@ contract ScribeHandler is CommonBase, StdUtils {
         }
 
         // Create schnorrSignatureData.
-        IScribe.SchnorrSignatureData memory schnorrSignatureData =
-            LibHelpers.makeSchnorrSignature(signers, pokeData, WAT);
+        IScribe.SchnorrSignatureData memory schnorrData;
+        schnorrData = signers.signSchnorrMessage(scribe, pokeData);
 
         // Execute poke.
-        scribe.poke(pokeData, schnorrSignatureData);
+        scribe.poke(pokeData, schnorrData);
 
         // Store pokeData, schnorrSignatureData and current timestamp.
         _ghost_pokeDatas.push(pokeData);
-        _ghost_schnorrSignatureDatas.push(schnorrSignatureData);
+        _ghost_schnorrSignatureDatas.push(schnorrData);
         ghost_lastPokeTimestamp = uint32(block.timestamp);
     }
 
@@ -141,8 +141,8 @@ contract ScribeHandler is CommonBase, StdUtils {
         }
 
         // @todo Make invalid, if requested.
-        IScribe.SchnorrSignatureData memory schnorrSignatureData =
-            LibHelpers.makeSchnorrSignature(signers, pokeData, WAT);
+        IScribe.SchnorrSignatureData memory schnorrData;
+        schnorrData = signers.signSchnorrMessage(scribe, pokeData);
 
         // @todo If requested, randomize order of signers.
         if (!sortSigners) {
@@ -150,11 +150,11 @@ contract ScribeHandler is CommonBase, StdUtils {
         }
 
         // Execute poke.
-        scribe.poke(pokeData, schnorrSignatureData);
+        scribe.poke(pokeData, schnorrData);
 
-        // Store pokeData, schnorrSignatureData and current timestamp.
+        // Store pokeData, schnorrData and current timestamp.
         _ghost_pokeDatas.push(pokeData);
-        _ghost_schnorrSignatureDatas.push(schnorrSignatureData);
+        _ghost_schnorrSignatureDatas.push(schnorrData);
         ghost_lastPokeTimestamp = uint32(block.timestamp);
     }
 

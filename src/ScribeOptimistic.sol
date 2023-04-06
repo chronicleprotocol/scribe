@@ -88,6 +88,12 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
             revert InChallengePeriod();
         }
 
+        // @todo Optimize schnorrData calldata usage. Do not load into memory?
+        //       Use assembly, overwrite everything from solc (scratch space, etc)
+        //       _after_ everything else is done and no execution given back to solc.
+        //       This should lower the memory usage because we overwrite already
+        //       allocated one and don't just expand the memory.
+
         // Construct commitment. The commitment is expected to be signed by a
         // feed via ECDSA.
         bytes32 commitment = _constructCommitment(pokeData, schnorrData);
@@ -131,6 +137,7 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
 
     // @todo Should opChallenge return bool to indicate whether challenge
     //       succeeded?
+    // @todo Remove pokeData argument?
     /// @inheritdoc IScribeOptimistic
     function opChallenge(
         PokeData calldata pokeData,

@@ -174,17 +174,7 @@ contract Scribe is IScribe, Auth, Toll {
         }
 
         // Construct Schnorr signed message.
-        // @todo Malleability due to encodePacked vs encode?
-        // @todo Calldata is already abi encoded. Possible to optimize?
-        //       See https://medium.com/coinmonks/full-knowledge-user-proofs-working-with-storage-without-paying-for-gas-e124cef0c078.
-        bytes32 schnorrMessage = keccak256(
-            abi.encode(
-                "\x19Ethereum Signed Message:\n32",
-                pokeData.val,
-                pokeData.age,
-                wat
-            )
-        );
+        bytes32 schnorrMessage = constructSchnorrMessage(pokeData);
 
         // Perform signature verification.
         bool ok = aggPubKey.toAffine().verifySignature(
@@ -201,6 +191,24 @@ contract Scribe is IScribe, Auth, Toll {
 
         // Otherwise Schnorr signature is valid.
         return (true, new bytes(0));
+    }
+
+    function constructSchnorrMessage(PokeData calldata pokeData)
+        public
+        view
+        returns (bytes32)
+    {
+        // @todo Malleability due to encodePacked vs encode?
+        // @todo Calldata is already abi encoded. Possible to optimize?
+        //       See https://medium.com/coinmonks/full-knowledge-user-proofs-working-with-storage-without-paying-for-gas-e124cef0c078.
+        return keccak256(
+            abi.encode(
+                "\x19Ethereum Signed Message:\n32",
+                pokeData.val,
+                pokeData.age,
+                wat
+            )
+        );
     }
 
     /*//////////////////////////////////////////////////////////////

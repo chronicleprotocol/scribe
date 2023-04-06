@@ -17,6 +17,7 @@ import {LibHelpers} from "./utils/LibHelpers.sol";
  */
 abstract contract IScribeTest is Test {
     using LibSecp256k1 for LibSecp256k1.Point;
+    using LibHelpers for LibHelpers.Feed[];
 
     IScribe private scribe;
 
@@ -112,9 +113,7 @@ abstract contract IScribeTest is Test {
         vm.assume(pokeData.val != 0);
         vm.assume(pokeData.age != 0);
 
-        scribe.poke(
-            pokeData, LibHelpers.makeSchnorrSignature(feeds, pokeData, WAT)
-        );
+        scribe.poke(pokeData, feeds.signSchnorrMessage(scribe, pokeData));
 
         assertEq(scribe.read(), pokeData.val);
         (uint val, bool ok) = scribe.peek();
@@ -129,12 +128,13 @@ abstract contract IScribeTest is Test {
         pokeData.val = 1;
         pokeData.age = 0;
 
+        IScribe.SchnorrSignatureData memory schnorrData;
+        schnorrData = feeds.signSchnorrMessage(scribe, pokeData);
+
         vm.expectRevert(
             abi.encodeWithSelector(IScribe.StaleMessage.selector, 0, 0)
         );
-        scribe.poke(
-            pokeData, LibHelpers.makeSchnorrSignature(feeds, pokeData, WAT)
-        );
+        scribe.poke(pokeData, schnorrData);
     }
 
     function testFuzz_poke_Continuously(IScribe.PokeData[] memory pokeDatas)
@@ -159,8 +159,7 @@ abstract contract IScribeTest is Test {
 
         for (uint i; i < pokeDatas.length; i++) {
             scribe.poke(
-                pokeDatas[i],
-                LibHelpers.makeSchnorrSignature(feeds, pokeDatas[i], WAT)
+                pokeDatas[i], feeds.signSchnorrMessage(scribe, pokeDatas[i])
             );
 
             assertEq(scribe.read(), pokeDatas[i].val);
@@ -179,23 +178,23 @@ abstract contract IScribeTest is Test {
         vm.assume(pokeData.age != 0);
 
         // Poke once.
-        scribe.poke(
-            pokeData, LibHelpers.makeSchnorrSignature(feeds, pokeData, WAT)
-        );
+        scribe.poke(pokeData, feeds.signSchnorrMessage(scribe, pokeData));
 
         // Last poke's age is set to block.timestamp.
         uint currentAge = uint32(block.timestamp);
 
         // Poke again with age ∊ [0, block.timestamp].
         pokeData.age = uint32(bound(pokeData.age, 0, block.timestamp));
+
+        IScribe.SchnorrSignatureData memory schnorrData;
+        schnorrData = feeds.signSchnorrMessage(scribe, pokeData);
+
         vm.expectRevert(
             abi.encodeWithSelector(
                 IScribe.StaleMessage.selector, pokeData.age, currentAge
             )
         );
-        scribe.poke(
-            pokeData, LibHelpers.makeSchnorrSignature(feeds, pokeData, WAT)
-        );
+        scribe.poke(pokeData, schnorrData);
     }
 
     function testFuzz_poke_FailsIf_SchnorrSignatureData_HasInsufficientNumberOfSigners(
@@ -216,14 +215,15 @@ abstract contract IScribeTest is Test {
             feeds_[i] = feeds[i];
         }
 
+        IScribe.SchnorrSignatureData memory schnorrData;
+        schnorrData = feeds_.signSchnorrMessage(scribe, pokeData);
+
         vm.expectRevert(
             abi.encodeWithSelector(
                 IScribe.BarNotReached.selector, uint8(numberSigners), bar
             )
         );
-        scribe.poke(
-            pokeData, LibHelpers.makeSchnorrSignature(feeds_, pokeData, WAT)
-        );
+        scribe.poke(pokeData, schnorrData);
     }
 
     function testFuzz_poke_FailsIf_SchnorrSignatureData_HasNonOrderedSigners(
@@ -247,12 +247,13 @@ abstract contract IScribeTest is Test {
         uint index = bound(duplicateIndexSeed, 1, feeds_.length - 1);
         feeds_[index] = feeds_[0];
 
+        IScribe.SchnorrSignatureData memory schnorrData;
+        schnorrData = feeds_.signSchnorrMessage(scribe, pokeData);
+
         vm.expectRevert(
             abi.encodeWithSelector(IScribe.SignersNotOrdered.selector)
         );
-        scribe.poke(
-            pokeData, LibHelpers.makeSchnorrSignature(feeds_, pokeData, WAT)
-        );
+        scribe.poke(pokeData, schnorrData);
     }
 
     function testFuzz_poke_FailsIf_SchnorrSignatureData_HasNonFeedAsSigner(
@@ -276,15 +277,15 @@ abstract contract IScribeTest is Test {
         uint index = bound(nonFeedIndexSeed, 1, feeds_.length - 1);
         feeds_[index] = notFeed;
 
-        IScribe.SchnorrSignatureData memory schnorrSignatureData =
-            LibHelpers.makeSchnorrSignature(feeds_, pokeData, WAT);
+        IScribe.SchnorrSignatureData memory schnorrData;
+        schnorrData = feeds_.signSchnorrMessage(scribe, pokeData);
 
         vm.expectRevert(
             abi.encodeWithSelector(
                 IScribe.SignerNotFeed.selector, notFeed.pubKey.toAddress()
             )
         );
-        scribe.poke(pokeData, schnorrSignatureData);
+        scribe.poke(pokeData, schnorrData);
     }
 
     function test_poke_FailsIf_SchnorrSignatureData_FailsSignatureVerification()

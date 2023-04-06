@@ -36,30 +36,46 @@ import {LibSecp256k1} from "./LibSecp256k1.sol";
  *      (Single) Signing:
  *      ----------------
  *
- *          1. Select a _cryptographically secure_ k ∊ [1, Q-1].
+ *          1. Select a _cryptographically secure_ k ∊ [1, Q-1]
  *             Note that k can be deterministically computed using
  *             H(m ‖ x) (mod Q), which keeps k random for everyone not
  *             knowing the private key x while it also ensures a nonce is never
- *             reused for different messages.
+ *             reused for different messages
  *
  *          2. Compute point R = [k]G
  *
  *          3. Construct Rₑ being the Ethereum address of R
- *             Let Rₑ be the _commitment_.
+ *             Let Rₑ be the _commitment_
  *
  *          4. Construct e = H(Pₓ ‖ Pₚ ‖ Rₑ ‖ m)
- *             Let e be the _challenge_.
+ *             Let e be the _challenge_
  *
  *          5. Compute s = k - (e * x)
- *             Let s be the _signature_.
+ *             Let s be the _signature_
  *
  *          => The public key P signs via the signature s and the commitment Rₑ
- *             the message m.
+ *             the message m
  *
  *      (Multiple) Signing:
  *      ------------------
  *
- *          TODO Document how to construct Schnorr signature in multi-sig context.
+ * (local)  1. Select k ∊ [1, Q-1]
+ *
+ * (local)  2. Compute R = [k]G
+ *
+ * (synced) 3. R = R_1 + R_2 + ... + R_n
+ *               = [k_1]G + [k_2]G + ... + [k_3]G
+ *               = [k_1 + k_2 + ... + k_3]G
+ *
+ * (synced) 4. P = P_1 + P_2 + ... + P_n
+ *
+ * (synced) 5. Construct e = H(Pₓ ‖ Pₚ ‖ Rₑ ‖ m)
+ *
+ * (local)  6. s = k - (e * x)      (use your local k!)
+ *
+ * (synced) 7. s = s_1 + s_2 + ... + s_n
+ *               = k_1 - (e * x_1) + k_2 - (e * x_2) + ...
+ *               = (k_1 + k_2 + ... + k_n) * (e - (x_1 + x_2 + ... + x_n))
  *
  *      Verification:
  *      ------------
@@ -86,6 +102,7 @@ import {LibSecp256k1} from "./LibSecp256k1.sol";
  *          - [ECDSA Wikipedia](https://en.wikipedia.org/wiki/Elliptic_Curve_Digital_Signature_Algorithm)
  *          - [github.com/sipa/secp256k1](https://github.com/sipa/secp256k1/blob/968e2f415a5e764d159ee03e95815ea11460854e/src/modules/schnorr/schnorr.md)
  *          - [BIP-340](https://github.com/bitcoin/bips/blob/master/bip-0340.mediawiki)
+ *          - [Analysis of Bitcoin Improvement Proposal 340](https://courses.csail.mit.edu/6.857/2020/projects/4-Elbahrawy-Lovejoy-Ouyang-Perez.pdf)
  *
  *
  * @dev About the Security of the Schnorr Signature Scheme
@@ -235,8 +252,12 @@ library LibSchnorr {
             // challenge malleability issues.
             // @todo ^^ Not 100% whether necessary. Better safe than sorry for the
             //       moment.
-            abi.encode(pubKey.x, uint8(pubKey.yParity()), commitment, message)
+            abi.encodePacked(
+                pubKey.x, uint8(pubKey.yParity()), message, commitment
+            )
+            // @todo ^^ (mod Q) missing?
         );
+        // @todo XXXXXXXX
 
         // Compute msgHash = -sig * Pₓ      (mod Q)
         //                 = Q - (sig * Pₓ) (mod Q)
@@ -274,6 +295,30 @@ library LibSchnorr {
         // the commitment.
         // @todo Schnorr signature verification turned off
         //return commitment == recovered;
-        return address(0xcafe) != recovered;
+        return true;
+    }
+
+    function verifySignatureBIP340(
+        LibSecp256k1.Point memory pubKey,
+        LibSecp256k1.Point memory commitment,
+        bytes32 message,
+        bytes32 signature
+    ) internal pure returns (bool) {
+        // Compute challenge.
+        //bytes32 tag = sha256("BIP0340/challenge");
+        bytes32 tag =
+            0x7bb52d7a9fef58323eb1bf7a407db382d2f3f2d81bb1224f49fe518f6d48d37c;
+        bytes32 challenge = bytes32(uint(
+            sha256(abi.encodePacked(tag, tag, commitment.x, pubKey.x, message))
+        ) % LibSecp256k1.Q());
+
+        // @audit-info Same as legacy implementation.
+        bytes32 msgHash = bytes32(LibSecp256k1.Q() - mulmod(uint(signature), pubKey.x, LibSecp256k1.Q()));
+        bytes32 s = bytes32(LibSecp256k1.Q() - mulmod(uint(challenge), pubKey.x, LibSecp256k1.Q()));
+
+        // 27 apparently used to signal even parity (which it will always have).
+        // @audit ^^ Why always even parity?
+        address rvh = ecrecover(msgHash, 27, bytes32(pubKey.x), s);
+        return rvh == commitment.toAddress();
     }
 }

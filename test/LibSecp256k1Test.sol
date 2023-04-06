@@ -65,5 +65,4 @@ abstract contract LibSecp256k1Test is Test {
     //////////////////////////////////////////////////////////////*/
 
     // @todo Secp256k1 Benchmarks
-
 }

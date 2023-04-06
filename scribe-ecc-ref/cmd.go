@@ -210,3 +210,11 @@ func printPoint(x, y *big.Int, debug bool) {
 	}
 	fmt.Println()
 }
+
+func printSignature(sig *big.Int, debug bool) {
+	if debug {
+
+	} else {
+		fmt.Printf("%064x", sig)
+	}
+}

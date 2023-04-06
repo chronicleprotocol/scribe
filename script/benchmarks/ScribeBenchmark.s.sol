@@ -30,6 +30,8 @@ import {LibHelpers} from "test/utils/LibHelpers.sol";
  *      During the first execution the storage slots are empty.
  */
 contract ScribeBenchmark is Script {
+    using LibHelpers for LibHelpers.Feed[];
+
     /// @dev Anvil's default mnemonic.
     string internal constant ANVIL_MNEMONIC =
         "test test test test test test test test test test test junk";
@@ -91,8 +93,8 @@ contract ScribeBenchmark is Script {
             IScribe.PokeData({val: type(uint128).max, age: type(uint32).max});
 
         // Create SchnorrSignatureData.
-        IScribe.SchnorrSignatureData memory schnorrData =
-            LibHelpers.makeSchnorrSignature(feeds, pokeData, scribe.wat());
+        IScribe.SchnorrSignatureData memory schnorrData;
+        schnorrData = feeds.signSchnorrMessage(scribe, pokeData);
 
         // Poke.
         vm.broadcast(relayer);

@@ -87,7 +87,6 @@ interface IScribeOptimistic is IScribe {
     ///      contract.
     /// @dev Expects a challengeable opPoke.
     /// @dev Expects arguments to match initial opPoke arguments.
-    /// @param pokeData The PokeData being challenged.
     /// @param schnorrData The SchnorrSignatureData initially provided via
     ///                    opPoke.
     function opChallenge(

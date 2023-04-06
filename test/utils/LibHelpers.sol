@@ -52,27 +52,22 @@ library LibHelpers {
                                SIGNATURES
     //////////////////////////////////////////////////////////////*/
 
-    function makeSchnorrSignature(
+    function signSchnorrMessage(
         Feed[] memory signers,
-        IScribe.PokeData memory pokeData,
-        bytes32 wat
-    ) internal pure returns (IScribe.SchnorrSignatureData memory) {
-        bytes32 message = keccak256(
-            abi.encodePacked(
-                "\x19Ethereum Signed Message:\n32",
-                pokeData.val,
-                pokeData.age,
-                wat
-            )
-        );
+        IScribe scribeInstance,
+        IScribe.PokeData memory pokeData
+    ) internal view returns (IScribe.SchnorrSignatureData memory) {
+        // Get message to sign from scribe instance.
+        bytes32 message = scribeInstance.constructSchnorrMessage(pokeData);
 
+        // Create sorted list of signers' addresses.
         address[] memory signerAddrs = new address[](signers.length);
         for (uint i; i < signers.length; i++) {
             signerAddrs[i] = signers[i].pubKey.toAddress();
         }
         signerAddrs = sortAddresses(signerAddrs);
 
-        // @todo Implement once Schnorr signature verification is enabled.
+        // @todo Sign message via Schnorr.
         bytes32 signature = bytes32("chronicle");
         address commitment = address(0xdead);
 
