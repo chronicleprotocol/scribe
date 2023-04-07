@@ -442,7 +442,6 @@ contract SchnorrSpecification is Test {
         e %= LibSecp256k1.Q();
 
         // Step 3: Compute signature s.
-        // TODO
         //
         // First we compute the signatures for each signer as defined in Step 3...
         uint[] memory ss = new uint[](signers.length);
