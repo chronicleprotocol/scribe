@@ -100,6 +100,10 @@ contract Scribe is IScribe, Auth, Toll {
         emit Poked(msg.sender, pokeData.val, pokeData.age);
     }
 
+    //function poke_272288807(PokeData calldata pokeData, SchnorrSignatureData calldata schnorrData) external {
+    //    // @todo Has function selector of 0x00000000.
+    //}
+
     /// @inheritdoc IScribe
     function verifySchnorrSignature(
         PokeData calldata pokeData,
@@ -280,7 +284,9 @@ contract Scribe is IScribe, Auth, Toll {
         require(!pubKey.isZeroPoint());
 
         address feed = pubKey.toAddress();
-        require(feed != address(0));
+
+        // Check abdicated due to negligible probability.
+        // require(feed != address(0));
 
         address recovered =
             ecrecover(feedLiftMessage, ecdsaData.v, ecdsaData.r, ecdsaData.s);
@@ -306,7 +312,9 @@ contract Scribe is IScribe, Auth, Toll {
             require(!pubKeys[i].isZeroPoint());
 
             feed = pubKeys[i].toAddress();
-            require(feed != address(0));
+
+            // Check abdicated due to negligible probability.
+            // require(feed != address(0));
 
             recovered = ecrecover(
                 feedLiftMessage,

@@ -69,7 +69,7 @@ import {LibSecp256k1} from "./LibSecp256k1.sol";
  *
  * (synced) 4. P = P_1 + P_2 + ... + P_n
  *
- * (synced) 5. Construct e = H(Pₓ ‖ Pₚ ‖ Rₑ ‖ m)
+ * (synced) 5. Construct e = H(Pₓ ‖ Pₚ ‖ m ‖ Rₑ)
  *
  * (local)  6. s = k - (e * x)      (use your local k!)
  *
@@ -246,7 +246,7 @@ library LibSchnorr {
         // It is therefore the feeds responsibility to ensure the s-value
         // computed via their Schnorr signature is never ≥ Q!
 
-        // Construct challenge = H(Pₓ ‖ Pₚ ‖ Rₑ ‖ m).
+        // Construct challenge = H(Pₓ ‖ Pₚ ‖ m ‖ Rₑ).
         bytes32 challenge = keccak256(
             // Note to use abi.encode instead of abi.encodePacked to prevent
             // challenge malleability issues.
@@ -255,8 +255,8 @@ library LibSchnorr {
             abi.encodePacked(
                 pubKey.x, uint8(pubKey.yParity()), message, commitment
             )
-            // @todo ^^ (mod Q) missing?
         );
+        // @todo ^^ (mod Q) missing?
         // @todo XXXXXXXX
 
         // Compute msgHash = -sig * Pₓ      (mod Q)
@@ -294,8 +294,8 @@ library LibSchnorr {
         // Verification succeeds if the ecrecover'ed address equals Rₑ, i.e.
         // the commitment.
         // @todo Schnorr signature verification turned off
-        //return commitment == recovered;
-        return true;
+        return commitment == recovered;
+        //return true;
     }
 
     function verifySignatureBIP340(
@@ -304,21 +304,30 @@ library LibSchnorr {
         bytes32 message,
         bytes32 signature
     ) internal pure returns (bool) {
-        // Compute challenge.
-        //bytes32 tag = sha256("BIP0340/challenge");
-        bytes32 tag =
-            0x7bb52d7a9fef58323eb1bf7a407db382d2f3f2d81bb1224f49fe518f6d48d37c;
-        bytes32 challenge = bytes32(uint(
-            sha256(abi.encodePacked(tag, tag, commitment.x, pubKey.x, message))
-        ) % LibSecp256k1.Q());
+        // sha256("BIP0340/challenge");
+        bytes32 tag = sha256("BIP0340/challenge");
 
-        // @audit-info Same as legacy implementation.
-        bytes32 msgHash = bytes32(LibSecp256k1.Q() - mulmod(uint(signature), pubKey.x, LibSecp256k1.Q()));
-        bytes32 s = bytes32(LibSecp256k1.Q() - mulmod(uint(challenge), pubKey.x, LibSecp256k1.Q()));
+        bytes32 challenge = bytes32(
+            uint(
+                sha256(
+                    abi.encodePacked(tag, tag, commitment.x, pubKey.x, message)
+                )
+            ) % LibSecp256k1.Q()
+        );
 
-        // 27 apparently used to signal even parity (which it will always have).
-        // @audit ^^ Why always even parity?
-        address rvh = ecrecover(msgHash, 27, bytes32(pubKey.x), s);
-        return rvh == commitment.toAddress();
+        bytes32 msgHash = bytes32(
+            LibSecp256k1.Q()
+                - mulmod(uint(signature), pubKey.x, LibSecp256k1.Q())
+        );
+
+        bytes32 s = bytes32(
+            LibSecp256k1.Q()
+                - mulmod(uint(challenge), pubKey.x, LibSecp256k1.Q())
+        );
+
+        address recovered =
+            ecrecover(msgHash, uint8(pubKey.yParity() + 27), bytes32(pubKey.x), s);
+
+        return recovered == commitment.toAddress();
     }
 }

@@ -74,6 +74,59 @@ library LibHelpers {
         return IScribe.SchnorrSignatureData(signerAddrs, signature, commitment);
     }
 
+    function signSchnorrMessage(Feed memory signer, bytes32 message)
+        //IScribe.scribeInstance,
+        //IScribe.PokeData memory pokeData
+        internal
+        returns (IScribe.SchnorrSignatureData memory)
+    {
+        // Get message to sign from scribe instance.
+        //bytes32 message = scribeInstance.constructSchnorrMessage(pokeData);
+
+        // Select k.
+        //
+        // Let k = H(privKey ‖ m)
+        uint k = uint(keccak256(abi.encodePacked(signer.privKey, message)));
+
+        // Compute R = [k]G.
+        LibSecp256k1.Point memory R = LibScribeECCRef.scalarMultiplication(k);
+
+        // Let commitment be the Ethereum address of R.
+        address commitment = R.toAddress();
+
+        // Construct e = H(Pₓ ‖ Pₚ ‖ Rₑ ‖ m)
+        uint e = uint(
+            keccak256(
+                abi.encodePacked(
+                    signer.pubKey.x,
+                    uint8(signer.pubKey.yParity()),
+                    message,
+                    commitment
+                )
+            )
+        );
+
+        // Compute s = k - (e * x)       (mod Q)
+        //           = k + (Q - (e * x)) (mod Q)
+        bytes32 s = bytes32(
+            addmod(
+                k,
+                LibSecp256k1.Q() - mulmod(e, signer.privKey, LibSecp256k1.Q()),
+                LibSecp256k1.Q()
+            )
+        );
+
+        address[] memory signers = new address[](1);
+        signers[0] = signer.pubKey.toAddress();
+
+        IScribe.SchnorrSignatureData memory schnorrData;
+        schnorrData.signers = signers;
+        schnorrData.signature = s;
+        schnorrData.commitment = commitment;
+
+        return schnorrData;
+    }
+
     function makeECDSASignature(
         Feed memory signer,
         IScribe.PokeData memory pokeData,

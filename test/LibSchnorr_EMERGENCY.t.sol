@@ -3,14 +3,17 @@ pragma solidity ^0.8.16;
 import {Test} from "forge-std/Test.sol";
 import {console2} from "forge-std/console2.sol";
 
+import {IScribe} from "src/IScribe.sol";
+
 import {LibSchnorr} from "src/libs/LibSchnorr.sol";
 import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
 
+import {LibHelpers} from "./utils/LibHelpers.sol";
+
 contract LibSchnorrEMERGENCYTest is Test {
+    // forgefmt:disable-start
     using LibSecp256k1 for LibSecp256k1.Point;
     using LibSecp256k1 for LibSecp256k1.JacobianPoint;
-
-    // forgefmt: disable-start
 
     // Original Test from Oorbit.
     function test_James_Call() public {
@@ -31,6 +34,23 @@ contract LibSchnorrEMERGENCYTest is Test {
         );
         assertTrue(ok);
     }
+
+    function test_SchnorrSoliditySpec() public {
+        LibHelpers.Feed memory feed = LibHelpers.makeFeed(1);
+        bytes32 message = keccak256("message");
+
+        IScribe.SchnorrSignatureData memory schnorrData;
+        schnorrData = LibHelpers.signSchnorrMessage(
+            feed,
+            message
+        );
+
+        bool ok = LibSchnorr.verifySignature(
+            feed.pubKey, message, schnorrData.signature, schnorrData.commitment
+        );
+        assertTrue(ok);
+    }
+
 
     // Test created via musig-wrapper.
     function test_musigWrapper() public {
