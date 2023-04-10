@@ -94,13 +94,11 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         //       This should lower the memory usage because we overwrite already
         //       allocated one and don't just expand the memory.
 
-        // Construct commitment. The commitment is expected to be signed by a
-        // feed via ECDSA.
-        bytes32 commitment = _constructCommitment(pokeData, schnorrData);
+        bytes32 ecdsaMessage = constructOpPokeMessage(pokeData, schnorrData);
 
         // Recover ECDSA signer.
         address signer =
-            ecrecover(commitment, ecdsaData.v, ecdsaData.r, ecdsaData.s);
+            ecrecover(ecdsaMessage, ecdsaData.v, ecdsaData.r, ecdsaData.s);
 
         // Revert if signer is not feed.
         if (_feeds[signer].isZeroPoint()) {
@@ -109,7 +107,7 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
 
         // Store the signer and bind them to their commitment.
         opFeed = signer;
-        opCommitment = commitment;
+        opCommitment = _hashOf(schnorrData);
 
         // If _opPokeData provides the current val, move it to the _pokeData
         // storage to free the _opPokeData slot. If the current val is provided
@@ -131,18 +129,17 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
             signer,
             pokeData.val,
             uint32(block.timestamp),
-            commitment
+            opCommitment
         );
     }
 
     // @todo Should opChallenge return bool to indicate whether challenge
     //       succeeded?
-    // @todo Remove pokeData argument?
     /// @inheritdoc IScribeOptimistic
-    function opChallenge(
-        PokeData calldata pokeData,
-        SchnorrSignatureData calldata schnorrData
-    ) external payable {
+    function opChallenge(SchnorrSignatureData calldata schnorrData)
+        external
+        payable
+    {
         // Load _opPokeData from storage.
         PokeData memory opPokeData = _opPokeData;
 
@@ -156,9 +153,7 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
             revert NoOpPokeToChallenge();
         }
 
-        // Note that the opCommitment is the ECDSA message signed during
-        // opPoke() by the opFeed.
-        bytes32 commitment = _constructCommitment(pokeData, schnorrData);
+        bytes32 commitment = _hashOf(schnorrData);
 
         // Revert if arguments do not match opCommitment.
         if (commitment != opCommitment) {
@@ -168,7 +163,9 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         // Verify schnorrSignatureData.
         bool ok;
         bytes memory err;
-        (ok, err) = verifySchnorrSignature(pokeData, schnorrData);
+        (ok, err) = verifySchnorrSignature(
+            constructPokeMessage(opPokeData), schnorrData
+        );
 
         if (ok) {
             // Decide whether _opPokeData stale already.
@@ -186,6 +183,24 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
             // Pay challenge bounty to caller.
             _payChallengeBountyTo(payable(msg.sender));
         }
+    }
+
+    function constructOpPokeMessage(
+        PokeData memory pokeData,
+        SchnorrSignatureData memory schnorrData
+    ) public pure returns (bytes32) {
+        return keccak256(
+            abi.encode(
+                "\x19Ethereum Signed Message:\n32",
+                pokeData.val,
+                pokeData.age,
+                // @todo Packed problem??
+                abi.encodePacked(schnorrData.signers),
+                schnorrData.signature,
+                schnorrData.commitment,
+                wat
+            )
+        );
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -314,7 +329,7 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
 
         // Set the age of contract's current value to block.timestamp.
         //
-        // Note that this ensures an already signed, but now possibly outdated
+        // Note that this ensures an already signed, but now possibly invalid
         // with regards to contract configurations, opPoke payload cannot be
         // opPoke'd anymore.
         if (opPokeDataFinalized && _opPokeData.age > _pokeData.age) {
@@ -328,23 +343,12 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
                             PRIVATE HELPERS
     //////////////////////////////////////////////////////////////*/
 
-    // @todo Args as calldata? No need to abi.encode calldata.
-    function _constructCommitment(
-        PokeData memory pokeData,
-        SchnorrSignatureData memory schnorrData
-    ) private pure returns (bytes32) {
-        return keccak256(
-            abi.encode(
-                "\x19Ethereum Signed Message:\n32",
-                pokeData.val,
-                pokeData.age,
-                // @todo Packed problem??
-                abi.encodePacked(schnorrData.signers),
-                schnorrData.signature,
-                schnorrData.commitment,
-                wat
-            )
-        );
+    function _hashOf(SchnorrSignatureData calldata schnorrData)
+        private
+        pure
+        returns (bytes32)
+    {
+        return keccak256(abi.encode(schnorrData));
     }
 
     function _payChallengeBountyTo(address payable receiver) internal {

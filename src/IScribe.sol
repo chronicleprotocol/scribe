@@ -98,7 +98,7 @@ interface IScribe {
     ///         `schnorrData`.
     /// @dev Expects `schnorrData`'s signature to be signed by exactly bar many
     ///      feeds.
-    /// @param pokeData The PokeData being assumed to be signed via the
+    /// @param message TODO NatSpec for missing argument
     ///                 `schnorrData`.
     /// @param schnorrData The SchnorrSignatureData to verify whether it proves
     ///                    the `pokeData`'s integrity.
@@ -107,12 +107,12 @@ interface IScribe {
     /// @return err Null if `pokeData`'s integrity proven via `schnorrData`,
     ///             abi-encoded custom error otherwise.
     function verifySchnorrSignature(
-        PokeData calldata pokeData,
+        bytes32 message,
         SchnorrSignatureData calldata schnorrData
     ) external view returns (bool ok, bytes memory err);
 
     // @todo IScribe NatSpec documentation.
-    function constructSchnorrMessage(PokeData calldata pokeData)
+    function constructPokeMessage(PokeData calldata pokeData)
         external
         view
         returns (bytes32);

@@ -85,14 +85,11 @@ interface IScribeOptimistic is IScribe {
     ///      As the contract is able to receive ETH and pays ETH as bounty for
     ///      invalidating opPokes, there is no risk of ETH being stuck in the
     ///      contract.
-    /// @dev Expects a challengeable opPoke.
-    /// @dev Expects arguments to match initial opPoke arguments.
     /// @param schnorrData The SchnorrSignatureData initially provided via
     ///                    opPoke.
-    function opChallenge(
-        PokeData calldata pokeData,
-        SchnorrSignatureData calldata schnorrData
-    ) external payable;
+    function opChallenge(SchnorrSignatureData calldata schnorrData)
+        external
+        payable;
 
     /// @notice Returns the feed's address of the last opPoke.
     /// @return The feed's address of the last opPoke.

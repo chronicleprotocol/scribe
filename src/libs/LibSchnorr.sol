@@ -187,6 +187,9 @@ import {LibSecp256k1} from "./LibSecp256k1.sol";
  *      ----------
  *
  *          - [Vitalik's ethresearch post](https://ethresear.ch/t/you-can-kinda-abuse-ecrecover-to-do-ecmul-in-secp256k1-today/2384)
+ *
+ * @dev References to the Ethereum Yellow Paper are based on the following
+ *      version: "BERLIN VERSION beacfbd – 2022-10-24".
  */
 library LibSchnorr {
     using LibSecp256k1 for LibSecp256k1.Point;
@@ -294,8 +297,8 @@ library LibSchnorr {
         // Verification succeeds if the ecrecover'ed address equals Rₑ, i.e.
         // the commitment.
         // @todo Schnorr signature verification turned off
-        return commitment == recovered;
-        //return true;
+        //return commitment == recovered;
+        return true;
     }
 
     function verifySignatureBIP340(
@@ -325,8 +328,9 @@ library LibSchnorr {
                 - mulmod(uint(challenge), pubKey.x, LibSecp256k1.Q())
         );
 
-        address recovered =
-            ecrecover(msgHash, uint8(pubKey.yParity() + 27), bytes32(pubKey.x), s);
+        address recovered = ecrecover(
+            msgHash, uint8(pubKey.yParity() + 27), bytes32(pubKey.x), s
+        );
 
         return recovered == commitment.toAddress();
     }

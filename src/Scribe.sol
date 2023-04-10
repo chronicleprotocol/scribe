@@ -86,7 +86,9 @@ contract Scribe is IScribe, Auth, Toll {
         // Verify schnorrSignatureData.
         bool ok;
         bytes memory err;
-        (ok, err) = verifySchnorrSignature(pokeData, schnorrData);
+        (ok, err) = verifySchnorrSignature(
+            constructPokeMessage(pokeData), schnorrData
+        );
 
         // Revert with err if verification failed.
         if (!ok) {
@@ -106,7 +108,7 @@ contract Scribe is IScribe, Auth, Toll {
 
     /// @inheritdoc IScribe
     function verifySchnorrSignature(
-        PokeData calldata pokeData,
+        bytes32 message,
         SchnorrSignatureData calldata schnorrData
     ) public view returns (bool, bytes memory) {
         // Expect number of signers to equal bar.
@@ -178,11 +180,11 @@ contract Scribe is IScribe, Auth, Toll {
         }
 
         // Construct Schnorr signed message.
-        bytes32 schnorrMessage = constructSchnorrMessage(pokeData);
+        //bytes32 schnorrMessage = constructSchnorrMessage(pokeData);
 
         // Perform signature verification.
         bool ok = aggPubKey.toAffine().verifySignature(
-            schnorrMessage, schnorrData.signature, schnorrData.commitment
+            message, schnorrData.signature, schnorrData.commitment
         );
 
         // Expect signature verification to succeed.
@@ -197,7 +199,7 @@ contract Scribe is IScribe, Auth, Toll {
         return (true, new bytes(0));
     }
 
-    function constructSchnorrMessage(PokeData calldata pokeData)
+    function constructPokeMessage(PokeData memory pokeData)
         public
         view
         returns (bytes32)

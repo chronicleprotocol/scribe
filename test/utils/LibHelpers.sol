@@ -58,7 +58,7 @@ library LibHelpers {
         IScribe.PokeData memory pokeData
     ) internal view returns (IScribe.SchnorrSignatureData memory) {
         // Get message to sign from scribe instance.
-        bytes32 message = scribeInstance.constructSchnorrMessage(pokeData);
+        bytes32 message = scribeInstance.constructPokeMessage(pokeData);
 
         // Create sorted list of signers' addresses.
         address[] memory signerAddrs = new address[](signers.length);
