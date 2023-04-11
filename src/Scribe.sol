@@ -86,9 +86,8 @@ contract Scribe is IScribe, Auth, Toll {
         // Verify schnorrSignatureData.
         bool ok;
         bytes memory err;
-        (ok, err) = verifySchnorrSignature(
-            constructPokeMessage(pokeData), schnorrData
-        );
+        (ok, err) =
+            verifySchnorrSignature(constructPokeMessage(pokeData), schnorrData);
 
         // Revert with err if verification failed.
         if (!ok) {
@@ -198,6 +197,8 @@ contract Scribe is IScribe, Auth, Toll {
         // Otherwise Schnorr signature is valid.
         return (true, new bytes(0));
     }
+
+    // @todo Define single tag = "\x19Ethereum Signed Message:\n32" || wat
 
     function constructPokeMessage(PokeData memory pokeData)
         public

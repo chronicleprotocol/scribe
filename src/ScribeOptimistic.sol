@@ -88,6 +88,23 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
             revert InChallengePeriod();
         }
 
+        // -- Optimistically assume ECDSA signature is valid.
+        //    We check that at the end of the function.
+
+        // If _opPokeData provides the current val, move it to the _pokeData
+        // storage to free the _opPokeData slot. If the current val is provided
+        // by _pokeData, the _opPokeData slot can be overwritten with the new
+        // pokeData.
+        if (opPokeData.age == age) {
+            _pokeData = opPokeData;
+        }
+
+        // Store given pokeData in opPokeData storage. Note to set the
+        // opPokeData's age to the current timestamp and _not_ the given
+        // pokeData's age.
+        _opPokeData.val = pokeData.val;
+        _opPokeData.age = uint32(block.timestamp);
+
         // @todo Optimize schnorrData calldata usage. Do not load into memory?
         //       Use assembly, overwrite everything from solc (scratch space, etc)
         //       _after_ everything else is done and no execution given back to solc.
@@ -109,20 +126,6 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         opFeed = signer;
         opCommitment = _hashOf(schnorrData);
 
-        // If _opPokeData provides the current val, move it to the _pokeData
-        // storage to free the _opPokeData slot. If the current val is provided
-        // by _pokeData, the _opPokeData slot can be overwritten with the new
-        // pokeData.
-        if (opPokeData.age == age) {
-            _pokeData = opPokeData;
-        }
-
-        // Store given pokeData in opPokeData storage. Note to set the
-        // opPokeData's age to the current timestamp and _not_ the given
-        // pokeData's age.
-        _opPokeData.val = pokeData.val;
-        _opPokeData.age = uint32(block.timestamp);
-
         // @todo Test for event emission.
         emit OpPoked(
             msg.sender,
@@ -131,6 +134,42 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
             uint32(block.timestamp),
             opCommitment
         );
+
+        bytes32 digest;
+        assembly ("memory-safe") {
+            // -- Overwrite everything from solidity.
+
+            // Store message prefix in memory position 0.
+            // @todo Make constant. Equals "\x19Ethereum Signed Message:\n32".
+            mstore(
+                0,
+                0x19457468657265756d205369676e6564204d6573736167653a0a333200000000
+            )
+
+            // Load calldata into memory starting at slot 1.
+            calldatacopy(0x20, 0, calldatasize())
+
+            // Store wat in memory after calldata.
+            mstore(calldatasize(), wat)
+
+            // Hash everything
+            digest := keccak256(0, add(calldatasize(), 0x20))
+
+            // @todo Is not ok.
+            let ok := eq(digest, ecdsaMessage)
+            if ok { revert(0, 0) }
+            invalid()
+
+            // Calldata:
+            // [ 0: 32]  pokeData.val
+            // [ 32: 63] pokeData.age
+            // [ 64: 95] offset(schnorrData.signers)         ???
+            // [ 96:127] schnorrData.signature
+            // [128:159] schnorrData.commitment
+            // [160:191] len(schnorrData.signers)
+            // [192:123] schnorrData[0]
+            // [124:161] schnorrData[1] ...
+        }
     }
 
     // @todo Should opChallenge return bool to indicate whether challenge
@@ -314,7 +353,7 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
     /// @dev Ensures an auth'ed configuration update does not enable
     ///      successfully challenging a prior to the update valid opPoke.
     function _afterAuthedAction() private {
-        // Decide whether _opPokeData is finalized
+        // Decide whether _opPokeData is finalized.
         bool opPokeDataFinalized =
             _opPokeData.age + opChallengePeriod <= uint32(block.timestamp);
 

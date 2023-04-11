@@ -9,6 +9,7 @@ solc_version = "0.8.16"
 optimizer = true
 optimizer_runs = 10_000
 via_ir = true # @todo Off during dev.
+extra_output_files = ["metadata", "irOptimized"]
 
 # Testing
 block_timestamp = 1_680_220_800 # March 31, 2023 at 00:00 GMT

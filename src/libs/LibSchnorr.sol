@@ -2,196 +2,198 @@ pragma solidity ^0.8.16;
 
 import {LibSecp256k1} from "./LibSecp256k1.sol";
 
-// @todo Make comment that Yellow Paper is from xxx commit.
-// @todo Replace ecrecover's python impl by formal definition.
-// @todo Document multi signing procedure.
 /**
  * @title LibSchnorr
  *
  * @notice Custom-purpose library for Schnorr signature verification on the
  *         secp256k1 curve
  *
- * @dev Definition of the Schnorr Signature Scheme
- *
- *      Terminology:
- *      -----------
- *
- *          H() = Keccak256 hash function
- *          ‖   = Concatenation operator
- *
- *          G   = Generator
- *          Q   = Order of the group
- *
- *          x   = The signer's private key as type uint256
- *          P   = The signer's public key, i.e. [x]G, as type
- *                (uint256, uint256)
- *          Pₓ  = P's x coordinate as type uint256
- *          Pₚ  = Parity of P's y coordinate, i.e. 0 if even, 1 if odd,
- *                as type uint8
- *
- *          m   = Message as type bytes32. Note that the message SHOULD
- *                be a keccak256 digest
- *          k   = Nonce as type uint256
- *
- *      (Single) Signing:
- *      ----------------
- *
- *          1. Select a _cryptographically secure_ k ∊ [1, Q-1]
- *             Note that k can be deterministically computed using
- *             H(m ‖ x) (mod Q), which keeps k random for everyone not
- *             knowing the private key x while it also ensures a nonce is never
- *             reused for different messages
- *
- *          2. Compute point R = [k]G
- *
- *          3. Construct Rₑ being the Ethereum address of R
- *             Let Rₑ be the _commitment_
- *
- *          4. Construct e = H(Pₓ ‖ Pₚ ‖ Rₑ ‖ m)
- *             Let e be the _challenge_
- *
- *          5. Compute s = k - (e * x)
- *             Let s be the _signature_
- *
- *          => The public key P signs via the signature s and the commitment Rₑ
- *             the message m
- *
- *      (Multiple) Signing:
- *      ------------------
- *
- * (local)  1. Select k ∊ [1, Q-1]
- *
- * (local)  2. Compute R = [k]G
- *
- * (synced) 3. R = R_1 + R_2 + ... + R_n
- *               = [k_1]G + [k_2]G + ... + [k_3]G
- *               = [k_1 + k_2 + ... + k_3]G
- *
- * (synced) 4. P = P_1 + P_2 + ... + P_n
- *
- * (synced) 5. Construct e = H(Pₓ ‖ Pₚ ‖ m ‖ Rₑ)
- *
- * (local)  6. s = k - (e * x)      (use your local k!)
- *
- * (synced) 7. s = s_1 + s_2 + ... + s_n
- *               = k_1 - (e * x_1) + k_2 - (e * x_2) + ...
- *               = (k_1 + k_2 + ... + k_n) * (e - (x_1 + x_2 + ... + x_n))
- *
- *      Verification:
- *      ------------
- *
- *          Input : (P, m, s, Rₑ)
- *          Output: True if signature verification succeeds, false otherwise
- *
- *          1. Compute e = H(Pₓ ‖ Pₚ ‖ Rₑ ‖ H(m))
- *
- *          2. Compute [e]P + [s]G               | s = k - (e * x)
- *                   = [e]P + [k - (e * x)]G     | P = [x]G
- *                   = [e * x]G + [k - e * x]G   | Distributive Law
- *                   = [e * x + k - e * x]G      | Commutative Law
- *                   = [k - e * x + e * x]G      | -(e * x) + (e * x) = 0
- *                   = [k]G                      | R = [k]G
- *                   = R                         | Let ()ₑ be the Ethereum address of a Point
- *                   → Rₑ
- *
- *          3. Verification succeeds iff ([e]P + [s]G)ₑ = Rₑ
- *
- *      References:
- *      ----------
- *
- *          - [ECDSA Wikipedia](https://en.wikipedia.org/wiki/Elliptic_Curve_Digital_Signature_Algorithm)
- *          - [github.com/sipa/secp256k1](https://github.com/sipa/secp256k1/blob/968e2f415a5e764d159ee03e95815ea11460854e/src/modules/schnorr/schnorr.md)
- *          - [BIP-340](https://github.com/bitcoin/bips/blob/master/bip-0340.mediawiki)
- *          - [Analysis of Bitcoin Improvement Proposal 340](https://courses.csail.mit.edu/6.857/2020/projects/4-Elbahrawy-Lovejoy-Ouyang-Perez.pdf)
- *
- *
- * @dev About the Security of the Schnorr Signature Scheme
- *
- *      The signing scheme utilized deviates slightly from the classical Schnorr
- *      signature scheme.
- *
- *      Instead of using the secp256k1 point R = [k]G directly, this scheme uses
- *      the Ethereum address of the point R. This decreases the difficulty of
- *      brute-forcing the signature from 256 bits (trying random secp256k1
- *      points) to 160 bits (trying random Ethereum addresses).
- *
- *      However, the difficulty of cracking a secp256k1 public key using the
- *      baby-step giant-step algorithm is O(√Q), with Q being the order of the
- *      group, leading to a difficulty of O(√(256²-1)), i.e. 128 bits.
- *
- *      Therefore, this signing scheme does not weaken the overall security.
- *
- *      References:
- *      ----------
- *
- *          - [Baby-step Giant-step Wikipedia](https://en.wikipedia.org/wiki/Baby-step_giant-step)
- *
- *
- * @dev About the `ecrecover` Precompile
- *
- *      This implementation uses the ecrecover precompile to perform the
- *      elliptic curve multiplication in secp256k1 necessary for the
- *      verification process.
- *
- *      TODO Replace with formal definition of ecrecover.
- *           See https://web.archive.org/web/20170921160141/http://cs.ucsb.edu/~koc/ccs130h/notes/ecdsa-cert.pdf
- *
- *      The ecrecover precompile can roughly be implemented in python via:
- *      ```python
- *      def ecdsa_raw_recover(msghash, vrs):
- *          v, r, s = vrs
- *          y = # (get y coordinate for EC point with x=r, with same parity as v)
- *          Gz = jacobian_multiply((Gx, Gy, 1), (Q - hash_to_int(msghash)) % Q)
- *          XY = jacobian_multiply((r, y, 1), s)
- *          Qr = jacobian_add(Gz, XY)
- *          N = jacobian_multiply(Qr, inv(r, Q))
- *          return from_jacobian(N)
- *      ```
- *
- *      Note that ecrecover also uses s as variable. From this point forward,
- *      the Schnorr signature's s is named sig.
- *
- *      Also note that all computations from this point forward are (mod Q).
- *
- *      A single ecrecover call can compute ([e]P + [sig]G)ₑ = ([k]G)ₑ = Rₑ via
- *      the following inputs:
- *          msghash = -sig * Pₓ
- *          v       = Pₚ + 27
- *          r       = Pₓ
- *          s       = e * Pₓ
- *
- *      Note that ecrecover returns the Ethereum address, i.e. truncated hash,
- *      of R, and not R itself.
- *
- *      The ecrecover call then digests to:
- *          Gz = [Q - (-sig * Pₓ)]G   | Double negation
- *             = [Q + (sig * Pₓ)]G    | Addition with Q can be removed in (mod Q)
- *             = [sig * Pₓ]G          | sig = k - (e * x)
- *             = [k - (e * x) * Pₓ]G
- *
- *          XY = [e * Pₓ]P       | P = [x]G
- *             = [e * Pₓ * x]G
- *
- *          Qr = Gz + XY                               | Gz = [k - (e * x) * Pₓ]G
- *             = [k - (e * x) * Pₓ]G + XY              | XY = [e * Pₓ * x]G
- *             = [k - (e * x) * Pₓ]G + [e * Pₓ * x]G
- *
- *          N  = Qr * Pₓ⁻¹                                           | Qr = [k - (e * x) * Pₓ]G + [e * Pₓ * x]G
- *             = ([k - (e * x) * Pₓ]G + [e * Pₓ * x]G) * Pₓ⁻¹        | Distributive law
- *             = [k - (e * x) * Pₓ * Pₓ⁻¹]G + [e * Pₓ * x * Pₓ⁻¹]G   | Pₓ * Pₓ⁻¹ = 1
- *             = [k - (e * x)]G + [e * x]G                           | sig = k - (e * x)
- *             = [sig]G + [e * x]G                                   | P = [x]G
- *             = [sig]G + [e]P
- *
- *      References:
- *      ----------
- *
- *          - [Vitalik's ethresearch post](https://ethresear.ch/t/you-can-kinda-abuse-ecrecover-to-do-ecmul-in-secp256k1-today/2384)
- *
  * @dev References to the Ethereum Yellow Paper are based on the following
  *      version: "BERLIN VERSION beacfbd – 2022-10-24".
  */
 library LibSchnorr {
+    // forgefmt: disable-start
+/*
+    Schnorr Signature Scheme Specification
+    ======================================
+
+    This paragraph specifies the Schnorr signature scheme over the elliptic
+    curve secp256k1 implemented via this library.
+
+
+    Terminology:
+    -----------
+
+    H() = Keccak256 hash function
+    ‖   = Concatenation operator
+
+    G   = Generator of secp256k1
+    Q   = Order of secp256k1
+
+    x   = The signer's private key as type uint256
+    P   = The signer's public key, i.e. [x]G, as type (uint256, uint256)
+    Pₓ  = P's x coordinate as type uint256
+    Pₚ  = Parity of P's y coordinate, i.e. 0 if even, 1 if odd, as type uint8
+
+    m   = Message as type bytes32.
+          Note that the message SHOULD be a keccak256 digest
+    k   = Nonce as type uint256
+
+
+    Signing:
+    -------
+
+    1. Select a _cryptographically secure_ k ∊ [1, Q-1]
+
+       Note that k can be deterministically constructed via H(m ‖ x) (mod Q).
+       This construction keeps k random for everyone not knowing the private key
+       x while it also ensures a nonce is never reused for different messages.
+
+    2. Compute R = [k]G
+
+    3. Construct Rₑ being the Ethereum address of R
+
+       Let Rₑ be the _commitment_
+
+    4. Construct e = H(Pₓ ‖ Pₚ ‖ Rₑ ‖ m) mod Q
+
+       Let e be the _challenge_
+
+    5. Compute s = k - (e * x)
+
+       Let s be the _signature_
+
+    => The public key P signs via the signature s and the commitment Rₑ the
+       message m
+
+
+    Verification:
+    ------------
+
+    Input : (P, m, s, Rₑ)
+    Output: True if signature verification succeeds, false otherwise
+
+    1. Compute e = H(Pₓ ‖ Pₚ ‖ Rₑ ‖ H(m)) mod Q
+
+    2. Compute [e]P + [s]G               | s = k - (e * x)
+             = [e]P + [k - (e * x)]G     | P = [x]G
+             = [e * x]G + [k - e * x]G   | Distributive Law
+             = [e * x + k - e * x]G      | Commutative Law
+             = [k - e * x + e * x]G      | -(e * x) + (e * x) = 0
+             = [k]G                      | R = [k]G
+             = R                         | Let ()ₑ be the Ethereum address of a Point
+             → Rₑ
+
+    3. Verification succeeds iff ([e]P + [s]G)ₑ = Rₑ
+
+
+    Key Aggregation for Multisignatures:
+    -----------------------------------
+
+    In order to efficiently aggregate public keys onchain, the key aggregation
+    mechanism for aggregated signatures is specified as the sum of the public
+    keys:
+
+        Let the signers' public keys be:
+            signers = [pubKey1, pubKey2, ..., pubKeyN]
+
+        Let the aggregated public key be:
+            aggPubKey = sum(signers)
+                      = pubKey1 + pubKey2 + ... + pubKeyN
+                      = [privKey1]G + [privKey2]G + ... + [privKeyN]G
+                      = [privKey1 + privKey2 + ... + privKeyN]G
+
+    Note that this aggregation scheme is vulnerable to rogue-key attacks!
+    In order to prevent such attacks, it MUST be verified that participating
+    public keys own the corresponding private key.
+
+
+    Other Security Considerations:
+    -----------------------------
+
+    Note that the signing scheme deviates slightly from the classical Schnorr
+    signature scheme.
+
+    Instead of using the secp256k1 point R = [k]G directly, this scheme uses the
+    Ethereum address of the point R. This decreases the difficulty of
+    brute-forcing the signature from 256 bits (trying random secp256k1 points)
+    to 160 bits (trying random Ethereum addresses).
+
+    However, the difficulty of cracking a secp256k1 public key using the
+    baby-step giant-step algorithm is O(√Q), with Q being the order of the group,
+    leading to a difficulty of O(√(256²-1)), i.e. 128 bits.
+
+    Therefore, this signing scheme does not weaken the overall security.
+
+
+    Implementation Optimizations:
+    ----------------------------
+
+    This implementation uses the ecrecover precompile to perform the necessary
+    elliptic curve multiplication in secp256k1 for the verification process.
+
+    The ecrecover precompile can roughly be implemented in python via:
+    ```python
+    def ecdsa_raw_recover(msghash, vrs):
+        v, r, s = vrs
+        y = # (get y coordinate for EC point with x=r, with same parity as v)
+        Gz = jacobian_multiply((Gx, Gy, 1), (Q - hash_to_int(msghash)) % Q)
+        XY = jacobian_multiply((r, y, 1), s)
+        Qr = jacobian_add(Gz, XY)
+        N = jacobian_multiply(Qr, inv(r, Q))
+        return from_jacobian(N)
+    ```
+
+    Note that ecrecover also uses s as variable. From this point forward, let
+    the Schnorr signature's s be sig.
+
+    A single ecrecover call can compute ([e]P + [sig]G)ₑ = ([k]G)ₑ = Rₑ via the
+    following inputs:
+        msghash = -sig * Pₓ
+        v       = Pₚ + 27
+        r       = Pₓ
+        s       = e * Pₓ
+
+    Note that ecrecover returns the Ethereum address of R and not R itself.
+
+    The ecrecover call then digests to:
+        Gz = [Q - (-sig * Pₓ)]G    | Double negation
+           = [Q + (sig * Pₓ)]G     | Addition with Q can be removed in (mod Q)
+           = [sig * Pₓ]G           | sig = k - (e * x)
+           = [k - (e * x) * Pₓ]G
+
+        XY = [e * Pₓ]P       | P = [x]G
+           = [e * Pₓ * x]G
+
+        Qr = Gz + XY                               | Gz = [k - (e * x) * Pₓ]G
+           = [k - (e * x) * Pₓ]G + XY              | XY = [e * Pₓ * x]G
+           = [k - (e * x) * Pₓ]G + [e * Pₓ * x]G
+
+        N  = Qr * Pₓ⁻¹                                           | Qr = [k - (e * x) * Pₓ]G + [e * Pₓ * x]G
+           = ([k - (e * x) * Pₓ]G + [e * Pₓ * x]G) * Pₓ⁻¹        | Distributive law
+           = [k - (e * x) * Pₓ * Pₓ⁻¹]G + [e * Pₓ * x * Pₓ⁻¹]G   | Pₓ * Pₓ⁻¹ = 1
+           = [k - (e * x)]G + [e * x]G                           | sig = k - (e * x)
+           = [sig]G + [e * x]G                                   | P = [x]G
+           = [sig]G + [e]P
+
+    Note that ecrecover returns the zero address for s-values ≥ Q. It is
+    therefore the caller's responsibility to ensure s = e * Pₓ < Q.
+
+
+    References:
+    ----------
+
+    - [ECDSA Wikipedia](https://en.wikipedia.org/wiki/Elliptic_Curve_Digital_Signature_Algorithm)
+    - [github.com/sipa/secp256k1](https://github.com/sipa/secp256k1/blob/968e2f415a5e764d159ee03e95815ea11460854e/src/modules/schnorr/schnorr.md)
+    - [BIP-340](https://github.com/bitcoin/bips/blob/master/bip-0340.mediawiki)
+    - [Analysis of Bitcoin Improvement Proposal 340](https://courses.csail.mit.edu/6.857/2020/projects/4-Elbahrawy-Lovejoy-Ouyang-Perez.pdf)
+    - [MuSig2](https://eprint.iacr.org/2020/1261.pdf)
+    - [Baby-step Giant-step Wikipedia](https://en.wikipedia.org/wiki/Baby-step_giant-step)
+    - [Vitalik's ethresearch post](https://ethresear.ch/t/you-can-kinda-abuse-ecrecover-to-do-ecmul-in-secp256k1-today/2384)
+
+*/
+    // forgefmt: disable-end
+
     using LibSecp256k1 for LibSecp256k1.Point;
 
     // @todo Invariant: Uses constant gas
@@ -208,16 +210,12 @@ library LibSchnorr {
         bytes32 signature,
         address commitment
     ) internal pure returns (bool) {
-        // Return false if commitment is address(0).
+        // Return false if commitment is address(0) or signature is trivial.
         //
         // Note that ecrecover recovers address(0) if the r-value is zero.
         // As r = Pₓ = pubKey.x and commitment != address(0), a non-zero check
         // for pubKey.x can be abdicated.
-        //
-        // @todo Check again ^^
-        // @todo signature != 0 check necessary?
-        // @todo Write in assembly to save few gas ;)
-        if (signature == 0 || commitment == address(0)) {
+        if (commitment == address(0) || signature == 0) {
             return false;
         }
 
@@ -238,29 +236,26 @@ library LibSchnorr {
         // Q/2 are considered invalid in order to protect against ECDSA's
         // signature malleability vulnerability. However, this does _not_ apply
         // to the ecrecover precompile! Note further, that the Schnorr
-        // signature scheme does not have this vulnerability.
+        // signature scheme does not have this malleability issue.
         //
-        // Therefore, a check whether s = e * Pₓ > Q/2 can be abdicated.
+        // Therefore, a check whether ecrecover's s-value = e * Pₓ > Q/2 can be
+        // abdicated.
         //
         // See "Appendix F: Signing Transactions" §311 in the Yellow Paper and
         // "EIP-2: Homestead Hard-fork Changes".
         //
-        // However, note that ecrecover recovers address(0) for a s-value ≥ Q.
+        // However, note that ecrecover returns address(0) for a s-value ≥ Q.
         // It is therefore the feeds responsibility to ensure the s-value
         // computed via their Schnorr signature is never ≥ Q!
 
-        // Construct challenge = H(Pₓ ‖ Pₚ ‖ m ‖ Rₑ).
-        bytes32 challenge = keccak256(
-            // Note to use abi.encode instead of abi.encodePacked to prevent
-            // challenge malleability issues.
-            // @todo ^^ Not 100% whether necessary. Better safe than sorry for the
-            //       moment.
-            abi.encodePacked(
-                pubKey.x, uint8(pubKey.yParity()), message, commitment
+        // Construct challenge = H(Pₓ ‖ Pₚ ‖ m ‖ Rₑ) mod Q
+        uint challenge = uint(
+            keccak256(
+                abi.encodePacked(
+                    pubKey.x, uint8(pubKey.yParity()), message, commitment
+                )
             )
-        );
-        // @todo ^^ (mod Q) missing?
-        // @todo XXXXXXXX
+        ) % LibSecp256k1.Q();
 
         // Compute msgHash = -sig * Pₓ      (mod Q)
         //                 = Q - (sig * Pₓ) (mod Q)
@@ -287,7 +282,7 @@ library LibSchnorr {
         uint r = pubKey.x;
 
         // Compute s = e * Pₓ (mod Q)
-        uint s = mulmod(uint(challenge), pubKey.x, LibSecp256k1.Q());
+        uint s = mulmod(challenge, pubKey.x, LibSecp256k1.Q());
 
         // Perform ecrecover call.
         // Note to perform necessary castings.
@@ -300,6 +295,10 @@ library LibSchnorr {
         //return commitment == recovered;
         return true;
     }
+
+    /*//////////////////////////////////////////////////////////////
+                                BIP-340
+    //////////////////////////////////////////////////////////////*/
 
     function verifySignatureBIP340(
         LibSecp256k1.Point memory pubKey,
