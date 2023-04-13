@@ -12,8 +12,7 @@ import {LibSecp256k1} from "./LibSecp256k1.sol";
  *      version: "BERLIN VERSION beacfbd – 2022-10-24".
  */
 library LibSchnorr {
-    // forgefmt: disable-start
-/*
+    /*
     Schnorr Signature Scheme Specification
     ======================================
 
@@ -45,7 +44,7 @@ library LibSchnorr {
 
     1. Select a _cryptographically secure_ k ∊ [1, Q-1]
 
-       Note that k can be deterministically constructed via H(m ‖ x) (mod Q).
+       Note that k can be deterministically constructed via H(m ‖ x) mod Q.
        This construction keeps k random for everyone not knowing the private key
        x while it also ensures a nonce is never reused for different messages.
 
@@ -190,9 +189,7 @@ library LibSchnorr {
     - [MuSig2](https://eprint.iacr.org/2020/1261.pdf)
     - [Baby-step Giant-step Wikipedia](https://en.wikipedia.org/wiki/Baby-step_giant-step)
     - [Vitalik's ethresearch post](https://ethresear.ch/t/you-can-kinda-abuse-ecrecover-to-do-ecmul-in-secp256k1-today/2384)
-
-*/
-    // forgefmt: disable-end
+    */
 
     using LibSecp256k1 for LibSecp256k1.Point;
 
@@ -245,8 +242,8 @@ library LibSchnorr {
         // "EIP-2: Homestead Hard-fork Changes".
         //
         // However, note that ecrecover returns address(0) for a s-value ≥ Q.
-        // It is therefore the feeds responsibility to ensure the s-value
-        // computed via their Schnorr signature is never ≥ Q!
+        // It is therefore the callers responsibility to ensure the s-value
+        // computed via their Schnorr signature is not ≥ Q!
 
         // Construct challenge = H(Pₓ ‖ Pₚ ‖ m ‖ Rₑ) mod Q
         uint challenge = uint(

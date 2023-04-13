@@ -42,6 +42,11 @@ library LibSecp256k1 {
         });
     }
 
+    /// @dev Returns the zero point.
+    function ZERO_POINT() internal pure returns (Point memory) {
+        return Point({x: 0, y: 0});
+    }
+
     /*//////////////////////////////////////////////////////////////
                              (AFFINE) POINT
     //////////////////////////////////////////////////////////////*/
@@ -141,7 +146,7 @@ library LibSecp256k1 {
     ///      nevertheless has side effects by writing the result into the
     ///      `self` memory variable.
     ///
-    /// @custom:invariant Only memory mutated is the `self` variable
+    /// @custom:invariant Only memory mutated is the `self` variable.
     /// @custom:invariant Reverts iff out of gas.
     /// @custom:invariant Does not run into an infinite loop.
     function addAffinePoint(JacobianPoint memory self, Point memory p)

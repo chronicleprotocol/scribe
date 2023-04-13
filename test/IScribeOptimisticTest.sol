@@ -101,6 +101,33 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         //);
     }
 
+    function test_opPoke_Initial() public {
+        _setUp_liftFeeds();
+
+        IScribe.PokeData memory pokeData;
+        pokeData.val = type(uint128).max;
+        pokeData.age = type(uint32).max;
+
+        IScribe.SchnorrSignatureData memory schnorrData;
+        schnorrData = feeds.signSchnorrMessage(opScribe, pokeData);
+
+        opScribe.opPoke(
+            pokeData,
+            schnorrData,
+            LibHelpers.makeECDSASignature(feeds[0], pokeData, schnorrData, WAT)
+        );
+    }
+
+    function test_opPoke_Initial2(
+        IScribe.PokeData memory pokeData,
+        IScribe.SchnorrSignatureData memory schnorrData,
+        IScribe.ECDSASignatureData memory ecdsaData
+    ) public {
+        vm.assume(schnorrData.signers.length < 5);
+
+        opScribe.opPoke(pokeData, schnorrData, ecdsaData);
+    }
+
     function test_opPoke_Initial_FailsIf_AgeIsZero() public {
         _setUp_liftFeeds();
 
@@ -121,7 +148,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         );
     }
 
-    function test_opPoke_Continuously(IScribe.PokeData[] memory pokeDatas)
+    function testFuzz_opPoke_Continuously(IScribe.PokeData[] memory pokeDatas)
         public
     {
         _setUp_liftFeeds();

@@ -8,7 +8,7 @@ ffi = true # Enabled to support differential fuzz testing
 solc_version = "0.8.16"
 optimizer = true
 optimizer_runs = 10_000
-via_ir = true # @todo Off during dev.
+via_ir = true
 extra_output_files = ["metadata", "irOptimized"]
 
 # Testing

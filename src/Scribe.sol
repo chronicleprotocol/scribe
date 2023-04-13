@@ -73,6 +73,8 @@ contract Scribe is IScribe, Auth, Toll {
                            POKE FUNCTIONALITY
     //////////////////////////////////////////////////////////////*/
 
+    // @todo Pack pokeData calldata?
+
     /// @inheritdoc IScribe
     function poke(
         PokeData calldata pokeData,
@@ -284,6 +286,7 @@ contract Scribe is IScribe, Auth, Toll {
         LibSecp256k1.Point memory pubKey,
         ECDSASignatureData memory ecdsaData
     ) external auth {
+        // @todo Check can be removed due to ECDSA check.
         require(!pubKey.isZeroPoint());
 
         address feed = pubKey.toAddress();
@@ -312,6 +315,8 @@ contract Scribe is IScribe, Auth, Toll {
         address feed;
         address recovered;
         for (uint i; i < pubKeys.length; i++) {
+            // @todo Remove zero check. signature check enforces this.
+            //       But than add check below again :)
             require(!pubKeys[i].isZeroPoint());
 
             feed = pubKeys[i].toAddress();
