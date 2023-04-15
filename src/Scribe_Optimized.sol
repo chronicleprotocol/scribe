@@ -165,7 +165,7 @@ contract Scribe_Optimized is IScribe, Auth, Toll {
         //       (with expansion) if not necessary.
         // @audit-issue Problem with optimistic. Needs to have memory argument :/
 
-        // pokeMessage = H(tag || H(wat || pokeData))
+        // pokeMessage = H(tag ‖ H(wat ‖ pokeData))
         return keccak256(
             abi.encodePacked(
                 "\x19Ethereum Signed Message:\n32",
@@ -285,6 +285,8 @@ contract Scribe_Optimized is IScribe, Auth, Toll {
         // Note that aggPubKey is in Jacobian coordinates.
         LibSecp256k1.JacobianPoint memory aggPubKey = signerPubKey.toJacobian();
 
+        // @audit BUG: bar is only checked via calldata encoding, not in actual loop!
+
         // Iterate over encoded signers. Check each signer's integrity and
         // uniqueness. If signer is valid, aggregate their public key to
         // aggPubKey.
@@ -300,6 +302,7 @@ contract Scribe_Optimized is IScribe, Auth, Toll {
                     // limit is type(uint8).max.
                     let calldataIndex := add(schnorrDataSignersBlobOffset, i)
 
+                    // @audit What if not enough calldata? Reverts? Returns zero?
                     signersBlobWord := calldataload(calldataIndex)
                 }
             }

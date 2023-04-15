@@ -4,6 +4,8 @@ pragma solidity ^0.8.16;
                   TEST: Scribe IMPLEMENTATION
 //////////////////////////////////////////////////////////////*/
 
+// @todo Use deployment and maintanence scripts.
+
 import {Scribe} from "src/Scribe.sol";
 import {IScribe} from "src/IScribe.sol";
 
@@ -56,11 +58,19 @@ contract ScribeOptimisticInvariantTest is IScribeOptimisticInvariantTest {
 
 import {LibSecp256k1Test} from "./LibSecp256k1Test.sol";
 
-contract Secp256k1Test is LibSecp256k1Test {}
+contract LibSecp256k1Test_ is LibSecp256k1Test {}
 
 /*//////////////////////////////////////////////////////////////
                      TEST: Schnorr LIBRARY
 //////////////////////////////////////////////////////////////*/
+
+/*//////////////////////////////////////////////////////////////
+                      TEST: Bytes LIBRARY
+//////////////////////////////////////////////////////////////*/
+
+import {LibBytesTest} from "./LibBytesTest.sol";
+
+contract LibBytesTest_ is LibBytesTest {}
 
 /*//////////////////////////////////////////////////////////////
                    TEST: ecrecover INVARIANTS
@@ -68,4 +78,4 @@ contract Secp256k1Test is LibSecp256k1Test {}
 
 import {EcRecoverTest} from "./EcRecoverTest.sol";
 
-contract EcRecoverDummyTest is EcRecoverTest {}
+contract EcRecoverTest_ is EcRecoverTest {}

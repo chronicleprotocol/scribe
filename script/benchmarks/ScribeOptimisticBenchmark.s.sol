@@ -100,7 +100,8 @@ contract ScribeOptimisticBenchmark is Script {
                 feeds[i], opScribe.feedLiftMessage()
             );
 
-            (uint8 v, bytes32 r, bytes32 s) = vm.sign(feeds[i].privKey, opScribe.feedLiftMessage());
+            (uint8 v, bytes32 r, bytes32 s) =
+                vm.sign(feeds[i].privKey, opScribe.feedLiftMessage());
             sigs_op[i] = IScribe_Optimized.ECDSASignatureData(v, r, s);
         }
 
@@ -185,9 +186,10 @@ contract ScribeOptimisticBenchmark is Script {
         opScribe.opPoke(pokeData, schnorrData, ecdsaData);
         */
 
-
-        IScribe_Optimized.PokeData memory pokeData =
-            IScribe_Optimized.PokeData({val: type(uint128).max, age: type(uint32).max});
+        IScribe_Optimized.PokeData memory pokeData = IScribe_Optimized.PokeData({
+            val: type(uint128).max,
+            age: type(uint32).max
+        });
 
         IScribe_Optimized.SchnorrSignatureData memory schnorrData;
         schnorrData.signature = bytes32(type(uint).max);
@@ -227,9 +229,14 @@ contract ScribeOptimisticBenchmark is Script {
             uint8(1)
         );
 
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(feeds[0].privKey, opScribe_op.constructOpPokeMessage(pokeData, schnorrData));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(
+            feeds[0].privKey,
+            opScribe_op.constructOpPokeMessage(pokeData, schnorrData)
+        );
 
         vm.broadcast(relayer);
-        opScribe_op.opPoke(pokeData, schnorrData, IScribe_Optimized.ECDSASignatureData(v, r, s));
+        opScribe_op.opPoke(
+            pokeData, schnorrData, IScribe_Optimized.ECDSASignatureData(v, r, s)
+        );
     }
 }

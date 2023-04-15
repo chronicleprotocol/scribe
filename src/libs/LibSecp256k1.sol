@@ -60,7 +60,7 @@ library LibSecp256k1 {
     /// @dev Returns the Ethereum address of `self`.
     ///
     /// @dev An Ethereum address is defined as the rightmost 160 bits of the
-    ///      keccak256 hash of the concatenation of the hex encoded x and y
+    ///      keccak256 hash of the concatenation of the hex-encoded x and y
     ///      coordinates of the corresponding ECDSA public key.
     ///      See "Appendix F: Signing Transactions" §134 in the Yellow Paper.
     function toAddress(Point memory self) internal pure returns (address) {
@@ -148,7 +148,7 @@ library LibSecp256k1 {
     ///
     /// @custom:invariant Only memory mutated is the `self` variable.
     /// @custom:invariant Reverts iff out of gas.
-    /// @custom:invariant Does not run into an infinite loop.
+    /// @custom:invariant Uses constant amount of gas.
     function addAffinePoint(JacobianPoint memory self, Point memory p)
         internal
         pure
@@ -185,9 +185,6 @@ library LibSecp256k1 {
         uint x1 = self.x;
         uint y1 = self.y;
         uint z1 = self.z;
-
-        // @todo Why not cache p's coordinates on stack?
-        // @todo Measure difference!
 
         // Compute z1_2 = z1²     (mod P)
         //              = z1 * z1 (mod P)
