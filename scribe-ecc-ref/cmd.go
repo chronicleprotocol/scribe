@@ -36,7 +36,7 @@ func runCmd(args []string) error {
 		}
 	}
 
-	return fmt.Errorf("unknown subsommand: %s", subcmd)
+	return fmt.Errorf("unknown subcommand: %s", subcmd)
 }
 
 type Secp256k1Command struct{}

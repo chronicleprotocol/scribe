@@ -20,6 +20,8 @@ abstract contract IScribeOptimisticInvariantTest is IScribeInvariantTest {
     IScribeOptimistic private opScribe;
     ScribeOptimisticHandler private opHandler;
 
+    // @todo invariant: If challengeable, Searcher script always succeeds.
+
     function setUp(address scribe_, address handler_)
         internal
         override(IScribeInvariantTest)

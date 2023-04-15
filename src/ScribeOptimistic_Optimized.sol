@@ -138,7 +138,6 @@ contract ScribeOptimistic_Optimized is IScribeOptimistic, Scribe {
         _opPokeData.val = pokeData.val;
         _opPokeData.age = uint32(block.timestamp);
 
-
         // @todo Test for event emission.
         // @todo Event emission needs whole schnorrData + pokeMessage
         //       This allows everyone to do:
@@ -380,7 +379,7 @@ contract ScribeOptimistic_Optimized is IScribeOptimistic, Scribe {
                             PRIVATE HELPERS
     //////////////////////////////////////////////////////////////*/
 
-    function _rewardChallenger(address payable receiver) internal {
+    function _rewardChallenger(address payable receiver) private {
         uint bounty = address(this).balance;
 
         (bool ok, /*bytes memory data*/ ) = receiver.call{value: bounty}("");
