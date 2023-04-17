@@ -6,8 +6,8 @@ pragma solidity ^0.8.16;
 
 // @todo Use deployment and maintanence scripts.
 
-import {Scribe} from "src/Scribe.sol";
-import {IScribe} from "src/IScribe.sol";
+import {Scribe_Optimized as Scribe} from "src/Scribe_Optimized.sol";
+import {IScribe_Optimized as IScribe} from "src/IScribe_Optimized.sol";
 
 import {IScribeTest} from "./IScribeTest.sol";
 import {IScribeInvariantTest} from "./invariants/IScribeInvariantTest.sol";
@@ -15,13 +15,13 @@ import {ScribeHandler} from "./invariants/ScribeHandler.sol";
 
 contract ScribeTest is IScribeTest {
     function setUp() public {
-        setUp(address(new Scribe()));
+        setUp(address(new Scribe("ETH/USD")));
     }
 }
 
 contract ScribeInvariantTest is IScribeInvariantTest {
     function setUp() public {
-        setUp(address(new Scribe()), address(new ScribeHandler()));
+        setUp(address(new Scribe("ETH/USD")), address(new ScribeHandler()));
     }
 }
 

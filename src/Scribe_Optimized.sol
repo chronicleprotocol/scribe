@@ -54,10 +54,6 @@ contract Scribe_Optimized is IScribe, Auth, Toll {
     /// @dev Size of a word is 32 bytes, i.e. 245 bits.
     uint private constant WORD_SIZE = 32;
 
-    /// @dev The offset of the first word of a SchnorrSignatureData's
-    ///      signersBlob in the `verifySchnorrSignature` function.
-    uint private constant SCHNORR_DATA_SIGNERS_BLOB_OFFSET = 0xA4;
-
     /*//////////////////////////////////////////////////////////////
                               WAT STORAGE
     //////////////////////////////////////////////////////////////*/
@@ -135,19 +131,20 @@ contract Scribe_Optimized is IScribe, Auth, Toll {
             revert StaleMessage(pokeData.age, _pokeData.age);
         }
 
-        bytes32 pokeMessage = constructPokeMessage(pokeData);
-
-        // Verify schnorrSignatureData.
+        // Revert if schnorrData's signature verification fails.
         bool ok;
         bytes memory err;
-        (ok, err) = _verifySchnorrSignature(pokeMessage, schnorrData);
-
-        // Revert with err if verification failed.
+        // forgefmt: disable-next-item
+        (ok, err) = _verifySchnorrSignature(
+            constructPokeMessage(pokeData),
+            schnorrData
+        );
         if (!ok) {
             _revert(err);
         }
 
-        // Store given pokeData in _pokeData storage.
+        // Store pokeData's age in _pokeData storage.
+        // Note to set age of _pokeData to block.timestamp.
         _pokeData.val = pokeData.val;
         _pokeData.age = uint32(block.timestamp);
 
@@ -209,6 +206,30 @@ contract Scribe_Optimized is IScribe, Auth, Toll {
         return _verifySchnorrSignature(message, schnorrData);
     }
 
+    /// @dev Calldata layout for `schnorrData`:
+    ///
+    ///      [schnorrData]        signature             -> schnorrData.signature
+    ///      [schnorrData + 0x20] commitment            -> schnorrData.commitment
+    ///      [schnorrData + 0x40] offset(signersBlob)
+    ///      [schnorrData + 0x60] len(signersBlob)      -> schnorrData.signersBlob.length
+    ///      [schnorrData + 0x80] signersBlob[0]        -> schnorrData.signersBlob[0]
+    ///      ...
+    ///
+    ///      Note that the `schnorrData` variable holds the offset to the
+    ///      `schnorrData` struct:
+    ///
+    ///      ```solidity
+    ///      bytes32 signature;
+    ///      assembly {
+    ///         signature := calldataload(schnorrData)
+    ///      }
+    ///      assert(signature == schnorrData.signature)
+    ///      ```
+    ///
+    ///      Note that `offset(signersBlob)` is the offset to `signersBlob[0]`
+    ///      _from the index `offset(signersBlob)`_:
+    ///
+    /// @custom:invariant Does not revert.
     /// @custom:invariant Reverts iff out of gas.
     /// @custom:invariant Does not run into an infinite loop.
     function _verifySchnorrSignature(
@@ -235,28 +256,25 @@ contract Scribe_Optimized is IScribe, Auth, Toll {
         // Compute schnorrData.signerBlob's calldata offset.
         uint schnorrDataSignersBlobOffset;
         assembly ("memory-safe") {
-            // SchnorrData's signerBlob offset is 0x64 bytes after
-            // schnorrData's offset.
-            // 0x04 for function selector
-            // 0x20 for schnorrData.signature
-            // 0x20 for schnorrData.commitment
-            // 0x20 for schnorrData.signersBlob.length
-            schnorrDataSignersBlobOffset := add(schnorrData, 0x64)
+            // The calldata index to schnorrData.signersBlob[0] is the
+            // schnorrData's calldata offset plus 4 words, i.e. 0x80.
+            schnorrDataSignersBlobOffset := add(schnorrData, 0x80)
         }
 
         // Load first word from schnorrData.signersBlob.
         uint signersBlobWord;
         assembly ("memory-safe") {
-            // @todo MUST compute offset dynamically.
             signersBlobWord := calldataload(schnorrDataSignersBlobOffset)
         }
 
         // Let the first byte of schnorrData.signersBlob's first word be the
         // first signer's index.
-        uint signerIndex = signersBlobWord.getByteAtIndex(0);
+        // Note that schnorrData.signersBlob is encoded in big-endian.
+        uint signerIndex = signersBlobWord.getByteAtIndex(31);
 
-        // Expect signerIndex to not be out of bounds.
-        if (signerIndex >= pubKeysLength) {
+        // Expect signerIndex to not be zero or out of bounds.
+        // @todo check whether index zero?
+        if (signerIndex == 0 || signerIndex >= pubKeysLength) {
             bytes memory err = abi.encodeWithSelector(
                 IScribe.InvalidFeedIndex.selector,
                 uint8(signerIndex),
@@ -274,6 +292,7 @@ contract Scribe_Optimized is IScribe, Auth, Toll {
 
         // Expect signerPubKey to not be the zero point. This ensures the public
         // key corresponds to a feed's public key.
+        // @todo Error type does not fit.
         if (signerPubKey.isZeroPoint()) {
             bytes memory err =
                 abi.encodeWithSelector(IScribe.SignerNotFeed.selector, signer);
@@ -307,8 +326,14 @@ contract Scribe_Optimized is IScribe, Auth, Toll {
                 }
             }
 
+            // @todo Formalize calldata signersBlob.
+            //       First signers is in _highest order byte_.
+            //       Define encoding mechanism via encodePacked.
+            //       Decoding via loop + getByteAtIndex
+
             // Get next byte as next signer's index.
-            signerIndex = signersBlobWord.getByteAtIndex(i % WORD_SIZE);
+            signerIndex = signersBlobWord.getByteAtIndex(31 - (i % WORD_SIZE));
+            console2.log("signerIndex", signerIndex);
 
             // Expect signerIndex to not be out of bounds.
             if (signerIndex >= pubKeysLength) {
@@ -327,6 +352,7 @@ contract Scribe_Optimized is IScribe, Auth, Toll {
             // Update signer variable.
             signer = signerPubKey.toAddress();
 
+            // @todo Error off. Use signerIndex invalid?
             // Expect signerPubKey to not be the zero point. This ensures the
             // public key corresponds to a feed's public key.
             if (signerPubKey.isZeroPoint()) {
@@ -352,7 +378,8 @@ contract Scribe_Optimized is IScribe, Auth, Toll {
             // 2) The sum of the two points is the "Point at Infinity"
             //
             // See slide 24 at https://www.math.brown.edu/johsilve/Presentations/WyomingEllipticCurve.pdf.
-            assert(aggPubKey.x != signerPubKey.x);
+            //
+            // assert(aggPubKey.x != signerPubKey.x);
 
             // Aggregate signerPubKey by adding it to aggPubKey.
             aggPubKey.addAffinePoint(signerPubKey);

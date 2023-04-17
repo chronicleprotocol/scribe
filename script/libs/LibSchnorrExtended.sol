@@ -3,13 +3,20 @@ pragma solidity ^0.8.16;
 import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
 
 import {LibDissig} from "./LibDissig.sol";
+// @audit MUST not use LibDissig, but LibSecp256k1Extended.
+//        This allows to have 100% solidity based system.
+//        The go backend can be differential tests against this
+//        implementation.
 
 library LibSchnorrExtended {
     using LibSecp256k1 for LibSecp256k1.Point;
     using LibSecp256k1 for LibSecp256k1.JacobianPoint;
     using LibDissig for uint;
 
-    function signMessage(uint privKey, bytes32 message) internal returns (uint, address) {
+    function signMessage(uint privKey, bytes32 message)
+        internal
+        returns (uint, address)
+    {
         LibSecp256k1.Point memory pubKey = privKey.toPoint();
 
         // 1. Select secure nonce.
@@ -30,6 +37,61 @@ library LibSchnorrExtended {
         // => The public key signs the message via the signature and
         //    commitment.
         return (signature, commitment);
+    }
+
+    function signMessage(uint[] memory privKeys, bytes32 message)
+        internal
+        returns (uint, address)
+    {
+        // 1. Collect list of pubKeys of signers.
+        LibSecp256k1.Point[] memory pubKeys =
+            new LibSecp256k1.Point[](privKeys.length);
+        for (uint i; i < privKeys.length; i++) {
+            pubKeys[i] = privKeys[i].toPoint();
+        }
+
+        // 2. Compute aggPubKey.
+        LibSecp256k1.Point memory aggPubKey = aggregatePublicKeys(pubKeys);
+
+        // 3. Collect list of noncePubKeys from signers.
+        LibSecp256k1.Point[] memory noncePubKeys =
+            new LibSecp256k1.Point[](privKeys.length);
+        for (uint i; i < privKeys.length; i++) {
+            // 3.1. Select secure nonce.
+            uint nonce = deriveNonce(privKeys[i], message);
+
+            // 3.2. Compute noncePubKey and append to list of noncePubKeys.
+            noncePubKeys[i] = computeNoncePublicKey(nonce);
+        }
+
+        // 4. Compute aggNoncePubKey.
+        LibSecp256k1.Point memory aggNoncePubKey;
+        aggNoncePubKey = aggregatePublicKeys(noncePubKeys);
+
+        // 5. Derive commitment from aggNoncePubKey.
+        address commitment = deriveCommitment(aggNoncePubKey);
+
+        // 6. Construct challenge.
+        bytes32 challenge = constructChallenge(aggPubKey, message, commitment);
+
+        // 7. Collect signatures from signers.
+        uint[] memory signatures = new uint[](privKeys.length);
+        for (uint i; i < privKeys.length; i++) {
+            uint nonce = deriveNonce(privKeys[i], message);
+
+            signatures[i] = computeSignature(privKeys[i], nonce, challenge);
+        }
+
+        // 8. Compute aggSignature.
+        uint aggSignature;
+        for (uint i; i < privKeys.length; i++) {
+            // Note to keep aggSignature ∊ [0, Q).
+            aggSignature = addmod(aggSignature, signatures[i], LibSecp256k1.Q());
+        }
+
+        // => The aggregated public key signs the message via the aggregated
+        //    signature and commitment.
+        return (aggSignature, commitment);
     }
 
     function verifySignature(
@@ -67,6 +129,10 @@ library LibSchnorrExtended {
         // the commitment.
         return commitment == recovered;
     }
+
+    /*//////////////////////////////////////////////////////////////
+                          LOW-LEVEL FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
 
     function deriveNonce(uint privKey, bytes32 message)
         internal
