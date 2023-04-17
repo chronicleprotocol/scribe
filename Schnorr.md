@@ -80,14 +80,14 @@ mechanism for aggregated signatures is specified as the sum of the public
 keys:
 
 ```
-    Let the signers' public keys be:
-        signers = [pubKey₁, pubKey₂, ..., pubKeyₙ]
+Let the signers' public keys be:
+    signers = [pubKey₁, pubKey₂, ..., pubKeyₙ]
 
-    Let the aggregated public key be:
-        aggPubKey = sum(signers)
-                  = pubKey₁     + pubKey₂     + ... + pubKeyₙ
-                  = [privKey₁]G + [privKey₂]G + ... + [privKeyₙ]G
-                  = [privKey₁   + privKey₂    + ... + privKeyₙ]G
+Let the aggregated public key be:
+    aggPubKey = sum(signers)
+              = pubKey₁     + pubKey₂     + ... + pubKeyₙ
+              = [privKey₁]G + [privKey₂]G + ... + [privKeyₙ]G
+              = [privKey₁   + privKey₂    + ... + privKeyₙ]G
 ```
 
 Note that this aggregation scheme is vulnerable to rogue-key attacks[^musig2-paper]!

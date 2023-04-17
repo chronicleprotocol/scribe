@@ -8,11 +8,18 @@ import {LibDissig} from "./LibDissig.sol";
 //        The go backend can be differential tests against this
 //        implementation.
 
+/**
+ * @title LibSchnorrExtended
+ *
+ * @notice Extended library for Schnorr signatures as specified in `Schnorr.md`
+ */
 library LibSchnorrExtended {
     using LibSecp256k1 for LibSecp256k1.Point;
     using LibSecp256k1 for LibSecp256k1.JacobianPoint;
     using LibDissig for uint;
 
+    /// @dev Returns a Schnorr signature of type (signature, commitment) signing
+    ///      `message` via `privKey`.
     function signMessage(uint privKey, bytes32 message)
         internal
         returns (uint, address)
@@ -39,6 +46,8 @@ library LibSchnorrExtended {
         return (signature, commitment);
     }
 
+    /// @dev Returns a Schnorr multi-signature (aggregated signature) of type
+    ///      (signature, commitment) signing `message` via `privKeys`.
     function signMessage(uint[] memory privKeys, bytes32 message)
         internal
         returns (uint, address)

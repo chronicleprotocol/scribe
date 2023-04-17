@@ -9,6 +9,11 @@ import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
 import {LibSchnorrExtended} from "./LibSchnorrExtended.sol";
 import {LibSecp256k1Extended} from "./LibSecp256k1Extended.sol";
 
+/**
+ * @title LibFeed
+ *
+ * @notice Solidity library for feeds
+ */
 library LibFeed {
     using LibSchnorrExtended for LibSecp256k1.Point;
     using LibSchnorrExtended for uint;
@@ -21,12 +26,22 @@ library LibFeed {
     Vm private constant vm =
         Vm(address(uint160(uint(keccak256("hevm cheat code")))));
 
+    /// @dev Feed encapsulates a private key, derived public key, and the
+    ///      public keys index in a Scribe instance.
     struct Feed {
         uint privKey;
         LibSecp256k1.Point pubKey;
         uint8 index;
     }
 
+    /// @dev Returns a new feed instance with private key `privKey` and feed
+    ///      index 0. Note that 0 is never a valid index!
+    function newFeed(uint privKey) internal returns (Feed memory) {
+        return newFeed(privKey, 0);
+    }
+
+    /// @dev Returns a new feed instance with private key `privKey` and feed
+    ///      index `index` in a Scribe instance.
     function newFeed(uint privKey, uint8 index)
         internal
         returns (Feed memory)
@@ -38,6 +53,8 @@ library LibFeed {
         });
     }
 
+    /// @dev Returns a ECDSA signature of type IScribe.ECDSASignatureData
+    ///      signing `message` via `self`'s private key.
     function signECDSA(Feed memory self, bytes32 message)
         internal
         pure
@@ -48,6 +65,8 @@ library LibFeed {
         return IScribe.ECDSASignatureData(v, r, s);
     }
 
+    /// @dev Returns a Schnorr signature of type IScribe.SchnorrSignatureData
+    ///      signing `message` via `self`'s private key.
     function signSchnorr(Feed memory self, bytes32 message)
         internal
         returns (IScribe.SchnorrSignatureData memory)
@@ -61,6 +80,9 @@ library LibFeed {
         });
     }
 
+    /// @dev Returns a Schnorr multi-signature (aggregated signature) of type
+    ///      IScribe.SchnorrSignatureData signing `message` via `selfs`' private
+    ///      keys.
     function signSchnorr(Feed[] memory selfs, bytes32 message)
         internal
         returns (IScribe.SchnorrSignatureData memory)
