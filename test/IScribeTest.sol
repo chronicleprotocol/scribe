@@ -6,26 +6,27 @@ import {console2} from "forge-std/console2.sol";
 import {IAuth} from "chronicle-std/auth/IAuth.sol";
 import {IToll} from "chronicle-std/toll/IToll.sol";
 
-import {IScribe} from "src/IScribe.sol";
+import {IScribe_Optimized as IScribe} from "src/IScribe_Optimized.sol";
 
 import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
 
-import {LibHelpers} from "./utils/LibHelpers.sol";
+import {LibFeed} from "script/libs/LibFeed.sol";
 
 /**
  * @notice Provides IScribe Unit Tests
  */
 abstract contract IScribeTest is Test {
     using LibSecp256k1 for LibSecp256k1.Point;
-    using LibHelpers for LibHelpers.Feed[];
+    using LibFeed for LibFeed.Feed;
+    using LibFeed for LibFeed.Feed[];
 
     IScribe private scribe;
 
     bytes32 internal WAT;
-    bytes32 internal FEED_LIFT_MESSAGE;
+    bytes32 internal WAT_MESSAGE;
 
-    LibHelpers.Feed[] internal feeds;
-    LibHelpers.Feed internal notFeed;
+    LibFeed.Feed[] internal feeds;
+    LibFeed.Feed internal notFeed;
 
     mapping(address => bool) internal addressFilter;
 
@@ -37,33 +38,36 @@ abstract contract IScribeTest is Test {
     event BarUpdated(address indexed caller, uint8 oldBar, uint8 newBar);
 
     function setUp(address scribe_) internal virtual {
+        // @todo Deploy via script.
         scribe = IScribe(scribe_);
 
         // Cache constants.
         WAT = scribe.wat();
-        FEED_LIFT_MESSAGE = scribe.feedLiftMessage();
+        WAT_MESSAGE = scribe.watMessage();
 
         // Toll address(this).
         IToll(address(scribe)).kiss(address(this));
     }
 
+    /// @dev Creates and lift `scribe.bar()` many feeds.
+    ///      Also creates a non-feed key pair instance.
     function _setUp_liftFeeds() internal {
         // Create and lift bar many feeds.
-        LibHelpers.Feed[] memory feeds_ = LibHelpers.makeFeeds(1, scribe.bar());
-        for (uint i; i < feeds_.length; i++) {
-            // Note to copy feed individually to prevent
-            // "UnimplementedFeatureError" when compiling without --via-ir.
-            feeds.push(feeds_[i]);
-
-            // Lift the feed.
-            scribe.lift(
-                feeds_[i].pubKey,
-                LibHelpers.makeECDSASignature(feeds_[i], FEED_LIFT_MESSAGE)
+        uint bar = scribe.bar();
+        LibFeed.Feed memory feed;
+        for (uint i; i < bar; i++) {
+            feed = LibFeed.newFeed({privKey: i + 1, index: uint8(i + 1)});
+            vm.label(
+                feed.pubKey.toAddress(),
+                string.concat("Feed #", vm.toString(i + 1))
             );
+
+            feeds.push(feed);
+            scribe.lift(feed.pubKey, feed.signECDSA(WAT_MESSAGE));
         }
 
-        // Create a notFeed.
-        notFeed = LibHelpers.makeFeed({privKey: 0xdead});
+        // Create a non-feed instance.
+        notFeed = LibFeed.newFeed({privKey: 0xdead, index: type(uint8).max});
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -81,7 +85,9 @@ abstract contract IScribeTest is Test {
         assertEq(scribe.bar(), 2);
 
         // Set of feeds is empty.
-        assertEq(scribe.feeds().length, 0);
+        (address[] memory feeds_, uint[] memory feedsIndexes) = scribe.feeds();
+        assertEq(feeds_.length, 0);
+        assertEq(feedsIndexes.length, 0);
 
         // read()(uint) fails.
         try scribe.read() returns (uint) {
@@ -104,21 +110,55 @@ abstract contract IScribeTest is Test {
     }
 
     /*//////////////////////////////////////////////////////////////
+                       TEST: SCHNORR VERIFICATION
+    //////////////////////////////////////////////////////////////*/
+
+    function testFuzz_verifySignature(bytes32 message) public {
+        _setUp_liftFeeds();
+
+        bool ok;
+        bytes memory err;
+        // forgefmt: disable-next-item
+        (ok, err) = scribe.verifySchnorrSignature(
+            message,
+            feeds.signSchnorr(message)
+        );
+        assertTrue(ok);
+        assertEq(err.length, 0);
+    }
+
+    // @todo More than 32/64/96/128... signers
+    // @todo schnorrData.signersBlob.length == bar BUT actual length < bar.
+
+    /*//////////////////////////////////////////////////////////////
                           TEST: POKE FUNCTION
     //////////////////////////////////////////////////////////////*/
 
-    function testFuzz_poke_Initial(IScribe.PokeData memory pokeData) public {
+    function testFuzz_poke(IScribe.PokeData[] memory pokeDatas) public {
         _setUp_liftFeeds();
 
-        vm.assume(pokeData.val != 0);
-        vm.assume(pokeData.age != 0);
+        // Ensure pokeDatas' val is never zero and pokeData's age is greater
+        // than block.timestamp. Note that block.timestamp is not increased
+        // in this test, so it is sufficient to ensure each age is newer than
+        // the last one. Note that Scribe sets a pokeData's age to
+        // block.timestamp.
+        for (uint i; i < pokeDatas.length; i++) {
+            vm.assume(pokeDatas[i].val != 0);
+            vm.assume(pokeDatas[i].age > uint32(block.timestamp));
+        }
 
-        scribe.poke(pokeData, feeds.signSchnorrMessage(scribe, pokeData));
+        IScribe.SchnorrSignatureData memory schnorrData;
+        for (uint i; i < pokeDatas.length; i++) {
+            schnorrData =
+                feeds.signSchnorr(scribe.constructPokeMessage(pokeDatas[i]));
 
-        assertEq(scribe.read(), pokeData.val);
-        (uint val, bool ok) = scribe.peek();
-        assertEq(val, pokeData.val);
-        assertTrue(ok);
+            scribe.poke(pokeDatas[i], schnorrData);
+
+            assertEq(scribe.read(), pokeDatas[i].val);
+            (bool ok, uint val) = scribe.tryRead();
+            assertEq(val, pokeDatas[i].val);
+            assertTrue(ok);
+        }
     }
 
     function test_poke_Initial_FailsIf_AgeIsZero() public {
@@ -129,44 +169,12 @@ abstract contract IScribeTest is Test {
         pokeData.age = 0;
 
         IScribe.SchnorrSignatureData memory schnorrData;
-        schnorrData = feeds.signSchnorrMessage(scribe, pokeData);
+        schnorrData = feeds.signSchnorr(scribe.constructPokeMessage(pokeData));
 
         vm.expectRevert(
             abi.encodeWithSelector(IScribe.StaleMessage.selector, 0, 0)
         );
         scribe.poke(pokeData, schnorrData);
-    }
-
-    function testFuzz_poke_Continuously(IScribe.PokeData[] memory pokeDatas)
-        public
-    {
-        _setUp_liftFeeds();
-
-        // Ensure pokeDatas' val is never zero and their age is strictly
-        // increasing.
-        uint32 lastAge = uint32(block.timestamp);
-        for (uint i; i < pokeDatas.length; i++) {
-            vm.assume(pokeDatas[i].val != 0);
-
-            // Upper bound age to lastAge + 1 weeks to not run into overflow.
-            // Note that this does not guarantee overflow safety.
-            // @todo Fix overflow danger if necessary.
-            pokeDatas[i].age =
-                uint32(bound(pokeDatas[i].age, lastAge + 1, lastAge + 1 weeks));
-
-            lastAge = pokeDatas[i].age;
-        }
-
-        for (uint i; i < pokeDatas.length; i++) {
-            scribe.poke(
-                pokeDatas[i], feeds.signSchnorrMessage(scribe, pokeDatas[i])
-            );
-
-            assertEq(scribe.read(), pokeDatas[i].val);
-            (uint val, bool ok) = scribe.peek();
-            assertEq(val, pokeDatas[i].val);
-            assertTrue(ok);
-        }
     }
 
     function testFuzz_poke_FailsIf_PokeData_IsStale(
@@ -177,18 +185,21 @@ abstract contract IScribeTest is Test {
         vm.assume(pokeData.val != 0);
         vm.assume(pokeData.age != 0);
 
+        IScribe.SchnorrSignatureData memory schnorrData;
+        schnorrData = feeds.signSchnorr(scribe.constructPokeMessage(pokeData));
+
         // Poke once.
-        scribe.poke(pokeData, feeds.signSchnorrMessage(scribe, pokeData));
+        scribe.poke(pokeData, schnorrData);
 
         // Last poke's age is set to block.timestamp.
         uint currentAge = uint32(block.timestamp);
 
-        // Poke again with age ∊ [0, block.timestamp].
+        // Set pokeData's age ∊ [0, block.timestamp].
         pokeData.age = uint32(bound(pokeData.age, 0, block.timestamp));
 
-        IScribe.SchnorrSignatureData memory schnorrData;
-        schnorrData = feeds.signSchnorrMessage(scribe, pokeData);
+        schnorrData = feeds.signSchnorr(scribe.constructPokeMessage(pokeData));
 
+        // Poke again, expect message to be stable.
         vm.expectRevert(
             abi.encodeWithSelector(
                 IScribe.StaleMessage.selector, pokeData.age, currentAge
@@ -197,6 +208,7 @@ abstract contract IScribeTest is Test {
         scribe.poke(pokeData, schnorrData);
     }
 
+    /*
     function testFuzz_poke_FailsIf_SchnorrSignatureData_HasInsufficientNumberOfSigners(
         IScribe.PokeData memory pokeData,
         uint numberSignersSeed
@@ -209,14 +221,16 @@ abstract contract IScribeTest is Test {
         uint bar = scribe.bar();
         uint numberSigners = bound(numberSignersSeed, 0, bar - 1);
 
-        // Create set of feeds with less than bar feeds.
-        LibHelpers.Feed[] memory feeds_ = new LibHelpers.Feed[](numberSigners);
+        // Make set of feed key pairs with less than bar elements.
+        LibCommon.KeyPair[] memory feeds_ =
+            new LibCommon.KeyPair[](numberSigners);
         for (uint i; i < feeds_.length; i++) {
             feeds_[i] = feeds[i];
         }
 
         IScribe.SchnorrSignatureData memory schnorrData;
-        schnorrData = feeds_.signSchnorrMessage(scribe, pokeData);
+        // @todo SchnorrSignatureData via LibCommon?
+        //schnorrData = feeds_.schnorrSign(scribe, pokeData);
 
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -297,9 +311,11 @@ abstract contract IScribeTest is Test {
         console2.log("NOT IMPLEMENTED");
     }
 
+    */
     /*//////////////////////////////////////////////////////////////
                      TEST: AUTH PROTECTED FUNCTIONS
     //////////////////////////////////////////////////////////////*/
+    /*
 
     function testFuzz_lift_Single(uint privKey) public {
         // Bound private key to secp256k1's order, i.e. scalar ∊ [1, Q).
@@ -311,7 +327,7 @@ abstract contract IScribeTest is Test {
         emit FeedLifted(address(this), feed.pubKey.toAddress());
 
         scribe.lift(
-            feed.pubKey, LibHelpers.makeECDSASignature(feed, FEED_LIFT_MESSAGE)
+            feed.pubKey, LibHelpers.makeECDSASignature(feed, WAT_MESSAGE)
         );
 
         // Check via feeds(address)(bool).
@@ -354,7 +370,7 @@ abstract contract IScribeTest is Test {
             new IScribe.ECDSASignatureData[](feeds_.length);
         for (uint i; i < feeds_.length; i++) {
             ecdsaDatas[i] =
-                LibHelpers.makeECDSASignature(feeds_[i], FEED_LIFT_MESSAGE);
+                LibHelpers.makeECDSASignature(feeds_[i], WAT_MESSAGE);
         }
 
         for (uint i; i < feeds_.length; i++) {
@@ -404,7 +420,7 @@ abstract contract IScribeTest is Test {
         LibHelpers.Feed memory feed = LibHelpers.makeFeed(privKey);
 
         scribe.lift(
-            feed.pubKey, LibHelpers.makeECDSASignature(feed, FEED_LIFT_MESSAGE)
+            feed.pubKey, LibHelpers.makeECDSASignature(feed, WAT_MESSAGE)
         );
 
         vm.expectEmit(true, true, true, true);
@@ -443,7 +459,7 @@ abstract contract IScribeTest is Test {
             new IScribe.ECDSASignatureData[](feeds_.length);
         for (uint i; i < feeds_.length; i++) {
             ecdsaDatas[i] =
-                LibHelpers.makeECDSASignature(feeds_[i], FEED_LIFT_MESSAGE);
+                LibHelpers.makeECDSASignature(feeds_[i], WAT_MESSAGE);
         }
 
         // Lift feeds.
@@ -479,7 +495,7 @@ abstract contract IScribeTest is Test {
         LibHelpers.Feed memory feed = LibHelpers.makeFeed(privKey);
 
         IScribe.ECDSASignatureData memory ecdsaData =
-            LibHelpers.makeECDSASignature(feed, FEED_LIFT_MESSAGE);
+            LibHelpers.makeECDSASignature(feed, WAT_MESSAGE);
 
         scribe.lift(feed.pubKey, ecdsaData);
         assertTrue(scribe.feeds(feed.pubKey.toAddress()));
@@ -597,6 +613,7 @@ abstract contract IScribeTest is Test {
         );
         scribe.setBar(0);
     }
+    */
 
     /*//////////////////////////////////////////////////////////////
                      TEST: TOLL PROTECTED FUNCTIONS

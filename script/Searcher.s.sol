@@ -6,9 +6,6 @@ import {console2} from "forge-std/console2.sol";
 import {IScribeOptimistic_Optimized as IScribeOptimistic} from
     "src/IScribeOptimistic_Optimized.sol";
 
-import {LibSchnorr} from "src/libs/LibSchnorr.sol";
-import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
-
 /**
  * @title MEV Searcher Script
  *

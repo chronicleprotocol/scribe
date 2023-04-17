@@ -112,8 +112,7 @@ library LibSchnorr {
         // Verification succeeds if the ecrecover'ed address equals Rₑ, i.e.
         // the commitment.
         // @todo Schnorr signature verification turned off
-        //return commitment == recovered;
-        return true;
+        return commitment == recovered;
     }
 
     /*//////////////////////////////////////////////////////////////
