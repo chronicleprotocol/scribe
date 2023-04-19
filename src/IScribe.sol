@@ -109,7 +109,7 @@ interface IScribe {
     function verifySchnorrSignature(
         bytes32 message,
         SchnorrSignatureData calldata schnorrData
-    ) external view returns (bool ok, bytes memory err);
+    ) external returns (bool ok, bytes memory err);
 
     // @todo IScribe NatSpec documentation.
     function constructPokeMessage(PokeData calldata pokeData)

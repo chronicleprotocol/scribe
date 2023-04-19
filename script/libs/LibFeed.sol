@@ -108,6 +108,36 @@ library LibFeed {
         });
     }
 
+    function signSchnorr_withoutOrderingSignerIndexes(
+        Feed[] memory selfs,
+        bytes32 message
+    ) internal returns (IScribe.SchnorrSignatureData memory) {
+        // Create multi-signature.
+        uint[] memory privKeys = new uint[](selfs.length);
+        for (uint i; i < selfs.length; i++) {
+            privKeys[i] = selfs[i].privKey;
+        }
+        (uint signature, address commitment) = privKeys.signMessage(message);
+
+        // Create list of signerIndexes.
+        uint8[] memory signerIndexes = new uint8[](selfs.length);
+        for (uint i; i < selfs.length; i++) {
+            signerIndexes[i] = selfs[i].index;
+        }
+
+        // Create signersBlob.
+        bytes memory signersBlob;
+        for (uint i; i < signerIndexes.length; i++) {
+            signersBlob = abi.encodePacked(signersBlob, signerIndexes[i]);
+        }
+
+        return IScribe.SchnorrSignatureData({
+            signature: bytes32(signature),
+            commitment: commitment,
+            signersBlob: signersBlob
+        });
+    }
+
     /// @dev Returns the list of `selfs` indexes sorted by `selfs`' addresses.
     function getIndexesSortedByAddress(Feed[] memory selfs)
         internal

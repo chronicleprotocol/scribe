@@ -1,9 +1,8 @@
 pragma solidity ^0.8.16;
 
-/*//////////////////////////////////////////////////////////////
-                  TEST: Scribe IMPLEMENTATION
-//////////////////////////////////////////////////////////////*/
-
+//------------------------------------------------------------------------------
+// Test: Scribe
+//
 // @todo Use deployment and maintanence scripts.
 
 import {Scribe_Optimized as Scribe} from "src/Scribe_Optimized.sol";
@@ -25,12 +24,13 @@ contract ScribeInvariantTest is IScribeInvariantTest {
     }
 }
 
-/*//////////////////////////////////////////////////////////////
-             TEST: Optimistic Scribe IMPLEMENTATION
-//////////////////////////////////////////////////////////////*/
+//------------------------------------------------------------------------------
+// Test: Optimistic Scribe
 
-import {ScribeOptimistic} from "src/ScribeOptimistic.sol";
-import {IScribeOptimistic} from "src/IScribeOptimistic.sol";
+import {ScribeOptimistic_Optimized as ScribeOptimistic} from
+    "src/ScribeOptimistic_Optimized.sol";
+import {IScribeOptimistic_Optimized as IScribeOptimistic} from
+    "src/IScribeOptimistic_Optimized.sol";
 
 import {IScribeOptimisticTest} from "./IScribeOptimisticTest.sol";
 import {IScribeOptimisticInvariantTest} from
@@ -39,42 +39,41 @@ import {ScribeOptimisticHandler} from "./invariants/ScribeOptimisticHandler.sol"
 
 contract ScribeOptimisticTest is IScribeOptimisticTest {
     function setUp() public {
-        setUp(address(new ScribeOptimistic()));
+        setUp(address(new ScribeOptimistic("ETH/USD")));
     }
 }
 
 contract ScribeOptimisticInvariantTest is IScribeOptimisticInvariantTest {
     function setUp() public {
         setUp(
-            address(new ScribeOptimistic()),
+            address(new ScribeOptimistic("ETH/USD")),
             address(new ScribeOptimisticHandler())
         );
     }
 }
 
-/*//////////////////////////////////////////////////////////////
-                    TEST: Secp256k1 LIBRARY
-//////////////////////////////////////////////////////////////*/
+//------------------------------------------------------------------------------
+// Test: Secp256k1 Libraries
 
 import {LibSecp256k1Test} from "./LibSecp256k1Test.sol";
+import {LibSecp256k1ExtendedTest} from "./LibSecp256k1ExtendedTest.sol";
 
 contract LibSecp256k1Test_ is LibSecp256k1Test {}
 
-/*//////////////////////////////////////////////////////////////
-                     TEST: Schnorr LIBRARY
-//////////////////////////////////////////////////////////////*/
+contract LibSecp256k1ExtendedTest_ is LibSecp256k1ExtendedTest {}
 
-/*//////////////////////////////////////////////////////////////
-                      TEST: Bytes LIBRARY
-//////////////////////////////////////////////////////////////*/
+//------------------------------------------------------------------------------
+// Test: Schnorr Libraries
+
+//------------------------------------------------------------------------------
+// Test: Bytes Library
 
 import {LibBytesTest} from "./LibBytesTest.sol";
 
 contract LibBytesTest_ is LibBytesTest {}
 
-/*//////////////////////////////////////////////////////////////
-                   TEST: ecrecover INVARIANTS
-//////////////////////////////////////////////////////////////*/
+//------------------------------------------------------------------------------
+// Test: EVM Assumptions
 
 import {EcRecoverTest} from "./EcRecoverTest.sol";
 

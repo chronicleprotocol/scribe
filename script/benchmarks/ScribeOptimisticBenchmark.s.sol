@@ -194,6 +194,7 @@ contract ScribeOptimisticBenchmark is Script {
         IScribe_Optimized.SchnorrSignatureData memory schnorrData;
         schnorrData.signature = bytes32(type(uint).max);
         schnorrData.commitment = address(this);
+        /*
         schnorrData.signersBlob = abi.encodePacked(
             uint8(1),
             uint8(1),
@@ -228,6 +229,7 @@ contract ScribeOptimisticBenchmark is Script {
             uint8(1),
             uint8(1)
         );
+        */
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(
             feeds[0].privKey,

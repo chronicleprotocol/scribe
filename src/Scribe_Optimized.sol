@@ -43,8 +43,6 @@ contract Scribe_Optimized is IScribe, Auth, Toll {
         signerPubKey = public key of signer
 
         pubKey = Public key, i.e. secp256k1 point
-
-
     */
 
     /*//////////////////////////////////////////////////////////////
@@ -53,6 +51,8 @@ contract Scribe_Optimized is IScribe, Auth, Toll {
 
     /// @dev Size of a word is 32 bytes, i.e. 245 bits.
     uint private constant WORD_SIZE = 32;
+
+    uint public constant maxFeeds = 255;
 
     /*//////////////////////////////////////////////////////////////
                               WAT STORAGE
@@ -202,7 +202,7 @@ contract Scribe_Optimized is IScribe, Auth, Toll {
     function verifySchnorrSignature(
         bytes32 message,
         SchnorrSignatureData calldata schnorrData
-    ) external view returns (bool, bytes memory) {
+    ) external returns (bool, bytes memory) {
         return _verifySchnorrSignature(message, schnorrData);
     }
 
@@ -227,15 +227,14 @@ contract Scribe_Optimized is IScribe, Auth, Toll {
     ///      ```
     ///
     ///      Note that `offset(signersBlob)` is the offset to `signersBlob[0]`
-    ///      _from the index `offset(signersBlob)`_:
+    ///      from the index `offset(signersBlob)`.
     ///
-    /// @custom:invariant Does not revert.
     /// @custom:invariant Reverts iff out of gas.
     /// @custom:invariant Does not run into an infinite loop.
     function _verifySchnorrSignature(
         bytes32 message,
         SchnorrSignatureData calldata schnorrData
-    ) internal view returns (bool, bytes memory) {
+    ) internal returns (bool, bytes memory) {
         // Get the number of signers. Note that length of schnorrData.signersBlob
         // is byte denominated.
         // @todo Verify that signersBlob is not loaded into memory.
@@ -271,6 +270,7 @@ contract Scribe_Optimized is IScribe, Auth, Toll {
         // first signer's index.
         // Note that schnorrData.signersBlob is encoded in big-endian.
         uint signerIndex = signersBlobWord.getByteAtIndex(31);
+        console2.log("signerIndex", signerIndex);
 
         // Expect signerIndex to not be zero or out of bounds.
         // @todo check whether index zero?
@@ -310,7 +310,7 @@ contract Scribe_Optimized is IScribe, Auth, Toll {
         // uniqueness. If signer is valid, aggregate their public key to
         // aggPubKey.
         address lastSigner;
-        for (uint i = 1; i < numberSigners;) {
+        for (uint i = 1; i < numberSigners; i++) {
             // Cache the last processed signer.
             lastSigner = signer;
 
@@ -379,15 +379,12 @@ contract Scribe_Optimized is IScribe, Auth, Toll {
             //
             // See slide 24 at https://www.math.brown.edu/johsilve/Presentations/WyomingEllipticCurve.pdf.
             //
-            // assert(aggPubKey.x != signerPubKey.x);
+            assert(aggPubKey.x != signerPubKey.x);
 
             // Aggregate signerPubKey by adding it to aggPubKey.
             aggPubKey.addAffinePoint(signerPubKey);
-
-            // Unchecked because the maximum length of an array is uint256.
-            unchecked {
-                i++;
-            }
+            console2.log("Scribe: aggPubKey.x", aggPubKey.toAffine().x);
+            console2.log("Scribe: aggPubKey.y", aggPubKey.toAffine().y);
         }
 
         // Perform signature verification.
@@ -424,6 +421,7 @@ contract Scribe_Optimized is IScribe, Auth, Toll {
         return (val != 0, val);
     }
 
+    // @todo Should peek return non-finalized opPoke if optimistic?
     /// @dev Only callable by toll'ed address.
     function peek() external view virtual toll returns (uint, bool) {
         uint val = _pokeData.val;
@@ -440,13 +438,14 @@ contract Scribe_Optimized is IScribe, Auth, Toll {
         return (index != 0, index);
     }
 
+    // @todo Can feeds() return duplicates? Don't think so. Check!
     function feeds() external view returns (address[] memory, uint[] memory) {
         // Initiate arrays with upper limit length.
         uint upperLimitLength = _pubKeys.length;
         address[] memory feedsList = new address[](upperLimitLength);
         uint[] memory feedsIndexesList = new uint[](upperLimitLength);
 
-        // Iterate over feeds' public keys. If the public key is non-zero, their
+        // Iterate over feeds' public keys. If a public key is non-zero, their
         // corresponding address is a feed.
         uint ctr;
         LibSecp256k1.Point memory pubKey;
@@ -480,28 +479,37 @@ contract Scribe_Optimized is IScribe, Auth, Toll {
                          AUTH'ED FUNCTIONALITY
     //////////////////////////////////////////////////////////////*/
 
+    // @todo FeedLifted event should have index of feed!
+    // @todo FeedDropped event should have index of feed!
+    //       -> Invariant: feed index emitted via FeedDropped will never be
+    //                     written to again.
+
     function lift(
         LibSecp256k1.Point memory pubKey,
         ECDSASignatureData memory ecdsaData
-    ) external auth {
-        _lift(pubKey, ecdsaData);
+    ) external auth returns (uint) {
+        return _lift(pubKey, ecdsaData);
     }
 
     function lift(
         LibSecp256k1.Point[] memory pubKeys,
         ECDSASignatureData[] memory ecdsaDatas
-    ) external auth {
+    ) external auth returns (uint[] memory) {
         require(pubKeys.length == ecdsaDatas.length);
 
+        uint[] memory indexes = new uint[](pubKeys.length);
         for (uint i; i < pubKeys.length; i++) {
-            _lift(pubKeys[i], ecdsaDatas[i]);
+            indexes[i] = _lift(pubKeys[i], ecdsaDatas[i]);
         }
+
+        // Note that indexes contains duplicates iff duplicate pubKeys provided.
+        return indexes;
     }
 
     function _lift(
         LibSecp256k1.Point memory pubKey,
         ECDSASignatureData memory ecdsaData
-    ) private {
+    ) private returns (uint) {
         address feed = pubKey.toAddress();
         // assert(feed != address(0));
 
@@ -514,15 +522,19 @@ contract Scribe_Optimized is IScribe, Auth, Toll {
         );
         require(feed == recovered);
 
-        if (_feeds[feed] == 0) {
+        uint index = _feeds[feed];
+        if (index == 0) {
             emit FeedLifted(msg.sender, feed);
 
             _pubKeys.push(pubKey);
-            _feeds[feed] = _pubKeys.length - 1;
+            index = _pubKeys.length - 1;
+            _feeds[feed] = index;
         }
 
         // @todo Problem with uint8 may no able to hold all possible signer indexes!
-        assert(_pubKeys.length < 256);
+        assert(index <= maxFeeds);
+
+        return index;
     }
 
     function drop(uint feedIndex) external auth {

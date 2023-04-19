@@ -111,7 +111,7 @@ contract Scribe is IScribe, Auth, Toll {
     function verifySchnorrSignature(
         bytes32 message,
         SchnorrSignatureData calldata schnorrData
-    ) public view returns (bool, bytes memory) {
+    ) public returns (bool, bytes memory) {
         // Expect number of signers to equal bar.
         if (schnorrData.signers.length != bar) {
             bytes memory err = abi.encodeWithSelector(

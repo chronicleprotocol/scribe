@@ -1,12 +1,10 @@
 pragma solidity ^0.8.16;
 
+import {console2} from "forge-std/console2.sol";
+
 import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
 
-import {LibDissig} from "./LibDissig.sol";
-// @audit MUST not use LibDissig, but LibSecp256k1Extended.
-//        This allows to have 100% solidity based system.
-//        The go backend can be differential tests against this
-//        implementation.
+import {LibSecp256k1Extended} from "script/libs/LibSecp256k1Extended.sol";
 
 /**
  * @title LibSchnorrExtended
@@ -16,7 +14,7 @@ import {LibDissig} from "./LibDissig.sol";
 library LibSchnorrExtended {
     using LibSecp256k1 for LibSecp256k1.Point;
     using LibSecp256k1 for LibSecp256k1.JacobianPoint;
-    using LibDissig for uint;
+    using LibSecp256k1Extended for uint;
 
     /// @dev Returns a Schnorr signature of type (signature, commitment) signing
     ///      `message` via `privKey`.
@@ -24,7 +22,7 @@ library LibSchnorrExtended {
         internal
         returns (uint, address)
     {
-        LibSecp256k1.Point memory pubKey = privKey.toPoint();
+        LibSecp256k1.Point memory pubKey = privKey.derivePublicKey();
 
         // 1. Select secure nonce.
         uint nonce = deriveNonce(privKey, message);
@@ -56,17 +54,18 @@ library LibSchnorrExtended {
         LibSecp256k1.Point[] memory pubKeys =
             new LibSecp256k1.Point[](privKeys.length);
         for (uint i; i < privKeys.length; i++) {
-            pubKeys[i] = privKeys[i].toPoint();
+            pubKeys[i] = privKeys[i].derivePublicKey();
         }
 
         // 2. Compute aggPubKey.
-        LibSecp256k1.Point memory aggPubKey = aggregatePublicKeys(pubKeys);
+        LibSecp256k1.Point memory aggPubKey;
+        aggPubKey = aggregatePublicKeys(pubKeys);
 
         // 3. Collect list of noncePubKeys from signers.
         LibSecp256k1.Point[] memory noncePubKeys =
             new LibSecp256k1.Point[](privKeys.length);
         for (uint i; i < privKeys.length; i++) {
-            // 3.1. Select secure nonce.
+            // 3.1. Derive secure nonce.
             uint nonce = deriveNonce(privKeys[i], message);
 
             // 3.2. Compute noncePubKey and append to list of noncePubKeys.
@@ -86,8 +85,10 @@ library LibSchnorrExtended {
         // 7. Collect signatures from signers.
         uint[] memory signatures = new uint[](privKeys.length);
         for (uint i; i < privKeys.length; i++) {
+            // 7.1 Derive secure nonce.
             uint nonce = deriveNonce(privKeys[i], message);
 
+            // 7.2 Compute signature.
             signatures[i] = computeSignature(privKeys[i], nonce, challenge);
         }
 
@@ -96,6 +97,16 @@ library LibSchnorrExtended {
         for (uint i; i < privKeys.length; i++) {
             // Note to keep aggSignature ∊ [0, Q).
             aggSignature = addmod(aggSignature, signatures[i], LibSecp256k1.Q());
+        }
+
+        // BONUS: Make sure signature can be verified.
+        bool ok = verifySignature(
+            aggPubKey, message, bytes32(aggSignature), commitment
+        );
+        if (!ok) {
+            console2.log(
+                "[INTERNAL ERROR] LibSchnorrExtended: could not verify own signature"
+            );
         }
 
         // => The aggregated public key signs the message via the aggregated
@@ -134,21 +145,22 @@ library LibSchnorrExtended {
         address recovered =
             ecrecover(bytes32(msgHash), uint8(v), bytes32(r), bytes32(s));
 
-        // Verification succeeds if the ecrecover'ed address equals Rₑ, i.e.
+        // Verification succeeds iff the ecrecover'ed address equals Rₑ, i.e.
         // the commitment.
         return commitment == recovered;
     }
 
-    /*//////////////////////////////////////////////////////////////
-                          LOW-LEVEL FUNCTIONS
-    //////////////////////////////////////////////////////////////*/
+    //--------------------------------------------------------------------------
+    // Low-Level Functions
 
     function deriveNonce(uint privKey, bytes32 message)
         internal
         pure
         returns (uint)
     {
-        return uint(keccak256(abi.encodePacked(privKey, message)));
+        // k = H(x ‖ m) mod Q
+        return uint(keccak256(abi.encodePacked(privKey, message)))
+            % LibSecp256k1.Q();
     }
 
     function computeNoncePublicKey(uint nonce)
@@ -156,7 +168,7 @@ library LibSchnorrExtended {
         returns (LibSecp256k1.Point memory)
     {
         // R = [k]G
-        return nonce.toPoint();
+        return nonce.derivePublicKey();
     }
 
     function deriveCommitment(LibSecp256k1.Point memory noncePubKey)
@@ -164,6 +176,7 @@ library LibSchnorrExtended {
         pure
         returns (address)
     {
+        // Rₑ = Ethereum address of R.
         return noncePubKey.toAddress();
     }
 
@@ -172,18 +185,16 @@ library LibSchnorrExtended {
         pure
         returns (LibSecp256k1.Point memory)
     {
+        // aggPubKey = sum(signers)
+        //           = pubKey₁ + pubKey₂ + ... + pubKeyₙ
         require(pubKeys.length != 0);
 
-        // Let aggPubKey be the sum of already processed public keys.
-        // Note the switch to Jacobian coordinates.
         LibSecp256k1.JacobianPoint memory aggPubKey = pubKeys[0].toJacobian();
 
         for (uint i = 1; i < pubKeys.length; i++) {
-            // Write result directly into aggPubKey memory.
             aggPubKey.addAffinePoint(pubKeys[i]);
         }
 
-        // Return in Affine coordinates.
         return aggPubKey.toAffine();
     }
 
@@ -192,7 +203,7 @@ library LibSchnorrExtended {
         bytes32 message,
         address commitment
     ) internal pure returns (bytes32) {
-        // Construct challenge = H(Pₓ ‖ Pₚ ‖ m ‖ Rₑ) mod Q
+        // e = H(Pₓ ‖ Pₚ ‖ m ‖ Rₑ) mod Q
         // @todo Challenge here differently created than in spec.
         return bytes32(
             uint(

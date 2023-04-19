@@ -1,7 +1,6 @@
 pragma solidity ^0.8.16;
 
 import {Test} from "forge-std/Test.sol";
-import {console2} from "forge-std/console2.sol";
 
 import {LibBytes} from "src/libs/LibBytes.sol";
 

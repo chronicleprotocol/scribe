@@ -16,9 +16,9 @@ library LibSecp256k1 {
     using LibSecp256k1 for LibSecp256k1.Point;
     using LibSecp256k1 for LibSecp256k1.JacobianPoint;
 
-    /*//////////////////////////////////////////////////////////////
-                               CONSTANTS
-    //////////////////////////////////////////////////////////////*/
+    //--------------------------------------------------------------------------
+    // Constants
+    //
     // Taken from https://www.secg.org/sec2-v2.pdf.
     // See section 2.4.1 "Recommended Parameters secp256k1".
 
@@ -47,9 +47,8 @@ library LibSecp256k1 {
         return Point({x: 0, y: 0});
     }
 
-    /*//////////////////////////////////////////////////////////////
-                             (AFFINE) POINT
-    //////////////////////////////////////////////////////////////*/
+    //--------------------------------------------------------------------------
+    // (Affine) Point
 
     /// @dev Point encapsulates a secp256k1 point in Affine coordinates.
     struct Point {
@@ -73,7 +72,7 @@ library LibSecp256k1 {
         pure
         returns (JacobianPoint memory)
     {
-        return JacobianPoint(self.x, self.y, 1);
+        return JacobianPoint({x: self.x, y: self.y, z: 1});
     }
 
     /// @dev Returns whether `self` is the zero point.
@@ -90,9 +89,8 @@ library LibSecp256k1 {
         return self.y % 2;
     }
 
-    /*//////////////////////////////////////////////////////////////
-                             JACOBIAN POINT
-    //////////////////////////////////////////////////////////////*/
+    //--------------------------------------------------------------------------
+    // Jacobian Point
 
     /// @dev JacobianPoint encapsulates a secp256k1 point in Jacobian
     ///      coordinates.
@@ -114,7 +112,7 @@ library LibSecp256k1 {
         Point memory result;
 
         // Compute z⁻¹, i.e. the modular inverse of self.z.
-        uint zInv = invMod(self.z);
+        uint zInv = _invMod(self.z);
 
         // Compute (z⁻¹)² (mod P)
         uint zInv_2 = mulmod(zInv, zInv, _P);
@@ -130,7 +128,6 @@ library LibSecp256k1 {
         return result;
     }
 
-    // @todo Invariant: Uses constant gas.
     /// @dev Adds Affine point `p` to Jacobian point `self`.
     ///
     ///      It is the caller's responsibility to ensure given points are on the
@@ -282,9 +279,8 @@ library LibSecp256k1 {
         }
     }
 
-    /*//////////////////////////////////////////////////////////////
-                            PRIVATE HELPERS
-    //////////////////////////////////////////////////////////////*/
+    //--------------------------------------------------------------------------
+    // Private Helpers
 
     /// @dev Returns the modular inverse of `x` for modulo `_P`.
     ///
@@ -296,7 +292,7 @@ library LibSecp256k1 {
     ///
     /// @custom:invariant Reverts iff out of gas.
     /// @custom:invariant Does not run into an infinite loop.
-    function invMod(uint x) private pure returns (uint) {
+    function _invMod(uint x) private pure returns (uint) {
         uint t;
         uint q;
         uint newT = 1;

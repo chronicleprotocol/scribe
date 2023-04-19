@@ -96,9 +96,6 @@ interface IScribeOptimistic_Optimized is IScribe {
     // @todo NatSpec
     function opFeedIndex() external view returns (uint8);
 
-    // @todo NatSpec
-    //function opCommitment() external view returns (uint160);
-
     /// @notice Returns the opChallengePeriod security parameter.
     /// @return The opChallengePeriod security parameter.
     function opChallengePeriod() external view returns (uint16);

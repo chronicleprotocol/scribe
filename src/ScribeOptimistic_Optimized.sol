@@ -9,13 +9,16 @@ import {IScribe_Optimized as IScribe} from "./IScribe_Optimized.sol";
 import {LibSchnorr} from "./libs/LibSchnorr.sol";
 import {LibSecp256k1} from "./libs/LibSecp256k1.sol";
 
+// @todo variable to set searcher reward instead of using address(this).balance?
+// @todo auth'ed function to withdraw eth?
+
 /**
  * @title ScribeOptimistic
  *
  * @notice Optimistic!
  *         Thats what the scribe yawps
  *         Can you tame them
- *         By challenging their poke?
+ *         By challenging a poke?
  *
  * @dev
  */
@@ -132,7 +135,7 @@ contract ScribeOptimistic_Optimized is IScribeOptimistic, Scribe {
             _pokeData = opPokeData;
         }
 
-        // Store given pokeData in opPokeData storage. Note to set the
+        // Store given pokeData in _opPokeData storage. Note to set the
         // opPokeData's age to the current timestamp and _not_ the given
         // pokeData's age.
         _opPokeData.val = pokeData.val;
@@ -350,6 +353,9 @@ contract ScribeOptimistic_Optimized is IScribeOptimistic, Scribe {
     /// @dev Ensures an auth'ed configuration update does not enable
     ///      successfully challenging a prior to the update valid opPoke.
     function _afterAuthedAction() private {
+        // Do nothing if contract is being deployed.
+        if (address(this).code.length == 0) return;
+
         // Decide whether _opPokeData is finalized.
         bool opPokeDataFinalized =
             _opPokeData.age + opChallengePeriod <= uint32(block.timestamp);

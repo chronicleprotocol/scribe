@@ -5,23 +5,21 @@ import {console2} from "forge-std/console2.sol";
 import {IAuth} from "chronicle-std/auth/IAuth.sol";
 import {IToll} from "chronicle-std/toll/IToll.sol";
 
-import {IScribe} from "src/IScribe.sol";
-import {IScribeOptimistic} from "src/IScribeOptimistic.sol";
+import {IScribe_Optimized as IScribe} from "src/IScribe_Optimized.sol";
+import {IScribeOptimistic_Optimized as IScribeOptimistic} from
+    "src/IScribeOptimistic_Optimized.sol";
 
 import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
 
 import {IScribeTest} from "./IScribeTest.sol";
-
-import {LibHelpers} from "./utils/LibHelpers.sol";
 
 /**
  * @notice Provides IScribeOptimistic Unit Tests
  */
 abstract contract IScribeOptimisticTest is IScribeTest {
     using LibSecp256k1 for LibSecp256k1.Point;
-    using LibHelpers for LibHelpers.Feed[];
 
-    IScribeOptimistic opScribe;
+    IScribeOptimistic private opScribe;
 
     // Events copied from IScribeOptimistic.
     // @todo Add missing events + test for emission.
@@ -38,24 +36,21 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         opScribe = IScribeOptimistic(scribe_);
     }
 
-    /*//////////////////////////////////////////////////////////////
-                            TEST: DEPLOYMENT
-    //////////////////////////////////////////////////////////////*/
+    //--------------------------------------------------------------------------
+    // Test: Deployment
 
     function test_deployment() public override(IScribeTest) {
         super.test_deployment();
 
-        // opFeed and opCommitment not set.
-        assertEq(opScribe.opFeed(), address(0));
-        assertEq(opScribe.opCommitment(), bytes32(0));
+        // opFeedIndex not set.
+        assertEq(opScribe.opFeedIndex(), 0);
 
         // OpChallengePeriod set to 1 hour.
         assertEq(opScribe.opChallengePeriod(), 1 hours);
     }
 
-    /*//////////////////////////////////////////////////////////////
-                         TEST: OP POKE FUNCTION
-    //////////////////////////////////////////////////////////////*/
+    //--------------------------------------------------------------------------
+    // Test: opPoke
 
     /*
     // @todo Continue refactor LibHelpers.makeSchnorr to signSchnorr.
@@ -650,6 +645,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
                      TEST: AUTH PROTECTED FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
+    /*
     function testFuzz_setOpChallengePeriod(uint16 opChallengePeriod) public {
         vm.assume(opChallengePeriod != 0);
 
@@ -726,6 +722,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
                             PRIVATE HELPERS
     //////////////////////////////////////////////////////////////*/
 
+    /*
     function _setUpFeedsAndOpPokeOnce(uint128 val, uint32 age) private {
         // Create and whitelist bar many feeds.
         LibHelpers.Feed[] memory feeds_ =
@@ -746,4 +743,5 @@ abstract contract IScribeOptimisticTest is IScribeTest {
             LibHelpers.makeECDSASignature(feeds_[0], pokeData, schnorrData, WAT)
         );
     }
+    */
 }

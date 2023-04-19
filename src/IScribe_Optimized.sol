@@ -78,6 +78,9 @@ interface IScribe_Optimized {
     // @todo NatSpec outdated.
     function watMessage() external view returns (bytes32 watMessage);
 
+    // @todo Provide a feedsCount() function?
+    function maxFeeds() external view returns (uint);
+
     /// @notice Returns the oracle's current value.
     /// @dev Reverts if no value set.
     /// @return value The oracle's current value.
@@ -116,7 +119,7 @@ interface IScribe_Optimized {
     function verifySchnorrSignature(
         bytes32 message,
         SchnorrSignatureData calldata schnorrData
-    ) external view returns (bool ok, bytes memory err);
+    ) external returns (bool ok, bytes memory err);
 
     // @todo IScribe NatSpec documentation.
     function constructPokeMessage(PokeData calldata pokeData)
@@ -151,7 +154,7 @@ interface IScribe_Optimized {
     function lift(
         LibSecp256k1.Point memory pubKey,
         ECDSASignatureData memory ecdsaData
-    ) external;
+    ) external returns (uint);
 
     /// @notice Lifts public keys `pubKeys` to being feeds.
     /// @dev Only callable by auth'ed address.
@@ -162,7 +165,7 @@ interface IScribe_Optimized {
     function lift(
         LibSecp256k1.Point[] memory pubKeys,
         ECDSASignatureData[] memory ecdsaDatas
-    ) external;
+    ) external returns (uint[] memory);
 
     // @todo NatSpec outdated.
     /// @notice Drops public key `pubKey` from being a feed.

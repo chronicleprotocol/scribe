@@ -109,9 +109,8 @@ library LibSchnorr {
         address recovered =
             ecrecover(bytes32(msgHash), uint8(v), bytes32(r), bytes32(s));
 
-        // Verification succeeds if the ecrecover'ed address equals Rₑ, i.e.
+        // Verification succeeds iff the ecrecover'ed address equals Rₑ, i.e.
         // the commitment.
-        // @todo Schnorr signature verification turned off
         return commitment == recovered;
     }
 
