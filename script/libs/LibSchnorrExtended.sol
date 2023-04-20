@@ -1,6 +1,7 @@
 pragma solidity ^0.8.16;
 
 import {console2} from "forge-std/console2.sol";
+import {StdStyle} from "forge-std/StdStyle.sol";
 
 import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
 
@@ -38,6 +39,16 @@ library LibSchnorrExtended {
 
         // 5. Compute signature.
         uint signature = computeSignature(privKey, nonce, challenge);
+
+        // BONUS: Make sure signature can be verified.
+        bool ok = verifySignature(
+            pubKey, message, bytes32(signature), commitment
+        );
+        if (!ok) {
+            console2.log(
+                StdStyle.red("[INTERNAL ERROR] LibSchnorrExtended: could not verify own signature")
+            );
+        }
 
         // => The public key signs the message via the signature and
         //    commitment.
@@ -105,7 +116,7 @@ library LibSchnorrExtended {
         );
         if (!ok) {
             console2.log(
-                "[INTERNAL ERROR] LibSchnorrExtended: could not verify own signature"
+                StdStyle.red("[INTERNAL ERROR] LibSchnorrExtended: could not verify own signature")
             );
         }
 

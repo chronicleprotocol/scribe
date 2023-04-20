@@ -17,7 +17,9 @@ abstract contract EVMTest is Test {
     ///      index returns 0.
     ///      Note that ScribeOptimistic::opChallenge() requires such an
     ///      expression to _not revert_.
-    function test_calldataload_ReadingNonExistingCalldataReturnsZero(uint index) public {
+    function test_calldataload_ReadingNonExistingCalldataReturnsZero(uint index)
+        public
+    {
         uint minIndex;
         assembly ("memory-safe") {
             minIndex := calldatasize()
@@ -51,15 +53,16 @@ abstract contract EVMTest is Test {
 
     /// @dev Tests that:
     ///      ecrecover(_, _, 0, _) -> address(0)
-    function test_ecrecover_ReturnsZeroAddress_If_R_IsZero(
-        uint privKeySeed
-    ) public {
+    function test_ecrecover_ReturnsZeroAddress_If_R_IsZero(uint privKeySeed)
+        public
+    {
         // Let privKey ∊ [1, Q).
         uint privKey = bound(privKeySeed, 1, LibSecp256k1.Q() - 1);
 
         // Create ECDSA signature.
-        (uint8 v, , bytes32 s) = vm.sign(privKey, keccak256("scribe"));
+        (uint8 v,, bytes32 s) = vm.sign(privKey, keccak256("scribe"));
 
+        // Let r be zero.
         bytes32 r = 0;
 
         assertEq(ecrecover(keccak256("scribe"), v, r, s), address(0));

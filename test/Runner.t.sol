@@ -67,6 +67,10 @@ contract LibSecp256k1ExtendedTest_ is LibSecp256k1ExtendedTest {}
 //------------------------------------------------------------------------------
 // Test: Schnorr Libraries
 
+import {LibSchnorrTest} from "./LibSchnorrTest.sol";
+
+contract LibSchnorrTest_ is LibSchnorrTest {}
+
 //------------------------------------------------------------------------------
 // Test: Bytes Library
 
