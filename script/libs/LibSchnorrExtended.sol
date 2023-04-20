@@ -221,12 +221,21 @@ library LibSchnorrExtended {
         pure
         returns (uint)
     {
+        // @audit-issue Original/Own Scheme
         // s = k - (e * x)       (mod Q)
         //   = k + (Q - (e * x)) (mod Q)
-        // forgefmt: disable-next-item
+        // // forgefmt: disable-next-item
+        //return addmod(
+        //    nonce,
+        //    LibSecp256k1.Q() - mulmod(uint(challenge), privKey, LibSecp256k1.Q()),
+        //    LibSecp256k1.Q()
+        //);
+
+        // @audit-issue BIP-340 Scheme
+        // s = k + (e * x) (mod Q)
         return addmod(
             nonce,
-            LibSecp256k1.Q() - mulmod(uint(challenge), privKey, LibSecp256k1.Q()),
+            mulmod(uint(challenge), privKey, LibSecp256k1.Q()),
             LibSecp256k1.Q()
         );
     }

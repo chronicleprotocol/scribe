@@ -100,10 +100,14 @@ library LibSchnorr {
         // Set r = Pₓ
         uint r = pubKey.x;
 
+        // @audit-issue Original/Own Scheme
         // Compute s = e * Pₓ (mod Q)
-        //
-        // @todo What happens if s if zero?
-        uint s = mulmod(challenge, pubKey.x, LibSecp256k1.Q());
+        //uint s = mulmod(challenge, pubKey.x, LibSecp256k1.Q());
+
+        // @audit-issue BIP-340 Scheme
+        // Compute s = Q - (e * Pₓ) (mod Q)
+        uint s =
+            LibSecp256k1.Q() - mulmod(challenge, pubKey.x, LibSecp256k1.Q());
 
         // Perform ecrecover call.
         // Note to perform necessary castings.

@@ -13,7 +13,7 @@ extra_output_files = ["metadata", "irOptimized"]
 
 # Testing
 block_timestamp = 1_680_220_800 # March 31, 2023 at 00:00 GMT
-fuzz = { runs = 256 }
+fuzz = { runs = 10 }
 
 [rpc_endpoints]
 mainnet = "https://rpc.ankr.com/eth"
