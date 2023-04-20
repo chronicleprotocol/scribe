@@ -6,8 +6,8 @@ import {console2} from "forge-std/console2.sol";
 import {IAuth} from "chronicle-std/auth/IAuth.sol";
 import {IToll} from "chronicle-std/toll/IToll.sol";
 
-import {ScribeOptimistic} from "src/ScribeOptimistic.sol";
 import {IScribeOptimistic} from "src/IScribeOptimistic.sol";
+import {ScribeOptimistic} from "src/ScribeOptimistic.sol";
 
 import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
 
@@ -53,9 +53,8 @@ abstract contract IScribeOptimisticInvariantTest is IScribeInvariantTest {
         return selectors;
     }
 
-    /*//////////////////////////////////////////////////////////////
-                      INVARIANT OpChallengePeriod
-    //////////////////////////////////////////////////////////////*/
+    //--------------------------------------------------------------------------
+    // Invariants: opChallenge Period
 
     function invariant_opChallengePeriod_IsNeverZero() public {
         assertTrue(opScribe.opChallengePeriod() != 0);

@@ -5,19 +5,26 @@ import {console2} from "forge-std/console2.sol";
 import {IAuth} from "chronicle-std/auth/IAuth.sol";
 import {IToll} from "chronicle-std/toll/IToll.sol";
 
-import {IScribe_Optimized as IScribe} from "src/IScribe_Optimized.sol";
-import {IScribeOptimistic_Optimized as IScribeOptimistic} from
-    "src/IScribeOptimistic_Optimized.sol";
+import {IScribe} from "src/IScribe.sol";
+import {IScribeOptimistic} from "src/IScribeOptimistic.sol";
 
 import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
 
 import {IScribeTest} from "./IScribeTest.sol";
+
+import {LibFeed} from "script/libs/LibFeed.sol";
+
+// @todo Regarding Event emission testing:
+//       Use _only_ vm.recordLogs() + vm.getRecordedLogs(), see https://github.com/foundry-rs/forge-std/blob/master/src/Vm.sol#L155.
+//       Provides a harder patterns than vm.expectEmit.
 
 /**
  * @notice Provides IScribeOptimistic Unit Tests
  */
 abstract contract IScribeOptimisticTest is IScribeTest {
     using LibSecp256k1 for LibSecp256k1.Point;
+    using LibFeed for LibFeed.Feed;
+    using LibFeed for LibFeed.Feed[];
 
     IScribeOptimistic private opScribe;
 
@@ -36,11 +43,14 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         opScribe = IScribeOptimistic(scribe_);
     }
 
+    // Necessary to receive opChallenge rewards.
+    receive() external payable {}
+
     //--------------------------------------------------------------------------
     // Test: Deployment
 
-    function test_deployment() public override(IScribeTest) {
-        super.test_deployment();
+    function test_Deployment() public override(IScribeTest) {
+        super.test_Deployment();
 
         // opFeedIndex not set.
         assertEq(opScribe.opFeedIndex(), 0);
@@ -52,600 +62,370 @@ abstract contract IScribeOptimisticTest is IScribeTest {
     //--------------------------------------------------------------------------
     // Test: opPoke
 
-    /*
-    // @todo Continue refactor LibHelpers.makeSchnorr to signSchnorr.
-
-    function testFuzz_opPoke_Initial(IScribe.PokeData memory pokeData) public {
-        _setUp_liftFeeds();
-
-        vm.assume(pokeData.val != 0);
-        vm.assume(pokeData.age != 0);
-
-        IScribe.SchnorrSignatureData memory schnorrData;
-        schnorrData = feeds.signSchnorrMessage(opScribe, pokeData);
-
-        opScribe.opPoke(
-            pokeData,
-            schnorrData,
-            LibHelpers.makeECDSASignature(feeds[0], pokeData, schnorrData, WAT)
-        );
-
-        // Check that opFeed and opCommitment set.
-        assertEq(opScribe.opFeed(), feeds[0].pubKey.toAddress());
-        // @todo Enable opCommitment check again.
-        //assertEq(
-        //    opScribe.opCommitment(),
-        //    LibHelpers.constructOpCommitment(pokeData, schnorrData, WAT)
-        //);
-
-        // Wait until challenge period over and opPokeData finalizes.
-        vm.warp(block.timestamp + opScribe.opChallengePeriod());
-
-        // Check that value can be read.
-        assertEq(opScribe.read(), pokeData.val);
-        (uint val, bool ok) = opScribe.peek();
-        assertEq(val, pokeData.val);
-        assertTrue(ok);
-
-        // Note that the opFeed and opCommitment are not deleted after
-        // finalization.
-        assertEq(opScribe.opFeed(), feeds[0].pubKey.toAddress());
-        // @todo Enable opCommitment check again.
-        //assertEq(
-        //    opScribe.opCommitment(),
-        //    LibHelpers.constructOpCommitment(pokeData, schnorrData, WAT)
-        //);
-    }
-
-    function test_opPoke_Initial() public {
-        _setUp_liftFeeds();
-
-        IScribe.PokeData memory pokeData;
-        pokeData.val = type(uint128).max;
-        pokeData.age = type(uint32).max;
-
-        IScribe.SchnorrSignatureData memory schnorrData;
-        schnorrData = feeds.signSchnorrMessage(opScribe, pokeData);
-
-        opScribe.opPoke(
-            pokeData,
-            schnorrData,
-            LibHelpers.makeECDSASignature(feeds[0], pokeData, schnorrData, WAT)
-        );
-    }
-
-    function test_opPoke_Initial2(
-        IScribe.PokeData memory pokeData,
-        IScribe.SchnorrSignatureData memory schnorrData,
-        IScribe.ECDSASignatureData memory ecdsaData
+    function testFuzz_opPoke(
+        IScribe.PokeData[] memory pokeDatas,
+        uint[] memory feedIndexSeeds
     ) public {
-        vm.assume(schnorrData.signers.length < 5);
+        vm.assume(pokeDatas.length == feedIndexSeeds.length);
+        // Keep low to not run out-of-gas.
+        vm.assume(pokeDatas.length < 50);
 
-        opScribe.opPoke(pokeData, schnorrData, ecdsaData);
+        LibFeed.Feed[] memory feeds = _createAndLiftFeeds(opScribe.bar());
+
+        IScribe.SchnorrSignatureData memory schnorrData;
+        IScribe.ECDSASignatureData memory ecdsaData;
+        uint feedIndex;
+        bool ok;
+        uint val;
+        for (uint i; i < pokeDatas.length; i++) {
+            // Select random feed signing opPoke.
+            feedIndex = bound(feedIndexSeeds[i], 0, feeds.length - 1);
+
+            // Make sure val is non-zero and age not stale.
+            pokeDatas[i].val =
+                uint128(bound(pokeDatas[i].val, 1, type(uint128).max));
+            pokeDatas[i].age = uint32(block.timestamp);
+
+            // Schnorr multi-sign pokeData with feeds.
+            schnorrData =
+                feeds.signSchnorr(opScribe.constructPokeMessage(pokeDatas[i]));
+
+            // ECDSA single-sign (pokeData, schnorrData).
+            ecdsaData = feeds[feedIndex].signECDSA(
+                opScribe.constructOpPokeMessage(pokeDatas[i], schnorrData)
+            );
+
+            // Execute opPoke.
+            opScribe.opPoke(pokeDatas[i], schnorrData, ecdsaData);
+
+            // Wait until challenge period over and opPokeData finalizes.
+            vm.warp(block.timestamp + opScribe.opChallengePeriod());
+
+            // Check that value can be read.
+            assertEq(opScribe.read(), pokeDatas[i].val);
+        }
     }
 
     function test_opPoke_Initial_FailsIf_AgeIsZero() public {
-        _setUp_liftFeeds();
+        LibFeed.Feed[] memory feeds = _createAndLiftFeeds(opScribe.bar());
 
         IScribe.PokeData memory pokeData;
         pokeData.val = 1;
         pokeData.age = 0;
 
         IScribe.SchnorrSignatureData memory schnorrData;
-        schnorrData = feeds.signSchnorrMessage(opScribe, pokeData);
+        schnorrData = feeds.signSchnorr(opScribe.constructPokeMessage(pokeData));
+
+        IScribe.ECDSASignatureData memory ecdsaData;
+        ecdsaData = feeds[0].signECDSA(
+            opScribe.constructOpPokeMessage(pokeData, schnorrData)
+        );
 
         vm.expectRevert(
             abi.encodeWithSelector(IScribe.StaleMessage.selector, 0, 0)
         );
-        opScribe.opPoke(
-            pokeData,
-            schnorrData,
-            LibHelpers.makeECDSASignature(feeds[0], pokeData, schnorrData, WAT)
-        );
+        opScribe.opPoke(pokeData, schnorrData, ecdsaData);
     }
 
-    function testFuzz_opPoke_Continuously(IScribe.PokeData[] memory pokeDatas)
-        public
-    {
-        _setUp_liftFeeds();
-
-        // Ensure pokeDatas' val is never zero.
-        for (uint i; i < pokeDatas.length; i++) {
-            vm.assume(pokeDatas[i].val != 0);
-        }
-
-        for (uint i; i < pokeDatas.length; i++) {
-            pokeDatas[i].age = uint32(
-                bound(
-                    pokeDatas[i].age,
-                    block.timestamp + 1,
-                    block.timestamp + 1 weeks
-                )
-            );
-
-            IScribe.SchnorrSignatureData memory schnorrData;
-            schnorrData = feeds.signSchnorrMessage(opScribe, pokeDatas[i]);
-
-            // forgefmt: disable-next-item
-            IScribeOptimistic.ECDSASignatureData memory ecdsaData =
-                LibHelpers.makeECDSASignature(
-                    i % 2 == 0 ? feeds[0] : feeds[1],
-                    pokeDatas[i],
-                    schnorrData,
-                    WAT
-                );
-
-            opScribe.opPoke(pokeDatas[i], schnorrData, ecdsaData);
-
-            assertEq(
-                opScribe.opFeed(),
-                (i % 2 == 0 ? feeds[0] : feeds[1]).pubKey.toAddress()
-            );
-
-            // @todo Enable opCommitment check again.
-            //assertEq(
-            //    opScribe.opCommitment(),
-            //    LibHelpers.constructOpCommitment(pokeDatas[i], schnorrData, WAT)
-            //);
-
-            // Wait until challenge period over and opPokeData finalizes.
-            vm.warp(block.timestamp + opScribe.opChallengePeriod());
-
-            assertEq(opScribe.read(), pokeDatas[i].val);
-            (uint val, bool ok) = opScribe.peek();
-            assertEq(val, pokeDatas[i].val);
-            assertTrue(ok);
-        }
-    }
-
-    function testFuzz_opPoke_FailsIf_PokeData_IsStale(
+    function testFuzz_opPoke_FailsIf_AgeIsStale(
         IScribe.PokeData memory pokeData
     ) public {
-        _setUp_liftFeeds();
+        LibFeed.Feed[] memory feeds = _createAndLiftFeeds(opScribe.bar());
 
         vm.assume(pokeData.val != 0);
         vm.assume(pokeData.age != 0);
 
-        // Poke once.
-        opScribe.poke(pokeData, feeds.signSchnorrMessage(opScribe, pokeData));
+        IScribe.SchnorrSignatureData memory schnorrData;
+        schnorrData = feeds.signSchnorr(opScribe.constructPokeMessage(pokeData));
 
-        // Last poke's age is set to block.timestamp.
-        uint currentAge = uint32(block.timestamp);
+        IScribe.ECDSASignatureData memory ecdsaData;
+        ecdsaData = feeds[0].signECDSA(
+            opScribe.constructOpPokeMessage(pokeData, schnorrData)
+        );
 
-        // New pokeData's age ∊ [0, block.timestamp].
+        // Execute opPoke.
+        opScribe.opPoke(pokeData, schnorrData, ecdsaData);
+
+        // Set pokeData's age ∊ [0, block.timestamp].
         pokeData.age = uint32(bound(pokeData.age, 0, block.timestamp));
 
-        IScribe.SchnorrSignatureData memory schnorrData;
-        schnorrData = feeds.signSchnorrMessage(opScribe, pokeData);
+        uint lastAge = uint32(block.timestamp);
 
-        // forgefmt: disable-next-item
-        IScribeOptimistic.ECDSASignatureData memory ecdsaSignatureData =
-            LibHelpers.makeECDSASignature(
-                feeds[0],
-                pokeData,
-                schnorrData,
-                WAT
-            );
+        // Wait until opPokeData finalized.
+        vm.warp(block.timestamp + opScribe.opChallengePeriod());
+
+        schnorrData = feeds.signSchnorr(opScribe.constructPokeMessage(pokeData));
+        ecdsaData = feeds[0].signECDSA(
+            opScribe.constructOpPokeMessage(pokeData, schnorrData)
+        );
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                IScribe.StaleMessage.selector, pokeData.age, currentAge
+                IScribe.StaleMessage.selector, pokeData.age, lastAge
             )
         );
-        opScribe.opPoke(pokeData, schnorrData, ecdsaSignatureData);
+        opScribe.opPoke(pokeData, schnorrData, ecdsaData);
     }
 
-    function testFuzz_opPoke_DoesNotFailIf_SchnorrSignatureData_HasInsufficientNumberOfSigners(
-        IScribe.PokeData memory pokeData,
-        uint numberSignersSeed
-    ) public {
-        _setUp_liftFeeds();
-
-        vm.assume(pokeData.val != 0);
-        vm.assume(pokeData.age != 0);
-
-        uint bar = opScribe.bar();
-        uint numberSigners = bound(numberSignersSeed, 0, bar - 1);
-
-        // Create set of feeds with less than bar feeds.
-        LibHelpers.Feed[] memory feeds_ = new LibHelpers.Feed[](numberSigners);
-        for (uint i; i < feeds_.length; i++) {
-            feeds_[i] = feeds[i];
-        }
-
-        IScribe.SchnorrSignatureData memory schnorrData;
-        schnorrData = feeds.signSchnorrMessage(opScribe, pokeData);
-
-        // forgefmt: disable-next-item
-        IScribeOptimistic.ECDSASignatureData memory ecdsaSignatureData =
-            LibHelpers.makeECDSASignature(
-                feeds[0],
-                pokeData,
-                schnorrData,
-                WAT
-            );
-
-        // Does not fail.
-        opScribe.opPoke(pokeData, schnorrData, ecdsaSignatureData);
-    }
-
-    function testFuzz_opPoke_DoesNotFailIf_SchnorrSignatureData_HasNonOrderedSigners(
-        IScribe.PokeData memory pokeData,
-        uint duplicateIndexSeed
-    ) public {
-        _setUp_liftFeeds();
-
-        vm.assume(pokeData.val != 0);
-        vm.assume(pokeData.age != 0);
-
-        uint bar = opScribe.bar();
-
-        // Create set of feeds with bar feeds.
-        LibHelpers.Feed[] memory feeds_ = new LibHelpers.Feed[](bar);
-        for (uint i; i < feeds_.length; i++) {
-            feeds_[i] = feeds[i];
-        }
-
-        // But have the first feed two times in the set.
-        uint index = bound(duplicateIndexSeed, 1, feeds_.length - 1);
-        feeds_[index] = feeds_[0];
-
-        IScribe.SchnorrSignatureData memory schnorrData;
-        schnorrData = feeds.signSchnorrMessage(opScribe, pokeData);
-
-        // forgefmt: disable-next-item
-        IScribeOptimistic.ECDSASignatureData memory ecdsaSignatureData =
-            LibHelpers.makeECDSASignature(
-                feeds[0],
-                pokeData,
-                schnorrData,
-                WAT
-            );
-
-        // Does not fail.
-        opScribe.opPoke(pokeData, schnorrData, ecdsaSignatureData);
-    }
-
-    function test_opPoke_DoesNotFailIf_SchnorrSignatureData_HasNonFeedAsSigner()
-        public
-    {
-        _setUp_liftFeeds();
-
-        IScribe.PokeData memory pokeData;
-        pokeData.val = 1;
-        pokeData.age = uint32(block.timestamp);
-
-        // Add non-feed to feeds.
-        feeds.push(notFeed);
-
-        IScribe.SchnorrSignatureData memory schnorrData;
-        schnorrData = feeds.signSchnorrMessage(opScribe, pokeData);
-
-        // forgefmt: disable-next-item
-        IScribeOptimistic.ECDSASignatureData memory ecdsaSignatureData =
-            LibHelpers.makeECDSASignature(
-                feeds[0],
-                pokeData,
-                schnorrData,
-                WAT
-            );
-
-        // Does not fail.
-        opScribe.opPoke(pokeData, schnorrData, ecdsaSignatureData);
-    }
-
-    function testFuzz_opPoke_DoesNotFailsIf_SchnorrSignatureData_FailsSignatureVerification(
-        IScribe.PokeData memory pokeData,
-        uint signatureMask,
-        uint160 commitmentMask
-    ) public {
-        _setUp_liftFeeds();
-
-        vm.assume(pokeData.val != 0);
-        vm.assume(pokeData.age != 0);
-
-        IScribe.SchnorrSignatureData memory schnorrData;
-        schnorrData = feeds.signSchnorrMessage(opScribe, pokeData);
-
-        // "Randomly" mutate schnorrSignatureData.
-        schnorrData.signature =
-            bytes32(uint(schnorrData.signature) ^ signatureMask);
-        schnorrData.commitment =
-            address(uint160(schnorrData.commitment) ^ commitmentMask);
-
-        // forgefmt: disable-next-item
-        IScribeOptimistic.ECDSASignatureData memory ecdsaSignatureData =
-            LibHelpers.makeECDSASignature(
-                feeds[0],
-                pokeData,
-                schnorrData,
-                WAT
-            );
-
-        // Does not fail.
-        opScribe.opPoke(pokeData, schnorrData, ecdsaSignatureData);
-    }
-
-    function testFuzz_opPoke_FailsIf_ECDSASignatureData_FailsSignatureVerification(
-        IScribe.PokeData memory pokeData,
+    function testFuzz_opPoke_FailsIf_ECDSASignatureInvalid(
         bool vSeed,
         uint rMask,
         uint sMask
     ) public {
-        _setUp_liftFeeds();
+        LibFeed.Feed[] memory feeds = _createAndLiftFeeds(opScribe.bar());
 
-        vm.assume(pokeData.val != 0);
-        vm.assume(pokeData.age != 0);
-
-        IScribe.SchnorrSignatureData memory schnorrData;
-        schnorrData = feeds.signSchnorrMessage(opScribe, pokeData);
-
-        // forgefmt: disable-next-item
-        IScribeOptimistic.ECDSASignatureData memory ecdsaSignatureData =
-            LibHelpers.makeECDSASignature(
-                feeds[0],
-                pokeData,
-                schnorrData,
-                WAT
-            );
-
-        // "Randomly" mutate ecdsaSignatureData.
-        ecdsaSignatureData.v = vSeed ? 27 : 28;
-        ecdsaSignatureData.r = bytes32(uint(ecdsaSignatureData.r) ^ rMask);
-        ecdsaSignatureData.s = bytes32(uint(ecdsaSignatureData.s) ^ sMask);
-
-        vm.expectRevert();
-        opScribe.opPoke(pokeData, schnorrData, ecdsaSignatureData);
-    }
-
-    function test_Fuzz_opPoke_FailsIf_SomeOpPokeDataAlreadyInChallengePeriod(
-        IScribe.PokeData memory pokeData,
-        uint warpSeed
-    ) public {
-        _setUp_liftFeeds();
-
-        vm.assume(pokeData.val != 0);
-        vm.assume(pokeData.age != 0);
+        IScribe.PokeData memory pokeData;
+        pokeData.val = 1;
+        pokeData.age = 1;
 
         IScribe.SchnorrSignatureData memory schnorrData;
-        schnorrData = feeds.signSchnorrMessage(opScribe, pokeData);
+        schnorrData = feeds.signSchnorr(opScribe.constructPokeMessage(pokeData));
 
-        // forgefmt: disable-next-item
-        IScribeOptimistic.ECDSASignatureData memory ecdsaSignatureData =
-            LibHelpers.makeECDSASignature(
-                feeds[0],
-                pokeData,
-                schnorrData,
-                WAT
-            );
-
-        opScribe.opPoke(pokeData, schnorrData, ecdsaSignatureData);
-
-        // Warp to some time before challenge period over.
-        uint opChallengePeriod = opScribe.opChallengePeriod();
-        vm.warp(block.timestamp + bound(warpSeed, 0, opChallengePeriod - 1));
-
-        // Adjust pokeData's age to not run into "StaleMessage".
-        pokeData.age = uint32(block.timestamp);
-
-        schnorrData = feeds.signSchnorrMessage(opScribe, pokeData);
-
-        ecdsaSignatureData =
-            LibHelpers.makeECDSASignature(feeds[0], pokeData, schnorrData, WAT);
-
-        vm.expectRevert(IScribeOptimistic.InChallengePeriod.selector);
-        opScribe.opPoke(pokeData, schnorrData, ecdsaSignatureData);
-    }
-    */
-
-    /*//////////////////////////////////////////////////////////////
-                      TEST: OP CHALLENGE FUNCTION
-    //////////////////////////////////////////////////////////////*/
-
-    /*
-    function testFuzz_opChallenge_DoesNotKickOpFeedIf_SchnorrSignatureDataValid(
-    ) public {}
-
-    function testFuzz_opChallenge_FinalizesOpPokeDataIf_SchnorrSignatureValid()
-        public
-    {}
-
-    function testFuzz_opChallenge_KicksOpFeedIf_SchnorrSignatureDataInvalid_DueTo_HasInsufficientNumberOfSigners(
-        IScribe.PokeData memory pokeData,
-        uint numberSignersSeed
-    ) public {
-        _setUp_liftFeeds();
-
-        vm.assume(pokeData.val != 0);
-        vm.assume(pokeData.age != 0);
-
-        uint bar = opScribe.bar();
-
-        // Let numberSigners ∊ [0, bar).
-        uint numberSigners = bound(numberSignersSeed, 0, bar - 1);
-
-        // Create set of feeds with less than bar feeds.
-        LibHelpers.Feed[] memory feeds_ = new LibHelpers.Feed[](numberSigners);
-        for (uint i; i < feeds_.length; i++) {
-            feeds_[i] = feeds[i];
-        }
-
-        // Use less than bar signers for Schnorr signature.
-        IScribe.SchnorrSignatureData memory schnorrData;
-        schnorrData = feeds_.signSchnorrMessage(opScribe, pokeData);
-
-        // Cache opFeed.
-        LibHelpers.Feed memory opFeed = feeds[0];
-
-        // Execute opPoke.
-        opScribe.opPoke(
-            pokeData,
-            schnorrData,
-            LibHelpers.makeECDSASignature(opFeed, pokeData, schnorrData, WAT)
+        IScribe.ECDSASignatureData memory ecdsaData;
+        ecdsaData = feeds[0].signECDSA(
+            opScribe.constructOpPokeMessage(pokeData, schnorrData)
         );
 
-        // Challenge opPoke.
-        opScribe.opChallenge(schnorrData);
+        // Mutate ECDSA signature. Make sure to actually mutate though.
+        if ((ecdsaData.v == 27) == vSeed) rMask |= 1;
+        ecdsaData.v = vSeed ? 27 : 28;
+        ecdsaData.r = bytes32(uint(ecdsaData.r) ^ rMask);
+        ecdsaData.s = bytes32(uint(ecdsaData.s) ^ sMask);
 
-        // Check that opPoke got kicked.
-        assertFalse(opScribe.feeds(opFeed.pubKey.toAddress()));
-
-        // Check that opPoke didn't finalize.
-        (bool ok, /*uint val*/
-    /* ) = opScribe.tryRead();
-        assertFalse(ok);
-    }
-
-    function testFuzz_opChallenge_KicksOpFeedIf_SchnorrSignatureDataInvalid_DueTo_HasNonOrderedSigners(
-        IScribe.PokeData memory pokeData,
-        uint duplicateIndexSeed
-    ) public {
-        _setUp_liftFeeds();
-
-        vm.assume(pokeData.val != 0);
-        vm.assume(pokeData.age != 0);
-
-        uint bar = opScribe.bar();
-
-        // Create set of feeds with bar feeds.
-        LibHelpers.Feed[] memory feeds_ = new LibHelpers.Feed[](bar);
-        for (uint i; i < feeds_.length; i++) {
-            feeds_[i] = feeds[i];
-        }
-
-        // But have the first feed two times in the set.
-        uint index = bound(duplicateIndexSeed, 1, feeds_.length - 1);
-        feeds_[index] = feeds_[0];
-
-        IScribe.SchnorrSignatureData memory schnorrData;
-        schnorrData = feeds_.signSchnorrMessage(opScribe, pokeData);
-
-        // Cache opFeed.
-        LibHelpers.Feed memory opFeed = feeds[0];
-
-        // Execute opPoke.
-        opScribe.opPoke(
-            pokeData,
-            schnorrData,
-            LibHelpers.makeECDSASignature(opFeed, pokeData, schnorrData, WAT)
+        // Get address expected to be recovered.
+        address recovered = ecrecover(
+            opScribe.constructOpPokeMessage(pokeData, schnorrData),
+            ecdsaData.v,
+            ecdsaData.r,
+            ecdsaData.s
         );
-
-        // Challenge opPoke.
-        opScribe.opChallenge(schnorrData);
-
-        // Check that opFeed got kicked.
-        assertFalse(opScribe.feeds(opFeed.pubKey.toAddress()));
-
-        // Check that opPoke didn't finalize.
-        (bool ok, /*uint val*/
-    /* ) = opScribe.tryRead();
-            assertFalse(ok);
-            }
-            function testFuzz_opChallenge_KicksOpFeedIf_SchnorrSignatureDataInvalid_DueTo_HasNonFeedAsSigner(
-            IScribe.PokeData memory pokeData
-            ) public {
-            _setUp_liftFeeds();
-            vm.assume(pokeData.val != 0);
-            vm.assume(pokeData.age != 0);
-            // Add non-feed to feeds.
-            feeds.push(notFeed);
-            IScribe.SchnorrSignatureData memory schnorrData;
-            schnorrData = feeds.signSchnorrMessage(opScribe, pokeData);
-            // Cache opFeed.
-            LibHelpers.Feed memory opFeed = feeds[0];
-            // Execute opPoke.
-            opScribe.opPoke(
-            pokeData,
-            schnorrData,
-            LibHelpers.makeECDSASignature(opFeed, pokeData, schnorrData, WAT)
-            );
-            // Challenge opPoke.
-            opScribe.opChallenge(schnorrData);
-            // Check that opFeed got kicked.
-            assertFalse(opScribe.feeds(opFeed.pubKey.toAddress()));
-            // Check that opPoke didn't finalize.
-            (bool ok, /*uint val*/
-    /* ) = opScribe.tryRead();
-        assertFalse(ok);
-        }
-        function testFuzz_opChallenge_KicksOpFeedIf_SchnorrSignatureDataInvalid_DueTo_FailsSignatureVerification(
-        ) public {
-        _setUp_liftFeeds();
-        // @todo Implement once Schnorr signature verification enabled.
-        console2.log("NOT IMPLEMENTED");
-        }
-        function testFuzz_opChallenge_FailsIf_NoPokeToChallenge_Because_NoPokeDataExists(
-        IScribe.SchnorrSignatureData memory schnorrSignatureData
-        ) public {
-        vm.expectRevert(IScribeOptimistic.NoOpPokeToChallenge.selector);
-        opScribe.opChallenge(schnorrSignatureData);
-        }
-        function testFuzz_opChallenge_FailsIf_NoPokeToChallenge_Because_PokeDataNotInChallengePeriod(
-        IScribe.PokeData memory pokeData
-        ) public {
-        _setUp_liftFeeds();
-        vm.assume(pokeData.val != 0);
-        vm.assume(pokeData.age != 0);
-        IScribe.SchnorrSignatureData memory schnorrData;
-        schnorrData = feeds.signSchnorrMessage(opScribe, pokeData);
-        // Execute opPoke.
-        opScribe.opPoke(
-            pokeData,
-            schnorrData,
-            LibHelpers.makeECDSASignature(feeds[0], pokeData, schnorrData, WAT)
-        );
-        // Warp to opPoke's challenge period end.
-        vm.warp(block.timestamp + opScribe.opChallengePeriod());
-        vm.expectRevert(IScribeOptimistic.NoOpPokeToChallenge.selector);
-        opScribe.opChallenge(schnorrData);
-        }*/
-
-    /*
-    // @todo Rewrite opChallenge Test: Fails if schnorrData does not match.
-    function testFuzz_opChallenge_FailsIf_ArgumentsDoNotMatchCommitment(
-        IScribe.PokeData memory pokeData
-    ) public {
-        _setUp_liftFeeds();
-
-        vm.assume(pokeData.val != 0);
-        vm.assume(pokeData.age != 0);
-
-        IScribe.SchnorrSignatureData memory schnorrData;
-        schnorrData = feeds.signSchnorrMessage(opScribe, pokeData);
-
-        // forgefmt: disable-next-item
-        IScribeOptimistic.ECDSASignatureData memory ecdsaSignatureData =
-            LibHelpers.makeECDSASignature(
-                feeds[0],
-                pokeData,
-                schnorrData,
-                WAT
-            );
-
-        opScribe.opPoke(pokeData, schnorrData, ecdsaSignatureData);
-
-        // Change pokeData's val.
-        pokeData.val--;
-
-        bytes32 opCommitment =
-            LibHelpers.constructOpCommitment(pokeData, schnorrData, WAT);
 
         vm.expectRevert(
-            abi.encodeWithSelector(
-                IScribeOptimistic.ArgumentsDoNotMatchOpCommitment.selector,
-                opCommitment,
-                opScribe.opCommitment()
-            )
+            abi.encodeWithSelector(IScribe.SignerNotFeed.selector, recovered)
         );
-        opScribe.opChallenge(pokeData, schnorrData);
+        opScribe.opPoke(pokeData, schnorrData, ecdsaData);
     }
-    */
 
-    /*//////////////////////////////////////////////////////////////
-                     TEST: AUTH PROTECTED FUNCTIONS
-    //////////////////////////////////////////////////////////////*/
+    function testFuzz_opPoke_FailsIf_opPokeDataInChallengePeriodExists(
+        uint warpSeed
+    ) public {
+        LibFeed.Feed[] memory feeds = _createAndLiftFeeds(opScribe.bar());
 
-    /*
+        IScribe.PokeData memory pokeData;
+        pokeData.val = 1;
+        pokeData.age = 1;
+
+        IScribe.SchnorrSignatureData memory schnorrData;
+        schnorrData = feeds.signSchnorr(opScribe.constructPokeMessage(pokeData));
+
+        IScribe.ECDSASignatureData memory ecdsaData;
+        ecdsaData = feeds[0].signECDSA(
+            opScribe.constructOpPokeMessage(pokeData, schnorrData)
+        );
+
+        // opPoke once.
+        opScribe.opPoke(pokeData, schnorrData, ecdsaData);
+
+        // Wait for some time less than opChallengePeriod.
+        vm.warp(
+            block.timestamp
+                + bound(warpSeed, 0, opScribe.opChallengePeriod() - 1)
+        );
+
+        vm.expectRevert(IScribeOptimistic.InChallengePeriod.selector);
+        opScribe.opPoke(pokeData, schnorrData, ecdsaData);
+    }
+
+    //--------------------------------------------------------------------------
+    // Test: opChallenge
+
+    function testFuzz_opChallenge_opPokeDataValidAndNotStale(uint warpSeed)
+        public
+    {
+        LibFeed.Feed[] memory feeds = _createAndLiftFeeds(opScribe.bar());
+
+        IScribe.PokeData memory pokeData;
+        pokeData.val = 1;
+        pokeData.age = 1;
+
+        IScribe.SchnorrSignatureData memory schnorrData;
+        schnorrData = feeds.signSchnorr(opScribe.constructPokeMessage(pokeData));
+
+        IScribe.ECDSASignatureData memory ecdsaData;
+        ecdsaData = feeds[0].signECDSA(
+            opScribe.constructOpPokeMessage(pokeData, schnorrData)
+        );
+
+        // Execute valid opPoke.
+        opScribe.opPoke(pokeData, schnorrData, ecdsaData);
+
+        // Wait for some time less than opChallengePeriod.
+        vm.warp(
+            block.timestamp
+                + bound(warpSeed, 0, opScribe.opChallengePeriod() - 1)
+        );
+
+        uint balanceBefore = address(this).balance;
+
+        // Challenge opPoke.
+        bool opPokeInvalid = opScribe.opChallenge(schnorrData);
+
+        // opPoke not invalid.
+        assertFalse(opPokeInvalid);
+
+        // No reward paid.
+        assertEq(address(this).balance, balanceBefore);
+
+        // opPokeData finalized.
+        assertEq(opScribe.read(), pokeData.val);
+    }
+
+    function testFuzz_opChallenge_opPokeDataValidButStale(uint warpSeed)
+        public
+    {
+        LibFeed.Feed[] memory feeds = _createAndLiftFeeds(opScribe.bar());
+
+        IScribe.PokeData memory pokeData;
+        pokeData.val = 1;
+        pokeData.age = 1;
+
+        IScribe.SchnorrSignatureData memory schnorrData;
+        schnorrData = feeds.signSchnorr(opScribe.constructPokeMessage(pokeData));
+
+        IScribe.ECDSASignatureData memory ecdsaData;
+        ecdsaData = feeds[0].signECDSA(
+            opScribe.constructOpPokeMessage(pokeData, schnorrData)
+        );
+
+        // Execute valid opPoke.
+        opScribe.opPoke(pokeData, schnorrData, ecdsaData);
+
+        // Wait for some time less than opChallengePeriod.
+        vm.warp(
+            block.timestamp
+                + bound(warpSeed, 0, opScribe.opChallengePeriod() - 1)
+        );
+
+        // Execute poke, making the opPoke stale.
+        IScribe.PokeData memory pokeDataNew;
+        pokeDataNew.val = 2;
+        pokeDataNew.age = uint32(block.timestamp);
+        opScribe.poke(
+            pokeDataNew,
+            feeds.signSchnorr(opScribe.constructPokeMessage(pokeDataNew))
+        );
+
+        // Challenge opPoke.
+        bool opPokeInvalid = opScribe.opChallenge(schnorrData);
+
+        uint balanceBefore = address(this).balance;
+
+        // opPoke not invalid.
+        assertFalse(opPokeInvalid);
+
+        // No reward paid.
+        assertEq(address(this).balance, balanceBefore);
+
+        // opPokeData not finalized.
+        assertEq(opScribe.read(), pokeDataNew.val);
+    }
+
+    function testFuzz_opChallenge_opPokeDataInvalid(
+        uint warpSeed,
+        uint schnorrSignatureMask,
+        uint160 schnorrCommitmentMask
+    ) public {
+        vm.assume(schnorrSignatureMask != 0 || schnorrCommitmentMask != 0);
+
+        LibFeed.Feed[] memory feeds = _createAndLiftFeeds(opScribe.bar());
+
+        IScribe.PokeData memory pokeData;
+        pokeData.val = 1;
+        pokeData.age = 1;
+
+        IScribe.SchnorrSignatureData memory schnorrData;
+        schnorrData = feeds.signSchnorr(opScribe.constructPokeMessage(pokeData));
+
+        // Mutate schnorrData.
+        schnorrData.signature =
+            bytes32(uint(schnorrData.signature) ^ schnorrSignatureMask);
+        schnorrData.commitment =
+            address(uint160(schnorrData.commitment) ^ schnorrCommitmentMask);
+
+        IScribe.ECDSASignatureData memory ecdsaData;
+        ecdsaData = feeds[0].signECDSA(
+            opScribe.constructOpPokeMessage(pokeData, schnorrData)
+        );
+
+        // Deal 1 ETH to opScribe.
+        vm.deal(address(opScribe), 1 ether);
+
+        // Execute invalid opPoke.
+        opScribe.opPoke(pokeData, schnorrData, ecdsaData);
+
+        // Wait for some time less than opChallengePeriod.
+        vm.warp(
+            block.timestamp
+                + bound(warpSeed, 0, opScribe.opChallengePeriod() - 1)
+        );
+
+        uint balanceBefore = address(this).balance;
+
+        // Challenge opPoke.
+        bool opPokeInvalid = opScribe.opChallenge(schnorrData);
+
+        // opPoke invalid.
+        assertTrue(opPokeInvalid);
+
+        // opFeed dropped.
+        (bool isFeed, ) = opScribe.feeds(feeds[0].pubKey.toAddress());
+        assertFalse(isFeed);
+
+        // 1 ETH reward paid.
+        assertEq(address(this).balance, balanceBefore + 1 ether);
+        assertEq(address(opScribe).balance, 0);
+
+        // opPokeData not finalized.
+        (bool ok,) = opScribe.tryRead();
+        assertFalse(ok);
+    }
+
+    function test_opChallenge_FailsIf_NoOpPokeToChallenge() public {
+        IScribe.SchnorrSignatureData memory schnorrData;
+
+        vm.expectRevert(IScribeOptimistic.NoOpPokeToChallenge.selector);
+        opScribe.opChallenge(schnorrData);
+    }
+
+    function test_opChallenge_FailsIf_InvalidSchnorrDataGiven() public {
+        LibFeed.Feed[] memory feeds = _createAndLiftFeeds(opScribe.bar());
+
+        IScribe.PokeData memory pokeData;
+        pokeData.val = 1;
+        pokeData.age = 1;
+
+        IScribe.SchnorrSignatureData memory schnorrData;
+        schnorrData = feeds.signSchnorr(opScribe.constructPokeMessage(pokeData));
+
+        IScribe.ECDSASignatureData memory ecdsaData;
+        ecdsaData = feeds[0].signECDSA(
+            opScribe.constructOpPokeMessage(pokeData, schnorrData)
+        );
+
+        opScribe.opPoke(pokeData, schnorrData, ecdsaData);
+
+        // Mutate schnorrData.
+        unchecked {
+            schnorrData.signature = bytes32(uint(schnorrData.signature) + 1);
+        }
+
+        vm.expectRevert();
+        opScribe.opChallenge(schnorrData);
+    }
+
+    //--------------------------------------------------------------------------
+    // Test: Auth Protected Functions
+
     function testFuzz_setOpChallengePeriod(uint16 opChallengePeriod) public {
         vm.assume(opChallengePeriod != 0);
 
@@ -679,9 +459,13 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         opScribe.setOpChallengePeriod(0);
     }
 
-    /*
-    // @todo test afterAuthAction() execution.
-    function test_setOpChallengePeriod_DropsOpPokeData() public {
+    // @todo isAfterAuthedActionProtected needs following tests:
+    //          - delete opPOkeData if not finalized
+    //          - not deletes opPokeData if finalized
+    //          - sets age of current val to block.timestamp
+    //              -> check via expect(isStale)
+
+    function test_setOpChallengePeriod_IsAfterAuthedActionProtected() public {
         _setUpFeedsAndOpPokeOnce(1, uint32(block.timestamp));
 
         vm.expectEmit(true, true, true, true);
@@ -690,25 +474,28 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         opScribe.setOpChallengePeriod(1);
     }
 
-    function test_drop_Single_DropsOpPokeData() public {
+    function test_drop_Single_IsAfterAuthedActionProtected() public {
         _setUpFeedsAndOpPokeOnce(1, uint32(block.timestamp));
 
         vm.expectEmit(true, true, true, true);
         emit OpPokeDataDropped(address(this), 1, uint32(block.timestamp));
 
-        opScribe.drop(LibSecp256k1.Point(1, 1));
+        opScribe.drop(1);
     }
 
-    function test_drop_Multiple_DropsOpPokeData() public {
+    function test_drop_Multiple_IsAfterAuthedActionProtected() public {
         _setUpFeedsAndOpPokeOnce(1, uint32(block.timestamp));
 
         vm.expectEmit(true, true, true, true);
         emit OpPokeDataDropped(address(this), 1, uint32(block.timestamp));
 
-        opScribe.drop(new LibSecp256k1.Point[](0));
+        uint[] memory feedIndexes = new uint[](1);
+        feedIndexes[0] = 1;
+
+        opScribe.drop(feedIndexes);
     }
 
-    function test_setBar_DropsOpPokeData() public {
+    function test_setBar_IsAfterAuthedActionProtected() public {
         _setUpFeedsAndOpPokeOnce(1, uint32(block.timestamp));
 
         vm.expectEmit(true, true, true, true);
@@ -716,32 +503,26 @@ abstract contract IScribeOptimisticTest is IScribeTest {
 
         opScribe.setBar(1);
     }
-    */
 
-    /*//////////////////////////////////////////////////////////////
-                            PRIVATE HELPERS
-    //////////////////////////////////////////////////////////////*/
+    //--------------------------------------------------------------------------
+    // Private Helpers
 
-    /*
     function _setUpFeedsAndOpPokeOnce(uint128 val, uint32 age) private {
-        // Create and whitelist bar many feeds.
-        LibHelpers.Feed[] memory feeds_ =
-            LibHelpers.makeFeeds(1, opScribe.bar());
-        for (uint i; i < feeds_.length; i++) {
-            // @todo Fix IScribeOptimistic tests lift/drop issue.
-            //opScribe.lift(feeds_[i].pubKey);
-        }
+        LibFeed.Feed[] memory feeds = _createAndLiftFeeds(opScribe.bar());
 
-        IScribe.PokeData memory pokeData = IScribe.PokeData(val, age);
+        IScribe.PokeData memory pokeData;
+        pokeData.val = val;
+        pokeData.age = age;
 
         IScribe.SchnorrSignatureData memory schnorrData;
-        schnorrData = feeds_.signSchnorrMessage(opScribe, pokeData);
+        schnorrData = feeds.signSchnorr(opScribe.constructPokeMessage(pokeData));
 
         IScribeOptimistic(address(opScribe)).opPoke(
             pokeData,
             schnorrData,
-            LibHelpers.makeECDSASignature(feeds_[0], pokeData, schnorrData, WAT)
+            feeds[0].signECDSA(
+                opScribe.constructOpPokeMessage(pokeData, schnorrData)
+            )
         );
     }
-    */
 }

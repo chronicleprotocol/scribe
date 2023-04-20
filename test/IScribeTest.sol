@@ -6,7 +6,7 @@ import {console2} from "forge-std/console2.sol";
 import {IAuth} from "chronicle-std/auth/IAuth.sol";
 import {IToll} from "chronicle-std/toll/IToll.sol";
 
-import {IScribe_Optimized as IScribe} from "src/IScribe_Optimized.sol";
+import {IScribe} from "src/IScribe.sol";
 
 import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
 
@@ -83,7 +83,7 @@ abstract contract IScribeTest is Test {
     //--------------------------------------------------------------------------
     // Test: Deployment
 
-    function test_deployment() public virtual {
+    function test_Deployment() public virtual {
         // Deployer is auth'ed.
         assertTrue(IAuth(address(scribe)).authed(address(this)));
 
@@ -361,9 +361,9 @@ abstract contract IScribeTest is Test {
         scribe.poke(pokeData, schnorrData);
     }
 
-    function testFuzz_poke_FailsIf_PokeData_IsStale(
-        IScribe.PokeData memory pokeData
-    ) public {
+    function testFuzz_poke_FailsIf_AgeIsStale(IScribe.PokeData memory pokeData)
+        public
+    {
         LibFeed.Feed[] memory feeds = _createAndLiftFeeds(scribe.bar());
 
         vm.assume(pokeData.val != 0);

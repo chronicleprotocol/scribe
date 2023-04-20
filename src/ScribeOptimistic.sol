@@ -2,11 +2,16 @@ pragma solidity ^0.8.16;
 
 import {IScribeOptimistic} from "./IScribeOptimistic.sol";
 
-import {Scribe} from "./Scribe.sol";
 import {IScribe} from "./IScribe.sol";
+import {Scribe} from "./Scribe.sol";
 
 import {LibSchnorr} from "./libs/LibSchnorr.sol";
 import {LibSecp256k1} from "./libs/LibSecp256k1.sol";
+
+// @todo variable to set searcher reward instead of using address(this).balance?
+// @todo auth'ed function to withdraw eth?
+
+// @todo Invariant: A values age is the age the contract _first_ received the value.
 
 /**
  * @title ScribeOptimistic
@@ -14,7 +19,7 @@ import {LibSecp256k1} from "./libs/LibSecp256k1.sol";
  * @notice Optimistic!
  *         Thats what the scribe yawps
  *         Can you tame them
- *         By challenging their poke?
+ *         By challenging a poke?
  *
  * @dev
  */
@@ -23,34 +28,39 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
     using LibSecp256k1 for LibSecp256k1.Point;
     using LibSecp256k1 for LibSecp256k1.Point[];
 
+    //--------------------------------------------------------------------------
+    // Hot Slot Storage
+
     /// @inheritdoc IScribeOptimistic
     uint16 public opChallengePeriod;
 
-    // @todo Make to uint8 index.
     /// @inheritdoc IScribeOptimistic
-    address public opFeed;
+    uint8 public opFeedIndex;
 
-    /// @inheritdoc IScribeOptimistic
-    bytes32 public opCommitment; // @todo Can be less, easily hash of uint160.
-    //                                    Even less due to time constraint via challenge period.
+    // @todo More docs: Is truncated hash.
+    //       Why secure? -> 160 bits is enough
+    //       Why truncated? -> slot packing
+    uint160 private _schnorrDataHash;
+
+    uint32 private _initialOpPokeDataTimestamp;
+
+    //--------------------------------------------------------------------------
+    // opPokeData Storage
 
     PokeData private _opPokeData;
 
-    /*//////////////////////////////////////////////////////////////
-                  CONSTRUCTOR & RECEIVE FUNCTIONALITY
-    //////////////////////////////////////////////////////////////*/
+    //--------------------------------------------------------------------------
+    // Constructor and Receive Function
 
-    constructor() {
+    constructor(bytes32 wat_) Scribe(wat_) {
         // Note to have a non-zero challenge period.
-        opChallengePeriod = 1 hours;
-        emit OpChallengePeriodUpdated(msg.sender, 0, 1 hours);
+        _setOpChallengePeriod(1 hours);
     }
 
     receive() external payable {}
 
-    /*//////////////////////////////////////////////////////////////
-                     OPTIMISTIC POKE FUNCTIONALITY
-    //////////////////////////////////////////////////////////////*/
+    //--------------------------------------------------------------------------
+    // Optimistic Poke Functionality
 
     // @todo Make (and use) documentation:
     // - _pokeData   : PokeData storage slot holding only finalized PokeDatas
@@ -61,18 +71,6 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
     // - usrPokeData : PokeData calldata given by user.
     //
     // - opPokeData  : _opPokeData memory cache.
-
-    // Signature: opPoke((uint128,uint32),(address[],bytes32,address),(uint8,bytes32,bytes32))
-    // Calldata:
-    // [0x00]  pokeData.val
-    // [0x20]  pokeData.age
-    // [0x40]  offset(schnorrData)    (= 0xc0)
-    // [0x60]  ecdsaData.v
-    // [0x80]  ecdsaData.r
-    // [0xa0]  ecdsaData.s
-    // [0xc0]  len(schnorrData.signers)
-    // [0xe0]  schnorrData.signature
-    // [0x100] schnorrData.commitment
 
     /// @inheritdoc IScribeOptimistic
     function opPoke(
@@ -87,6 +85,11 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         bool opPokeDataFinalized =
             opPokeData.age + opChallengePeriod <= uint32(block.timestamp);
 
+        // Revert if _opPokeData is not finalized, i.e. still challengeable.
+        if (!opPokeDataFinalized) {
+            revert InChallengePeriod();
+        }
+
         // Decide current age.
         uint32 age = opPokeDataFinalized && opPokeData.age > _pokeData.age
             ? opPokeData.age
@@ -97,13 +100,39 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
             revert StaleMessage(pokeData.age, age);
         }
 
-        // Revert if _opPokeData is non-finalized, i.e. still challengeable.
-        if (!opPokeDataFinalized) {
-            revert InChallengePeriod();
+        // @todo Optimize schnorrData calldata usage. Do not load into memory?
+        //       Use assembly, overwrite everything from solc (scratch space, etc)
+        //       _after_ everything else is done and no execution given back to solc.
+        //       This should lower the memory usage because we overwrite already
+        //       allocated memory and don't expand.
+
+        bytes32 ecdsaMessage = _constructOpPokeMessage(pokeData, schnorrData);
+
+        // Recover ECDSA signer.
+        address signer =
+            ecrecover(ecdsaMessage, ecdsaData.v, ecdsaData.r, ecdsaData.s);
+
+        // Get signer's feedIndex.
+        uint feedIndex = _feeds[signer];
+
+        // Revert if signer is not feed.
+        if (feedIndex == 0) {
+            revert SignerNotFeed(signer);
         }
 
-        // -- Optimistically assume ECDSA signature is valid.
-        //    We check that at the end of the function.
+        // Store the signer and bind them to their commitment.
+        opFeedIndex = uint8(feedIndex);
+        _schnorrDataHash = uint160(
+            uint(
+                keccak256(
+                    abi.encodePacked(
+                        schnorrData.signature,
+                        schnorrData.commitment,
+                        schnorrData.signersBlob
+                    )
+                )
+            )
+        );
 
         // If _opPokeData provides the current val, move it to the _pokeData
         // storage to free the _opPokeData slot. If the current val is provided
@@ -113,54 +142,34 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
             _pokeData = opPokeData;
         }
 
-        // Store given pokeData in opPokeData storage. Note to set the
+        // Store given pokeData in _opPokeData storage. Note to set the
         // opPokeData's age to the current timestamp and _not_ the given
         // pokeData's age.
         _opPokeData.val = pokeData.val;
         _opPokeData.age = uint32(block.timestamp);
 
-        // @todo Optimize schnorrData calldata usage. Do not load into memory?
-        //       Use assembly, overwrite everything from solc (scratch space, etc)
-        //       _after_ everything else is done and no execution given back to solc.
-        //       This should lower the memory usage because we overwrite already
-        //       allocated memory and don't expand.
-
-        // schnorrData size == scratch space + zero word ;)
-
-        bytes32 ecdsaMessage = constructOpPokeMessage(pokeData, schnorrData);
-
-        // Recover ECDSA signer.
-        address signer =
-            ecrecover(ecdsaMessage, ecdsaData.v, ecdsaData.r, ecdsaData.s);
-
-        // Revert if signer is not feed.
-        if (_feeds[signer].isZeroPoint()) {
-            revert SignerNotFeed(signer);
-        }
-
-        // Store the signer and bind them to their commitment.
-        // @todo Use index of public key to store opFeed. Find via feeds mappings.
-        //       Then store as uint8 and pack with opCommitment into one slot!
-        opFeed = signer;
-        opCommitment = _hashOf(schnorrData);
+        // @audit-issue !!!
+        _initialOpPokeDataTimestamp = pokeData.age;
 
         // @todo Test for event emission.
-        // @todo Event emission needs whole schnorrData.
-        emit OpPoked(
-            msg.sender,
-            signer,
-            pokeData.val,
-            uint32(block.timestamp),
-            opCommitment
-        );
+        // @todo Event emission needs whole schnorrData + pokeMessage
+        //       This allows everyone to do:
+        //          if (scribe.verifySchnorrSignature(pokeMessage, schnorrData) == false):
+        //              opChallenge(schnorrData);
+        //emit OpPoked(
+        //    msg.sender,
+        //    signer,
+        //    pokeData.val,
+        //    uint32(block.timestamp),
+        //    opCommitment
+        //);
     }
 
-    // @todo Should opChallenge return bool to indicate whether challenge
-    //       succeeded?
     /// @inheritdoc IScribeOptimistic
     function opChallenge(SchnorrSignatureData calldata schnorrData)
         external
         payable
+        returns (bool)
     {
         // Load _opPokeData from storage.
         PokeData memory opPokeData = _opPokeData;
@@ -175,23 +184,38 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
             revert NoOpPokeToChallenge();
         }
 
-        bytes32 commitment = _hashOf(schnorrData);
+        uint160 schnorrDataHash = uint160(
+            uint(
+                keccak256(
+                    abi.encodePacked(
+                        schnorrData.signature,
+                        schnorrData.commitment,
+                        schnorrData.signersBlob
+                    )
+                )
+            )
+        );
 
-        // Revert if arguments do not match opCommitment.
-        if (commitment != opCommitment) {
-            revert ArgumentsDoNotMatchOpCommitment(commitment, opCommitment);
+        // Revert if schnorrData argument does not match stored hash.
+        if (schnorrDataHash != _schnorrDataHash) {
+            // @todo Refactor error types.
+            //revert ArgumentsDoNotMatchOpCommitment(commitment, opCommitment);
+            revert();
         }
 
         // Verify schnorrSignatureData.
         bool ok;
         bytes memory err;
-        (ok, err) = verifySchnorrSignature(
-            constructPokeMessage(opPokeData), schnorrData
+        (ok, err) = _verifySchnorrSignature(
+            constructPokeMessage(
+                PokeData({val: opPokeData.val, age: _initialOpPokeDataTimestamp})
+            ),
+            schnorrData
         );
 
         if (ok) {
             // Decide whether _opPokeData stale already.
-            bool opPokeDataStale = opPokeData.age < _pokeData.age;
+            bool opPokeDataStale = opPokeData.age <= _pokeData.age;
 
             // If _opPokeData is not stale, finalize it by moving it to the
             // _pokeData slot.
@@ -200,41 +224,51 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
             }
         } else {
             // Drop opFeed and delete invalid _opPokeData.
-            _drop(_feeds[opFeed]);
+            // Use address(this) as caller to indicate self-governed drop of
+            // feed.
+            _drop(address(this), opFeedIndex);
 
             // Pay challenge bounty to caller.
-            _payChallengeBountyTo(payable(msg.sender));
+            _rewardChallenger(payable(msg.sender));
 
             // @todo Emit event with err.
         }
+
+        return !ok;
     }
 
-    // @todo Naming totally off.
-    //       Use H(pokeMessage || schnorrMessage) ?!
-    //       This also allows more optimization in opPoke via calldata.
     function constructOpPokeMessage(
-        PokeData memory pokeData,
-        SchnorrSignatureData memory schnorrData
-    ) public pure returns (bytes32) {
-        // @todo New format:
-        //       tag || wat || ... (in this case:) pokeData || schnorrData
+        PokeData calldata pokeData,
+        SchnorrSignatureData calldata schnorrData
+    ) external view returns (bytes32) {
+        return _constructOpPokeMessage(pokeData, schnorrData);
+    }
+
+    function _constructOpPokeMessage(
+        PokeData calldata pokeData,
+        SchnorrSignatureData calldata schnorrData
+    ) internal view returns (bytes32) {
+        // opPokeMessage = H(tag ‖ H(wat ‖ pokeData ‖ schnorrData))
         return keccak256(
-            abi.encode(
+            abi.encodePacked(
                 "\x19Ethereum Signed Message:\n32",
-                pokeData.val,
-                pokeData.age,
-                // @todo Packed problem??
-                abi.encodePacked(schnorrData.signers),
-                schnorrData.signature,
-                schnorrData.commitment,
-                wat
+                keccak256(
+                    abi.encodePacked(
+                        wat,
+                        abi.encodePacked(pokeData.val, pokeData.age),
+                        abi.encodePacked(
+                            schnorrData.signature,
+                            schnorrData.commitment,
+                            schnorrData.signersBlob
+                        )
+                    )
+                )
             )
         );
     }
 
-    /*//////////////////////////////////////////////////////////////
-                           READ FUNCTIONALITY
-    //////////////////////////////////////////////////////////////*/
+    //--------------------------------------------------------------------------
+    // Read Functionality
 
     /// @inheritdoc IScribe
     function read()
@@ -292,12 +326,15 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         return val;
     }
 
-    /*//////////////////////////////////////////////////////////////
-                         AUTH'ED FUNCTIONALITY
-    //////////////////////////////////////////////////////////////*/
+    //--------------------------------------------------------------------------
+    // Auth'ed Functionality
 
     /// @inheritdoc IScribeOptimistic
     function setOpChallengePeriod(uint16 opChallengePeriod_) external auth {
+        _setOpChallengePeriod(opChallengePeriod_);
+    }
+
+    function _setOpChallengePeriod(uint16 opChallengePeriod_) private {
         require(opChallengePeriod_ != 0);
 
         if (opChallengePeriod != opChallengePeriod_) {
@@ -312,22 +349,8 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
 
     /// @dev Overwritten from upstream contract to enforce _afterAuthedAction()
     ///      is executed after the initial function execution.
-    function _drop(LibSecp256k1.Point memory pubKey)
-        internal
-        override(Scribe)
-    {
-        super._drop(pubKey);
-
-        _afterAuthedAction();
-    }
-
-    /// @dev Overwritten from upstream contract to enforce _afterAuthedAction()
-    ///      is executed after the initial function execution.
-    function _drop(LibSecp256k1.Point[] memory pubKeys)
-        internal
-        override(Scribe)
-    {
-        super._drop(pubKeys);
+    function _drop(address caller, uint feedIndex) internal override(Scribe) {
+        super._drop(caller, feedIndex);
 
         _afterAuthedAction();
     }
@@ -343,6 +366,9 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
     /// @dev Ensures an auth'ed configuration update does not enable
     ///      successfully challenging a prior to the update valid opPoke.
     function _afterAuthedAction() private {
+        // Do nothing if contract is being deployed.
+        if (address(this).code.length == 0) return;
+
         // Decide whether _opPokeData is finalized.
         bool opPokeDataFinalized =
             _opPokeData.age + opChallengePeriod <= uint32(block.timestamp);
@@ -368,33 +394,16 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         }
     }
 
-    /*//////////////////////////////////////////////////////////////
-                            PRIVATE HELPERS
-    //////////////////////////////////////////////////////////////*/
+    //--------------------------------------------------------------------------
+    // Private Helpers
 
-    // @todo rename etc.
-    //       Also whu encode when only in calldata?
-    function _hashOf(SchnorrSignatureData calldata schnorrData)
-        private
-        pure
-        returns (bytes32)
-    {
-        return keccak256(abi.encode(schnorrData));
-    }
+    function _rewardChallenger(address payable receiver) private {
+        uint bounty = address(this).balance;
 
-    function _payChallengeBountyTo(address payable receiver) internal {
-        // @todo Why again in assembly?
-        assembly ("memory-safe") {
-            // The bounty is the contract's ETH balance.
-            let bounty := selfbalance()
+        (bool ok, /*bytes memory data*/ ) = receiver.call{value: bounty}("");
 
-            // Transfer the ETH and
-            let callFailed := call(gas(), receiver, bounty, 0, 0, 0, 0)
-
-            // Return if sending ETH failed.
-            if callFailed { return(0, 0) }
-
-            // @todo Emit log.
+        if (!ok) {
+            // @todo Emit event?
         }
     }
 }

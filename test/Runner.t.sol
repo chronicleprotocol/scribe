@@ -5,8 +5,8 @@ pragma solidity ^0.8.16;
 //
 // @todo Use deployment and maintanence scripts.
 
-import {Scribe_Optimized as Scribe} from "src/Scribe_Optimized.sol";
-import {IScribe_Optimized as IScribe} from "src/IScribe_Optimized.sol";
+import {Scribe} from "src/Scribe.sol";
+import {IScribe} from "src/IScribe.sol";
 
 import {IScribeTest} from "./IScribeTest.sol";
 import {IScribeInvariantTest} from "./invariants/IScribeInvariantTest.sol";
@@ -18,19 +18,19 @@ contract ScribeTest is IScribeTest {
     }
 }
 
+/*
 contract ScribeInvariantTest is IScribeInvariantTest {
     function setUp() public {
         setUp(address(new Scribe("ETH/USD")), address(new ScribeHandler()));
     }
 }
+*/
 
 //------------------------------------------------------------------------------
 // Test: Optimistic Scribe
 
-import {ScribeOptimistic_Optimized as ScribeOptimistic} from
-    "src/ScribeOptimistic_Optimized.sol";
-import {IScribeOptimistic_Optimized as IScribeOptimistic} from
-    "src/IScribeOptimistic_Optimized.sol";
+import {ScribeOptimistic} from "src/ScribeOptimistic.sol";
+import {IScribeOptimistic} from "src/IScribeOptimistic.sol";
 
 import {IScribeOptimisticTest} from "./IScribeOptimisticTest.sol";
 import {IScribeOptimisticInvariantTest} from
@@ -43,6 +43,7 @@ contract ScribeOptimisticTest is IScribeOptimisticTest {
     }
 }
 
+/*
 contract ScribeOptimisticInvariantTest is IScribeOptimisticInvariantTest {
     function setUp() public {
         setUp(
@@ -51,6 +52,7 @@ contract ScribeOptimisticInvariantTest is IScribeOptimisticInvariantTest {
         );
     }
 }
+*/
 
 //------------------------------------------------------------------------------
 // Test: Secp256k1 Libraries

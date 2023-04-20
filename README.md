@@ -21,6 +21,8 @@ $ cd scribe/
 $ forge install
 ```
 
+TODO: Switched to dissig.
+
 This repo includes a cli tool - `scribe-ecc-ref` - to differential fuzz test the secp256k1 and schnorr signature code against. For compilation instructions, see the [README](./scribe-ecc-ref/README.md).
 
 After compilation, copy the binary to the `bin/` directory.

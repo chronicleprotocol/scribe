@@ -14,14 +14,13 @@ import {LibSecp256k1} from "./LibSecp256k1.sol";
 library LibSchnorr {
     using LibSecp256k1 for LibSecp256k1.Point;
 
-    // @todo Invariant: Uses constant gas
     /// @dev Returns false if commitment is address(0).
     /// @dev Returns false if pubKey.x is zero.
     /// @dev Expects message to not be zero.
     ///      Note that message SHOULD be a keccak256 digest.
     ///
     /// @custom:invariant Reverts iff out of gas.
-    /// @custom:invariant Does not run into an infinite loop.
+    /// @custom:invariant Uses constant amount of gas.
     function verifySignature(
         LibSecp256k1.Point memory pubKey,
         bytes32 message,
@@ -102,6 +101,8 @@ library LibSchnorr {
         uint r = pubKey.x;
 
         // Compute s = e * Pₓ (mod Q)
+        //
+        // @todo What happens if s if zero?
         uint s = mulmod(challenge, pubKey.x, LibSecp256k1.Q());
 
         // Perform ecrecover call.

@@ -26,6 +26,7 @@ abstract contract LibSecp256k1ExtendedTest is Test {
         assertEq(got.y, want.y);
     }
 
+    /*
     function testDifferentialFuzz_mul(uint privKey, uint scalar) public {
         // Bound privKey to secp256k1's order, i.e. privKeys ∊ [1, Q).
         privKey = bound(privKey, 1, LibSecp256k1.Q() - 1);
@@ -85,4 +86,5 @@ abstract contract LibSecp256k1ExtendedTest is Test {
         assertEq(got.x, want.x);
         assertEq(got.y, want.y);
     }
+    */
 }

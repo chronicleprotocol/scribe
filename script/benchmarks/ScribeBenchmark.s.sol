@@ -8,7 +8,7 @@ import {Scribe} from "src/Scribe.sol";
 
 import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
 
-import {LibHelpers} from "test/utils/LibHelpers.sol";
+//import {LibHelpers} from "test/utils/LibHelpers.sol";
 
 /**
  * @notice Scribe Benchmark Script
@@ -30,6 +30,7 @@ import {LibHelpers} from "test/utils/LibHelpers.sol";
  *      During the first execution the storage slots are empty.
  */
 contract ScribeBenchmark is Script {
+/* @todo Refactor to using scripts/libs.
     using LibHelpers for LibHelpers.Feed[];
 
     /// @dev Anvil's default mnemonic.
@@ -100,4 +101,5 @@ contract ScribeBenchmark is Script {
         vm.broadcast(relayer);
         scribe.poke(pokeData, schnorrData);
     }
+    */
 }

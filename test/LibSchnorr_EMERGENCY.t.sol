@@ -8,8 +8,6 @@ import {IScribe} from "src/IScribe.sol";
 import {LibSchnorr} from "src/libs/LibSchnorr.sol";
 import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
 
-import {LibHelpers} from "./utils/LibHelpers.sol";
-
 contract LibSchnorrEMERGENCYTest is Test {
     using LibSecp256k1 for LibSecp256k1.Point;
     using LibSecp256k1 for LibSecp256k1.JacobianPoint;

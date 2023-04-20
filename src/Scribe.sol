@@ -7,6 +7,13 @@ import {IScribe} from "./IScribe.sol";
 
 import {LibSchnorr} from "./libs/LibSchnorr.sol";
 import {LibSecp256k1} from "./libs/LibSecp256k1.sol";
+import {LibBytes} from "./libs/LibBytes.sol";
+
+import {console2} from "forge-std/console2.sol";
+
+// @todo Invariant tests for storage mutations.
+//       based on msg.sender + selector,
+//                timestamp + last tx, etc..
 
 /**
  * @title Scribe
@@ -22,116 +29,262 @@ contract Scribe is IScribe, Auth, Toll {
     using LibSchnorr for LibSecp256k1.Point;
     using LibSecp256k1 for LibSecp256k1.Point;
     using LibSecp256k1 for LibSecp256k1.JacobianPoint;
+    using LibBytes for uint;
 
-    /*//////////////////////////////////////////////////////////////
-                               CONSTANTS
-    //////////////////////////////////////////////////////////////*/
+    /*
+    Terms:
+        feed = address being whitelisted to participate as signer in Schnorr signature for poke
+               Proven to be owner of the address via ECDSA signature check
+               Each feed has an immutable index.
 
-    /// @inheritdoc IScribe
-    bytes32 public constant wat = "ETH/USD";
+        signer = address participating as signer in Schnorr signature for poke
+                 MUST be checked whether being feed!
 
-    /// @inheritdoc IScribe
-    bytes32 public constant feedLiftMessage =
-        keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", wat));
+        signerPubKey = public key of signer
 
-    /*//////////////////////////////////////////////////////////////
-                            POKEDATA STORAGE
-    //////////////////////////////////////////////////////////////*/
+        pubKey = Public key, i.e. secp256k1 point
+    */
+
+    //--------------------------------------------------------------------------
+    // Constants
+
+    /// @dev Size of a word is 32 bytes, i.e. 245 bits.
+    uint private constant WORD_SIZE = 32;
+
+    uint public constant maxFeeds = 255;
+
+    //--------------------------------------------------------------------------
+    // Immutables
+
+    bytes32 public immutable wat;
+
+    // Message to be ECDSA signed by feed in order to be lifted.
+    // Proves ownership of private key and circumvents rogue-key attack
+    // vector.
+    bytes32 public immutable watMessage;
+
+    //--------------------------------------------------------------------------
+    // PokeData Storage
 
     PokeData internal _pokeData;
 
-    /*//////////////////////////////////////////////////////////////
-                             FEEDS STORAGE
-    //////////////////////////////////////////////////////////////*/
+    //--------------------------------------------------------------------------
+    // Feeds Storage
 
-    /// @dev Mapping storing feed addresses to their public keys.
-    mapping(address => LibSecp256k1.Point) internal _feeds;
+    // List of public keys from lifted feeds.
+    // Ownership of private key proven via ECDSA signature.
+    // Immutable in that sense that new pubKeys are only appended.
+    // If pubKey removed, due to feed being dropped, we keep the hole in the array.
+    // Index 0 MUST be zero point.
+    // IMPORTANT INVARIANT: NO PUBLIC KEY EXISTS MORE THAN ONCE IN LIST!!!!
+    LibSecp256k1.Point[] internal _pubKeys;
 
-    /// @dev List of addresses possibly being a feed.
-    /// @dev May contain duplicates.
-    /// @dev May contain addresses not being feed anymore.
-    address[] internal _feedsTouched;
+    // 0 if not feed. If not 0, image is index in pubKeys array.
+    mapping(address => uint) internal _feeds;
 
-    /*//////////////////////////////////////////////////////////////
-                      SECURITY PARAMETERS STORAGE
-    //////////////////////////////////////////////////////////////*/
+    //--------------------------------------------------------------------------
+    // Security Parameters Storage
 
-    /// @inheritdoc IScribe
+    /// @dev Note to have as last in storage to enable downstream contracts to
+    ///      pack the slot.
     uint8 public bar;
 
-    /*//////////////////////////////////////////////////////////////
-                              CONSTRUCTOR
-    //////////////////////////////////////////////////////////////*/
+    //--------------------------------------------------------------------------
+    // Constructor
 
-    constructor() {
-        // Note to have an initial bar >1.
-        bar = 2;
-        emit BarUpdated(msg.sender, 0, 2);
+    constructor(bytes32 wat_) {
+        require(wat_ != 0);
+
+        // Set wat storage.
+        wat = wat_;
+        // forgefmt: disable-next-item
+        watMessage = keccak256(
+            abi.encodePacked(
+                "\x19Ethereum Signed Message:\n32",
+                wat
+            )
+        );
+
+        // Let initial bar be >1. @todo Why bar must be >1 not just >0?
+        _setBar(2);
+
+        // Let _pubKeys[0] be the zero point.
+        _pubKeys.push(LibSecp256k1.ZERO_POINT());
     }
 
-    /*//////////////////////////////////////////////////////////////
-                           POKE FUNCTIONALITY
-    //////////////////////////////////////////////////////////////*/
+    //--------------------------------------------------------------------------
+    // Poke Functionality
 
-    // @todo Pack pokeData calldata?
-
-    /// @inheritdoc IScribe
     function poke(
         PokeData calldata pokeData,
         SchnorrSignatureData calldata schnorrData
     ) external {
-        // Revert if pokeData's age is not fresher than current age.
+        // Revert if pokeData is stale.
         if (pokeData.age <= _pokeData.age) {
             revert StaleMessage(pokeData.age, _pokeData.age);
         }
 
-        // Verify schnorrSignatureData.
+        // Revert if schnorrData is invalid.
         bool ok;
         bytes memory err;
-        (ok, err) =
-            verifySchnorrSignature(constructPokeMessage(pokeData), schnorrData);
-
-        // Revert with err if verification failed.
+        // forgefmt: disable-next-item
+        (ok, err) = _verifySchnorrSignature(
+            constructPokeMessage(pokeData),
+            schnorrData
+        );
         if (!ok) {
             _revert(err);
         }
 
-        // Store given pokeData in _pokeData storage.
+        // Store pokeData's age in _pokeData storage.
+        // Note to set age of _pokeData to block.timestamp.
         _pokeData.val = pokeData.val;
         _pokeData.age = uint32(block.timestamp);
 
         emit Poked(msg.sender, pokeData.val, pokeData.age);
     }
 
-    //function poke_272288807(PokeData calldata pokeData, SchnorrSignatureData calldata schnorrData) external {
-    //    // @todo Has function selector of 0x00000000.
-    //}
+    function constructPokeMessage(PokeData memory pokeData)
+        public
+        view
+        returns (bytes32)
+    {
+        // @todo Use calldata and hash yourself/load from calldata.
+        //       Need three words, use scratch space + zero word.
+        //       Also change order of checks in poke to not load into memory
+        //       (with expansion) if not necessary.
+        // @audit-issue Problem with optimistic. Needs to have memory argument :/
 
-    /// @inheritdoc IScribe
+        // pokeMessage = H(tag ‖ H(wat ‖ pokeData))
+        return keccak256(
+            abi.encodePacked(
+                "\x19Ethereum Signed Message:\n32",
+                keccak256(
+                    abi.encodePacked(
+                        wat, abi.encodePacked(pokeData.val, pokeData.age)
+                    )
+                )
+            )
+        );
+
+        // @todo Malleability due to encodePacked vs encode?
+        // @todo Calldata is already abi encoded. Possible to optimize?
+        //       See https://medium.com/coinmonks/full-knowledge-user-proofs-working-with-storage-without-paying-for-gas-e124cef0c078.
+        //return keccak256(
+        //    abi.encode(
+        //        "\x19Ethereum Signed Message:\n32",
+        //        pokeData.val,
+        //        pokeData.age,
+        //        wat
+        //    )
+        //);
+    }
+
+    //--------------------------------------------------------------------------
+    // Schnorr Signature Verification
+
+    // Calldata:
+    // [0x00] selector
+    // [0x04] message
+    // [0x24] schnorrSignature
+    // [0x44] schnorrCommitment
+    // [0x64] offset(signersBlob)      = 0x80 (selector not counted)
+    // [0x84] len(signersBlob)
+    // [0xa4] signersBlob[0]
     function verifySchnorrSignature(
         bytes32 message,
         SchnorrSignatureData calldata schnorrData
-    ) public returns (bool, bytes memory) {
+    ) external returns (bool, bytes memory) {
+        return _verifySchnorrSignature(message, schnorrData);
+    }
+
+    /// @dev Calldata layout for `schnorrData`:
+    ///
+    ///      [schnorrData]        signature             -> schnorrData.signature
+    ///      [schnorrData + 0x20] commitment            -> schnorrData.commitment
+    ///      [schnorrData + 0x40] offset(signersBlob)
+    ///      [schnorrData + 0x60] len(signersBlob)      -> schnorrData.signersBlob.length
+    ///      [schnorrData + 0x80] signersBlob[0]        -> schnorrData.signersBlob[0]
+    ///      ...
+    ///
+    ///      Note that the `schnorrData` variable holds the offset to the
+    ///      `schnorrData` struct:
+    ///
+    ///      ```solidity
+    ///      bytes32 signature;
+    ///      assembly {
+    ///         signature := calldataload(schnorrData)
+    ///      }
+    ///      assert(signature == schnorrData.signature)
+    ///      ```
+    ///
+    ///      Note that `offset(signersBlob)` is the offset to `signersBlob[0]`
+    ///      from the index `offset(signersBlob)`.
+    ///
+    /// @custom:invariant Reverts iff out of gas.
+    /// @custom:invariant Does not run into an infinite loop.
+    function _verifySchnorrSignature(
+        bytes32 message,
+        SchnorrSignatureData calldata schnorrData
+    ) internal returns (bool, bytes memory) {
+        // Get the number of signers. Note that length of schnorrData.signersBlob
+        // is byte denominated.
+        // @todo Verify that signersBlob is not loaded into memory.
+        uint numberSigners = schnorrData.signersBlob.length;
+
         // Expect number of signers to equal bar.
-        if (schnorrData.signers.length != bar) {
+        if (numberSigners != bar) {
             bytes memory err = abi.encodeWithSelector(
-                IScribe.BarNotReached.selector,
-                uint8(schnorrData.signers.length),
-                bar
+                IScribe.BarNotReached.selector, uint8(numberSigners), bar
             );
 
             return (false, err);
         }
 
-        // Let signer and signerPubKey be the currently processed signer's
-        // address and corresponding public key.
-        address signer = schnorrData.signers[0];
-        LibSecp256k1.Point memory signerPubKey = _feeds[signer];
+        // Get the length of list of public keys.
+        uint pubKeysLength = _pubKeys.length;
 
-        // Let aggPubKey be the sum of already processed signers' public keys.
-        LibSecp256k1.JacobianPoint memory aggPubKey = signerPubKey.toJacobian();
+        // Compute schnorrData.signerBlob's calldata offset.
+        uint schnorrDataSignersBlobOffset;
+        assembly ("memory-safe") {
+            // The calldata index to schnorrData.signersBlob[0] is the
+            // schnorrData's calldata offset plus 4 words, i.e. 0x80.
+            schnorrDataSignersBlobOffset := add(schnorrData, 0x80)
+        }
 
-        // Expect signer to be feed by verifying their public key is non-zero.
+        // Load first word from schnorrData.signersBlob.
+        uint signersBlobWord;
+        assembly ("memory-safe") {
+            signersBlobWord := calldataload(schnorrDataSignersBlobOffset)
+        }
+
+        // Let the first byte of schnorrData.signersBlob's first word be the
+        // first signer's index.
+        // Note that schnorrData.signersBlob is encoded in big-endian.
+        uint signerIndex = signersBlobWord.getByteAtIndex(31);
+        console2.log("signerIndex", signerIndex);
+
+        // Expect signerIndex to not be zero or out of bounds.
+        // @todo check whether index zero?
+        if (signerIndex == 0 || signerIndex >= pubKeysLength) {
+            bytes memory err = abi.encodeWithSelector(
+                IScribe.InvalidFeedIndex.selector,
+                uint8(signerIndex),
+                uint8(pubKeysLength)
+            );
+
+            return (false, err);
+        }
+
+        // Let signerPubKey be the currently processed signer's public key.
+        LibSecp256k1.Point memory signerPubKey = _pubKeys[signerIndex];
+
+        // Let signer be the address of the current signerPubKey.
+        address signer = signerPubKey.toAddress();
+
+        // Expect signerPubKey to not be the zero point. This ensures the public
+        // key corresponds to a feed's public key.
+        // @todo Error type does not fit.
         if (signerPubKey.isZeroPoint()) {
             bytes memory err =
                 abi.encodeWithSelector(IScribe.SignerNotFeed.selector, signer);
@@ -139,14 +292,61 @@ contract Scribe is IScribe, Auth, Toll {
             return (false, err);
         }
 
-        address lastSigner;
-        for (uint i = 1; i < schnorrData.signers.length;) {
-            lastSigner = signer;
-            signer = schnorrData.signers[i];
-            signerPubKey = _feeds[signer];
+        // Let aggPubKey be the sum of already processed signers' public keys.
+        // Note that aggPubKey is in Jacobian coordinates.
+        LibSecp256k1.JacobianPoint memory aggPubKey = signerPubKey.toJacobian();
 
-            // Expect signer to be feed by verifying their public key is
-            // non-zero.
+        // @audit BUG: bar is only checked via calldata encoding, not in actual loop!
+
+        // Iterate over encoded signers. Check each signer's integrity and
+        // uniqueness. If signer is valid, aggregate their public key to
+        // aggPubKey.
+        address lastSigner;
+        for (uint i = 1; i < numberSigners; i++) {
+            // Cache the last processed signer.
+            lastSigner = signer;
+
+            // Load next word from schnorrData.signersBlob if word boundary hit.
+            if (i % WORD_SIZE == 0) {
+                assembly ("memory-safe") {
+                    // Note that overflow is not possible as i's upper size
+                    // limit is type(uint8).max.
+                    let calldataIndex := add(schnorrDataSignersBlobOffset, i)
+
+                    // @audit What if not enough calldata? Reverts? Returns zero?
+                    signersBlobWord := calldataload(calldataIndex)
+                }
+            }
+
+            // @todo Formalize calldata signersBlob.
+            //       First signers is in _highest order byte_.
+            //       Define encoding mechanism via encodePacked.
+            //       Decoding via loop + getByteAtIndex
+
+            // Get next byte as next signer's index.
+            signerIndex = signersBlobWord.getByteAtIndex(31 - (i % WORD_SIZE));
+            console2.log("signerIndex", signerIndex);
+
+            // Expect signerIndex to not be out of bounds.
+            if (signerIndex >= pubKeysLength) {
+                bytes memory err = abi.encodeWithSelector(
+                    IScribe.InvalidFeedIndex.selector,
+                    uint8(signerIndex),
+                    uint8(pubKeysLength)
+                );
+
+                return (false, err);
+            }
+
+            // Load next signerPubKey.
+            signerPubKey = _pubKeys[signerIndex];
+
+            // Update signer variable.
+            signer = signerPubKey.toAddress();
+
+            // @todo Error off. Use signerIndex invalid?
+            // Expect signerPubKey to not be the zero point. This ensures the
+            // public key corresponds to a feed's public key.
             if (signerPubKey.isZeroPoint()) {
                 bytes memory err = abi.encodeWithSelector(
                     IScribe.SignerNotFeed.selector, signer
@@ -155,7 +355,8 @@ contract Scribe is IScribe, Auth, Toll {
                 return (false, err);
             }
 
-            // Expect signers to be ordered to prevent double signing.
+            // Expect signer addresses to be strictly monotonically increasing.
+            // This prevents double signing attacks and enforces strict ordering.
             if (uint160(lastSigner) >= uint160(signer)) {
                 bytes memory err =
                     abi.encodeWithSelector(IScribe.SignersNotOrdered.selector);
@@ -169,19 +370,14 @@ contract Scribe is IScribe, Auth, Toll {
             // 2) The sum of the two points is the "Point at Infinity"
             //
             // See slide 24 at https://www.math.brown.edu/johsilve/Presentations/WyomingEllipticCurve.pdf.
+            //
             assert(aggPubKey.x != signerPubKey.x);
 
-            // Add signer's public key to the aggregated public key.
+            // Aggregate signerPubKey by adding it to aggPubKey.
             aggPubKey.addAffinePoint(signerPubKey);
-
-            // Unchecked because the maximum length of an array is uint256.
-            unchecked {
-                i++;
-            }
+            console2.log("Scribe: aggPubKey.x", aggPubKey.toAffine().x);
+            console2.log("Scribe: aggPubKey.y", aggPubKey.toAffine().y);
         }
-
-        // Construct Schnorr signed message.
-        //bytes32 schnorrMessage = constructSchnorrMessage(pokeData);
 
         // Perform signature verification.
         bool ok = aggPubKey.toAffine().verifySignature(
@@ -200,31 +396,9 @@ contract Scribe is IScribe, Auth, Toll {
         return (true, new bytes(0));
     }
 
-    // @todo Define single tag = "\x19Ethereum Signed Message:\n32" || wat
+    //--------------------------------------------------------------------------
+    // Read Functionality
 
-    function constructPokeMessage(PokeData memory pokeData)
-        public
-        view
-        returns (bytes32)
-    {
-        // @todo Malleability due to encodePacked vs encode?
-        // @todo Calldata is already abi encoded. Possible to optimize?
-        //       See https://medium.com/coinmonks/full-knowledge-user-proofs-working-with-storage-without-paying-for-gas-e124cef0c078.
-        return keccak256(
-            abi.encode(
-                "\x19Ethereum Signed Message:\n32",
-                pokeData.val,
-                pokeData.age,
-                wat
-            )
-        );
-    }
-
-    /*//////////////////////////////////////////////////////////////
-                           READ FUNCTIONALITY
-    //////////////////////////////////////////////////////////////*/
-
-    /// @inheritdoc IScribe
     /// @dev Only callable by toll'ed address.
     function read() external view virtual toll returns (uint) {
         uint val = _pokeData.val;
@@ -232,155 +406,156 @@ contract Scribe is IScribe, Auth, Toll {
         return val;
     }
 
-    /// @inheritdoc IScribe
     /// @dev Only callable by toll'ed address.
     function tryRead() external view virtual toll returns (bool, uint) {
         uint val = _pokeData.val;
         return (val != 0, val);
     }
 
-    /// @inheritdoc IScribe
+    // @todo Should peek return non-finalized opPoke if optimistic?
     /// @dev Only callable by toll'ed address.
     function peek() external view virtual toll returns (uint, bool) {
         uint val = _pokeData.val;
         return (val, val != 0);
     }
 
-    /*//////////////////////////////////////////////////////////////
-                         PUBLIC VIEW FUNCTIONS
-    //////////////////////////////////////////////////////////////*/
+    //--------------------------------------------------------------------------
+    // Public View Functions
 
-    /// @inheritdoc IScribe
-    function feeds(address who) external view returns (bool) {
-        return !_feeds[who].isZeroPoint();
+    function feeds(address who) external view returns (bool, uint) {
+        uint index = _feeds[who];
+        assert(index != 0 ? !_pubKeys[index].isZeroPoint() : true);
+        return (index != 0, index);
     }
 
-    /// @inheritdoc IScribe
-    function feeds() external view returns (address[] memory) {
-        // Initiate array with upper limit length.
-        address[] memory feedsList = new address[](_feedsTouched.length);
+    // @todo Can feeds() return duplicates? Don't think so. Check!
+    function feeds() external view returns (address[] memory, uint[] memory) {
+        // Initiate arrays with upper limit length.
+        uint upperLimitLength = _pubKeys.length;
+        address[] memory feedsList = new address[](upperLimitLength);
+        uint[] memory feedsIndexesList = new uint[](upperLimitLength);
 
-        // Iterate through all possible feed addresses.
+        // Iterate over feeds' public keys. If a public key is non-zero, their
+        // corresponding address is a feed.
         uint ctr;
-        for (uint i; i < feedsList.length; i++) {
-            // Add address only if still feed.
-            if (!_feeds[_feedsTouched[i]].isZeroPoint()) {
-                feedsList[ctr++] = _feedsTouched[i];
+        LibSecp256k1.Point memory pubKey;
+        address feed;
+        uint feedIndex;
+        for (uint i; i < upperLimitLength; i++) {
+            pubKey = _pubKeys[i];
+
+            if (!pubKey.isZeroPoint()) {
+                feed = pubKey.toAddress();
+                assert(feed != address(0));
+                feedIndex = _feeds[feed];
+                assert(feedIndex != 0);
+
+                feedsList[ctr] = feed;
+                feedsIndexesList[ctr] = feedIndex;
+                ctr++;
             }
         }
 
-        // Set length of array to number of feeds actually included.
+        // Set length of arrays to number of feeds actually included.
         assembly ("memory-safe") {
             mstore(feedsList, ctr)
+            mstore(feedsIndexesList, ctr)
         }
 
-        return feedsList;
+        return (feedsList, feedsIndexesList);
     }
 
-    /*//////////////////////////////////////////////////////////////
-                         AUTH'ED FUNCTIONALITY
-    //////////////////////////////////////////////////////////////*/
+    //--------------------------------------------------------------------------
+    // Auth'ed Functionality
 
-    /// @inheritdoc IScribe
+    // @todo FeedLifted event should have index of feed!
+    // @todo FeedDropped event should have index of feed!
+    //       -> Invariant: feed index emitted via FeedDropped will never be
+    //                     written to again.
+
     function lift(
         LibSecp256k1.Point memory pubKey,
         ECDSASignatureData memory ecdsaData
-    ) external auth {
-        // @todo Check can be removed due to ECDSA check.
-        require(!pubKey.isZeroPoint());
-
-        address feed = pubKey.toAddress();
-
-        // Check abdicated due to negligible probability.
-        // require(feed != address(0));
-
-        address recovered =
-            ecrecover(feedLiftMessage, ecdsaData.v, ecdsaData.r, ecdsaData.s);
-        require(feed == recovered);
-
-        if (_feeds[feed].isZeroPoint()) {
-            emit FeedLifted(msg.sender, feed);
-            _feeds[feed] = pubKey;
-            _feedsTouched.push(feed);
-        }
+    ) external auth returns (uint) {
+        return _lift(pubKey, ecdsaData);
     }
 
-    /// @inheritdoc IScribe
     function lift(
         LibSecp256k1.Point[] memory pubKeys,
         ECDSASignatureData[] memory ecdsaDatas
-    ) external auth {
+    ) external auth returns (uint[] memory) {
         require(pubKeys.length == ecdsaDatas.length);
 
-        address feed;
-        address recovered;
+        uint[] memory indexes = new uint[](pubKeys.length);
         for (uint i; i < pubKeys.length; i++) {
-            // @todo Remove zero check. signature check enforces this.
-            //       But than add check below again :)
-            require(!pubKeys[i].isZeroPoint());
-
-            feed = pubKeys[i].toAddress();
-
-            // Check abdicated due to negligible probability.
-            // require(feed != address(0));
-
-            recovered = ecrecover(
-                feedLiftMessage,
-                ecdsaDatas[i].v,
-                ecdsaDatas[i].r,
-                ecdsaDatas[i].s
-            );
-            require(feed == recovered);
-
-            if (_feeds[feed].isZeroPoint()) {
-                emit FeedLifted(msg.sender, feed);
-                _feeds[feed] = pubKeys[i];
-                _feedsTouched.push(feed);
-            }
+            indexes[i] = _lift(pubKeys[i], ecdsaDatas[i]);
         }
+
+        // Note that indexes contains duplicates iff duplicate pubKeys provided.
+        return indexes;
     }
 
-    /// @inheritdoc IScribe
-    function drop(LibSecp256k1.Point memory pubKey) external auth {
-        _drop(pubKey);
-    }
-
-    /// @dev Implemented as virtual internal function to allow downstream
-    ///      contracts to overwrite the function.
-    function _drop(LibSecp256k1.Point memory pubKey) internal virtual {
+    function _lift(
+        LibSecp256k1.Point memory pubKey,
+        ECDSASignatureData memory ecdsaData
+    ) private returns (uint) {
         address feed = pubKey.toAddress();
+        assert(feed != address(0));
 
-        if (!_feeds[feed].isZeroPoint()) {
-            emit FeedDropped(msg.sender, feed);
-            delete _feeds[feed];
+        // forgefmt: disable-next-item
+        address recovered = ecrecover(
+            watMessage,
+            ecdsaData.v,
+            ecdsaData.r,
+            ecdsaData.s
+        );
+        require(feed == recovered);
+
+        uint index = _feeds[feed];
+        if (index == 0) {
+            emit FeedLifted(msg.sender, feed);
+
+            _pubKeys.push(pubKey);
+            index = _pubKeys.length - 1;
+            _feeds[feed] = index;
+        }
+
+        // @todo Problem with uint8 may no able to hold all possible signer indexes!
+        assert(index <= maxFeeds);
+
+        return index;
+    }
+
+    function drop(uint feedIndex) external auth {
+        _drop(msg.sender, feedIndex);
+    }
+
+    function drop(uint[] memory feedIndexes) external auth {
+        for (uint i; i < feedIndexes.length; i++) {
+            _drop(msg.sender, feedIndexes[i]);
         }
     }
 
-    /// @inheritdoc IScribe
-    function drop(LibSecp256k1.Point[] memory pubKeys) external auth {
-        _drop(pubKeys);
-    }
+    /// @dev Implemented as virtual internal to allow downstream contracts to
+    ///      overwrite the function.
+    function _drop(address caller, uint feedIndex) internal virtual {
+        require(feedIndex < _pubKeys.length);
+        address feed = _pubKeys[feedIndex].toAddress();
 
-    /// @dev Implemented as virtual internal function to allow downstream
-    ///      contracts to overwrite the function.
-    function _drop(LibSecp256k1.Point[] memory pubKeys) internal virtual {
-        for (uint i; i < pubKeys.length; i++) {
-            address feed = pubKeys[i].toAddress();
+        if (_feeds[feed] != 0) {
+            emit FeedDropped(caller, feed);
 
-            if (!_feeds[feed].isZeroPoint()) {
-                emit FeedDropped(msg.sender, feed);
-                delete _feeds[feed];
-            }
+            _feeds[feed] = 0;
+            _pubKeys[feedIndex] = LibSecp256k1.ZERO_POINT();
         }
     }
 
-    /// @inheritdoc IScribe
     function setBar(uint8 bar_) external auth {
         _setBar(bar_);
     }
 
-    /// @dev Implemented as virtual internal function to allow downstream
-    ///      contracts to overwrite the function.
+    /// @dev Implemented as virtual internal to allow downstream contracts to
+    ///      overwrite the function.
     function _setBar(uint8 bar_) internal virtual {
         require(bar_ != 0);
 
@@ -390,12 +565,12 @@ contract Scribe is IScribe, Auth, Toll {
         }
     }
 
-    /*//////////////////////////////////////////////////////////////
-                            INTERNAL HELPERS
-    //////////////////////////////////////////////////////////////*/
+    //--------------------------------------------------------------------------
+    // Internal Helpers
 
     /// @dev Halts execution by reverting with `err`.
     function _revert(bytes memory err) internal pure {
+        // assert(err.length != 0);
         assembly ("memory-safe") {
             let size := mload(err)
             let offset := add(err, 0x20)
@@ -403,9 +578,8 @@ contract Scribe is IScribe, Auth, Toll {
         }
     }
 
-    /*//////////////////////////////////////////////////////////////
-                       OVERRIDDEN TOLL FUNCTIONS
-    //////////////////////////////////////////////////////////////*/
+    //--------------------------------------------------------------------------
+    // Overridden Toll Functions
 
     /// @dev Defines the authorization for IToll's authenticated functions.
     function toll_auth() internal override(Toll) auth {}

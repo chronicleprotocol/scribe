@@ -87,17 +87,20 @@ interface IScribeOptimistic is IScribe {
     ///      contract.
     /// @param schnorrData The SchnorrSignatureData initially provided via
     ///                    opPoke.
+    /// @return True if opPoke declared invalid, false otherwise.
     function opChallenge(SchnorrSignatureData calldata schnorrData)
         external
-        payable;
+        payable
+        returns (bool);
 
-    /// @notice Returns the feed's address of the last opPoke.
-    /// @return The feed's address of the last opPoke.
-    function opFeed() external view returns (address);
+    // @todo NatSpec
+    function constructOpPokeMessage(
+        PokeData calldata pokeData,
+        SchnorrSignatureData calldata schnorrData
+    ) external view returns (bytes32);
 
-    /// @notice Returns the commitment of the last opPoke.
-    /// @return The last opPoke's commitment.
-    function opCommitment() external view returns (bytes32);
+    // @todo NatSpec
+    function opFeedIndex() external view returns (uint8);
 
     /// @notice Returns the opChallengePeriod security parameter.
     /// @return The opChallengePeriod security parameter.

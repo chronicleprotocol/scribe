@@ -3,8 +3,7 @@ pragma solidity ^0.8.16;
 import {Script} from "forge-std/Script.sol";
 import {console2} from "forge-std/console2.sol";
 
-import {IScribeOptimistic_Optimized as IScribeOptimistic} from
-    "src/IScribeOptimistic_Optimized.sol";
+import {IScribeOptimistic} from "src/IScribeOptimistic.sol";
 
 /**
  * @title MEV Searcher Script

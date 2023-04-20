@@ -3,7 +3,7 @@ pragma solidity ^0.8.16;
 import {Script} from "forge-std/Script.sol";
 import {console2} from "forge-std/console2.sol";
 
-import {IScribe_Optimized as IScribe} from "src/IScribe_Optimized.sol";
+import {IScribe} from "src/IScribe.sol";
 
 import {LibSchnorrExtended} from "./libs/LibSchnorrExtended.sol";
 //import {LibSecp256k1Extended} from "./libs/LibSecp256k1Extended.sol";

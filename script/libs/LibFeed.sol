@@ -2,7 +2,7 @@ pragma solidity ^0.8.16;
 
 import {Vm} from "forge-std/Vm.sol";
 
-import {IScribe_Optimized as IScribe} from "src/IScribe_Optimized.sol";
+import {IScribe} from "src/IScribe.sol";
 
 import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
 

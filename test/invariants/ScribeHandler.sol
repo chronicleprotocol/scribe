@@ -7,20 +7,22 @@ import {IScribe} from "src/IScribe.sol";
 
 import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
 
-import {LibHelpers} from "../utils/LibHelpers.sol";
+import {LibFeed} from "script/libs/LibFeed.sol";
 
 contract ScribeHandler is CommonBase, StdUtils {
     using LibSecp256k1 for LibSecp256k1.Point;
-    using LibHelpers for LibHelpers.Feed[];
+    using LibFeed for LibFeed.Feed;
+    using LibFeed for LibFeed.Feed[];
 
     uint public constant MAX_BAR = 10;
 
     bytes32 public WAT;
+    bytes32 public WAT_MESSAGE;
 
     IScribe public scribe;
 
-    LibHelpers.Feed[] internal _ghost_feeds;
-    LibHelpers.Feed[] internal _ghost_feedsTouched;
+    LibFeed.Feed[] internal _ghost_feeds;
+    LibFeed.Feed[] internal _ghost_feedsTouched;
     mapping(uint => uint) internal _feedIndexesPerPrivKey;
 
     IScribe.PokeData[] internal _ghost_pokeDatas;
@@ -37,38 +39,32 @@ contract ScribeHandler is CommonBase, StdUtils {
         ghost_FeedsDropped = false;
     }
 
-    /*//////////////////////////////////////////////////////////////
-                             INITIALIZATION
-    //////////////////////////////////////////////////////////////*/
+    //--------------------------------------------------------------------------
+    // Initialization
 
     function init(address scribe_) external {
         scribe = IScribe(scribe_);
 
-        // Cache wat constant.
+        // Cache constants.
         WAT = scribe.wat();
-
-        // @todo Use feeds.json to reduce startup time. feeds.json is a list of
-        //       precomputed key pairs.
+        WAT_MESSAGE = scribe.watMessage();
 
         // Create and whitelist 2 * MAX_BAR feeds.
-        LibHelpers.Feed[] memory feeds = LibHelpers.makeFeeds(1, 2 * MAX_BAR);
-        for (uint i; i < feeds.length; i++) {
-            _ghost_feeds.push(feeds[i]);
-            _feedIndexesPerPrivKey[feeds[i].privKey] = i;
-            _ghost_feedsTouched.push(feeds[i]);
+        uint numberFeeds = 2 * MAX_BAR;
+        LibFeed.Feed memory feed;
+        for (uint i; i < numberFeeds; i++) {
+            feed = LibFeed.newFeed({privKey: i + 2, index: uint8(i + 1)});
 
-            scribe.lift(
-                feeds[i].pubKey,
-                LibHelpers.makeECDSASignature(
-                    feeds[i], scribe.feedLiftMessage()
-                )
-            );
+            _ghost_feeds.push(feed);
+            _feedIndexesPerPrivKey[feed.privKey] = i;
+            _ghost_feedsTouched.push(feed);
+
+            scribe.lift(feed.pubKey, feed.signECDSA(WAT_MESSAGE));
         }
     }
 
-    /*//////////////////////////////////////////////////////////////
-                            TARGET FUNCTIONS
-    //////////////////////////////////////////////////////////////*/
+    //--------------------------------------------------------------------------
+    // Target Functions
 
     function warp(uint seed) external {
         uint amount = bound(seed, 0, 1 hours);
@@ -90,14 +86,14 @@ contract ScribeHandler is CommonBase, StdUtils {
         // reach bar.
         uint numberSigners =
             bound(numberSignersSeed, scribe.bar(), _ghost_feeds.length);
-        LibHelpers.Feed[] memory signers = new LibHelpers.Feed[](numberSigners);
+        LibFeed.Feed[] memory signers = new LibFeed.Feed[](numberSigners);
         for (uint i; i < numberSigners; i++) {
             signers[i] = _ghost_feeds[i];
         }
 
         // Create schnorrSignatureData.
         IScribe.SchnorrSignatureData memory schnorrData;
-        schnorrData = signers.signSchnorrMessage(scribe, pokeData);
+        schnorrData = signers.signSchnorr(scribe.constructPokeMessage(pokeData));
 
         // Execute poke.
         scribe.poke(pokeData, schnorrData);
@@ -126,7 +122,7 @@ contract ScribeHandler is CommonBase, StdUtils {
         // Note that the number of signers is random, but bounded in a way that
         // gives a 50:50 chance of whether bar is reached.
         uint numberSigners = bound(numberSignersSeed, 0, 2 * scribe.bar());
-        LibHelpers.Feed[] memory signers = new LibHelpers.Feed[](numberSigners);
+        LibFeed.Feed[] memory signers = new LibFeed.Feed[](numberSigners);
         for (uint i; i < numberSigners; i++) {
             signers[i] = _ghost_feeds[i];
         }
@@ -137,12 +133,12 @@ contract ScribeHandler is CommonBase, StdUtils {
         if (includeNonFeedSigner) {
             uint index = bound(nonFeedSignerSeed, 0, numberSigners);
             // Point not on curve, so cannot be feed.
-            signers[index] = LibHelpers.Feed(1, LibSecp256k1.Point(1, 1));
+            signers[index] = LibFeed.Feed(1, LibSecp256k1.Point(1, 1), 0);
         }
 
         // @todo Make invalid, if requested.
         IScribe.SchnorrSignatureData memory schnorrData;
-        schnorrData = signers.signSchnorrMessage(scribe, pokeData);
+        schnorrData = signers.signSchnorr(scribe.constructPokeMessage(pokeData));
 
         // @todo If requested, randomize order of signers.
         if (!sortSigners) {
@@ -174,15 +170,12 @@ contract ScribeHandler is CommonBase, StdUtils {
             return;
         }
 
-        LibHelpers.Feed memory feed = LibHelpers.makeFeed(privKey);
+        LibFeed.Feed memory feed = LibFeed.newFeed(privKey);
 
         _ghost_feeds.push(feed);
         _feedIndexesPerPrivKey[privKey] = _ghost_feeds.length - 1;
         _ghost_feedsTouched.push(feed);
-        scribe.lift(
-            feed.pubKey,
-            LibHelpers.makeECDSASignature(feed, scribe.feedLiftMessage())
-        );
+        scribe.lift(feed.pubKey, feed.signECDSA(WAT_MESSAGE));
 
         // Set feedsLifted flag to true.
         ghost_FeedsLifted = true;
@@ -191,7 +184,7 @@ contract ScribeHandler is CommonBase, StdUtils {
     function drop(uint feedSeed) external {
         uint feedIndex = bound(feedSeed, 0, _ghost_feeds.length);
 
-        scribe.drop(_ghost_feeds[feedIndex].pubKey);
+        scribe.drop(_ghost_feeds[feedIndex].index);
 
         // Remove feed from internal list of feeds.
         delete _feedIndexesPerPrivKey[_ghost_feeds[feedIndex].privKey];
@@ -201,9 +194,8 @@ contract ScribeHandler is CommonBase, StdUtils {
         ghost_FeedsDropped = true;
     }
 
-    /*//////////////////////////////////////////////////////////////
-                          GHOST VIEW FUNCTIONS
-    //////////////////////////////////////////////////////////////*/
+    //--------------------------------------------------------------------------
+    // Ghost View Functions
 
     function ghost_feeds() external view returns (address[] memory) {
         address[] memory feeds = new address[](_ghost_feeds.length);
@@ -242,9 +234,8 @@ contract ScribeHandler is CommonBase, StdUtils {
         return _ghost_schnorrSignatureDatas;
     }
 
-    /*//////////////////////////////////////////////////////////////
-                            PRIVATE HELPERS
-    //////////////////////////////////////////////////////////////*/
+    //--------------------------------------------------------------------------
+    // Private Helpers
 
     function _randPokeDataVal(uint seed) private view returns (uint128) {
         return uint128(bound(seed, 0, type(uint128).max));

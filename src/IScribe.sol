@@ -9,12 +9,13 @@ interface IScribe {
         uint32 age;
     }
 
+    // @todo Document signersBlob decoding.
     /// @dev SchnorrSignatureData encapsulates an aggregated Schnorr signature's
     ///      data. Schnorr signatures are used to prove a PokeData's integrity.
     struct SchnorrSignatureData {
-        address[] signers;
         bytes32 signature;
         address commitment;
+        bytes signersBlob;
     }
 
     /// @dev ECDSASignatureData encapsulates a single ECDSA signature.
@@ -45,6 +46,9 @@ interface IScribe {
     /// @notice Thrown if Schnorr signature verification failed.
     error SchnorrSignatureInvalid();
 
+    // @todo Doc Error InvalidFeedIndex.
+    error InvalidFeedIndex(uint8 givenIndex, uint8 maxIndex);
+
     /// @notice Emitted when oracle was successfully poked.
     /// @param caller The caller's address.
     /// @param val The value poked.
@@ -70,6 +74,12 @@ interface IScribe {
     /// @notice Returns the oracle's identifier.
     /// @return wat The oracle's identifier.
     function wat() external view returns (bytes32 wat);
+
+    // @todo NatSpec outdated.
+    function watMessage() external view returns (bytes32 watMessage);
+
+    // @todo Provide a feedsCount() function?
+    function maxFeeds() external view returns (uint);
 
     /// @notice Returns the oracle's current value.
     /// @dev Reverts if no value set.
@@ -117,20 +127,23 @@ interface IScribe {
         view
         returns (bytes32);
 
+    // @todo NatSpec outdated.
     /// @notice Returns whether address `who` is a feed.
     /// @param who The address to check.
     /// @return isFeed True if `who` is a feed, false otherwise.
-    function feeds(address who) external view returns (bool isFeed);
+    function feeds(address who)
+        external
+        view
+        returns (bool isFeed, uint feedIndex);
 
+    // @todo NatSpec outdated.
     /// @notice Returns full list of feed addresses.
     /// @dev May contain duplicates.
     /// @return feeds List of feed addresses.
-    function feeds() external view returns (address[] memory feeds);
-
-    /// @notice Returns the message to be signed to prove ownership of a public
-    ///         key in order to be lifted to a feed.
-    /// @return message The message to sign to prove ownership of a public key.
-    function feedLiftMessage() external view returns (bytes32 message);
+    function feeds()
+        external
+        view
+        returns (address[] memory feeds, uint[] memory feedIndexes);
 
     /// @notice Lifts public key `pubKey` to being a feed.
     /// @dev Only callable by auth'ed address.
@@ -141,7 +154,7 @@ interface IScribe {
     function lift(
         LibSecp256k1.Point memory pubKey,
         ECDSASignatureData memory ecdsaData
-    ) external;
+    ) external returns (uint);
 
     /// @notice Lifts public keys `pubKeys` to being feeds.
     /// @dev Only callable by auth'ed address.
@@ -152,17 +165,19 @@ interface IScribe {
     function lift(
         LibSecp256k1.Point[] memory pubKeys,
         ECDSASignatureData[] memory ecdsaDatas
-    ) external;
+    ) external returns (uint[] memory);
 
+    // @todo NatSpec outdated.
     /// @notice Drops public key `pubKey` from being a feed.
     /// @dev Only callable by auth'ed address.
-    /// @param pubKey The public keys of the feed.
-    function drop(LibSecp256k1.Point memory pubKey) external;
+    /// @param feedIndex ...
+    function drop(uint feedIndex) external;
 
+    // @todo NatSpec outdated.
     /// @notice Drops public keys `pubKeys` from being feeds.
     /// @dev Only callable by auth'ed address.
-    /// @param pubKeys The public keys of the feeds.
-    function drop(LibSecp256k1.Point[] memory pubKeys) external;
+    /// @param feedIndexes ...
+    function drop(uint[] memory feedIndexes) external;
 
     /// @notice Returns the bar security parameter.
     /// @return bar The bar security parameter.

@@ -6,8 +6,6 @@ import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
 
 import {ScribeHandler} from "./ScribeHandler.sol";
 
-import {LibHelpers} from "../utils/LibHelpers.sol";
-
 contract ScribeOptimisticHandler is ScribeHandler {
     using LibSecp256k1 for LibSecp256k1.Point;
 
@@ -15,9 +13,8 @@ contract ScribeOptimisticHandler is ScribeHandler {
 
     IScribeOptimistic public opScribe;
 
-    /*//////////////////////////////////////////////////////////////
-                            TARGET FUNCTIONS
-    //////////////////////////////////////////////////////////////*/
+    //--------------------------------------------------------------------------
+    // Target Functions
 
     function opPoke() external {}
 

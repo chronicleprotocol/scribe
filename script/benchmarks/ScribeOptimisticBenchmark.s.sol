@@ -4,15 +4,13 @@ import {Script} from "forge-std/Script.sol";
 import {console2} from "forge-std/console2.sol";
 
 import {IScribe} from "src/IScribe.sol";
-import {IScribe_Optimized} from "src/IScribe_Optimized.sol";
 import {Scribe} from "src/Scribe.sol";
 
 import {ScribeOptimistic} from "src/ScribeOptimistic.sol";
-import {ScribeOptimistic_Optimized} from "src/ScribeOptimistic_Optimized.sol";
 
 import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
 
-import {LibHelpers} from "test/utils/LibHelpers.sol";
+//import {LibHelpers} from "test/utils/LibHelpers.sol";
 
 /**
  * @notice Scribe Optimistic Benchmark Script
@@ -45,6 +43,7 @@ import {LibHelpers} from "test/utils/LibHelpers.sol";
  *      4. (second run): 54,081
  */
 contract ScribeOptimisticBenchmark is Script {
+/* @todo Refactor to using scripts/libs.
     using LibHelpers for LibHelpers.Feed[];
 
     /// @dev Anvil's default mnemonic.
@@ -145,14 +144,6 @@ contract ScribeOptimisticBenchmark is Script {
     function opPoke() public {
         uint relayer = vm.deriveKey(ANVIL_MNEMONIC, uint32(1));
 
-        /*
-        Benchmark legacy vs optimized
-
-        Non-Initial Run
-            legacy    : 54,081
-            optimized : 46,242
-        */
-
         // Create bar many feeds.
         // Note to create same set of feeds as lifted.
         LibHelpers.Feed[] memory feeds = LibHelpers.makeFeeds(1, opScribe.bar());
@@ -167,7 +158,6 @@ contract ScribeOptimisticBenchmark is Script {
         // Create PokeData.
         // Note to use max value for val and age to have highest possible gas
         // costs.
-        /*
         IScribe.PokeData memory pokeData =
             IScribe.PokeData({val: type(uint128).max, age: type(uint32).max});
 
@@ -184,7 +174,6 @@ contract ScribeOptimisticBenchmark is Script {
         // Execute opPoke.
         vm.broadcast(relayer);
         opScribe.opPoke(pokeData, schnorrData, ecdsaData);
-        */
 
         IScribe_Optimized.PokeData memory pokeData = IScribe_Optimized.PokeData({
             val: type(uint128).max,
@@ -230,6 +219,7 @@ contract ScribeOptimisticBenchmark is Script {
             uint8(1)
         );
         */
+/*
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(
             feeds[0].privKey,
@@ -241,4 +231,5 @@ contract ScribeOptimisticBenchmark is Script {
             pokeData, schnorrData, IScribe_Optimized.ECDSASignatureData(v, r, s)
         );
     }
+    */
 }
