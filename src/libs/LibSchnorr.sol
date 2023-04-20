@@ -16,8 +16,7 @@ library LibSchnorr {
 
     /// @dev Returns false if commitment is address(0).
     /// @dev Returns false if pubKey.x is zero.
-    /// @dev Expects message to not be zero.
-    ///      Note that message SHOULD be a keccak256 digest.
+    /// @dev Returns false if signature is zero.
     ///
     /// @custom:invariant Reverts iff out of gas.
     /// @custom:invariant Uses constant amount of gas.
@@ -109,13 +108,11 @@ library LibSchnorr {
         uint s =
             LibSecp256k1.Q() - mulmod(challenge, pubKey.x, LibSecp256k1.Q());
 
-        // Perform ecrecover call.
-        // Note to perform necessary castings.
+        // Compute ([e]P + [s]G)ₑ via ecrecover.
         address recovered =
             ecrecover(bytes32(msgHash), uint8(v), bytes32(r), bytes32(s));
 
-        // Verification succeeds iff the ecrecover'ed address equals Rₑ, i.e.
-        // the commitment.
+        // Verification succeeds iff ([e]P + [s]G)ₑ = Rₑ.
         return commitment == recovered;
     }
 
