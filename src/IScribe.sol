@@ -76,6 +76,9 @@ interface IScribe {
     function wat() external view returns (bytes32 wat);
 
     // @todo NatSpec outdated.
+    // Message to be ECDSA signed by feed in order to be lifted.
+    // Proves ownership of private key and circumvents rogue-key attack
+    // vector.
     function watMessage() external view returns (bytes32 watMessage);
 
     // @todo Provide a feedsCount() function?

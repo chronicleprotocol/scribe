@@ -14,13 +14,19 @@ contract Searcher is Script {
     // @todo Wallet from pk via env variables.
     address wallet = address(0xdead);
 
-    IScribeOptimistic opScribe = IScribeOptimistic(address(0xcafe));
+    IScribeOptimistic opScribe =
+        IScribeOptimistic(address(0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512));
 
-    function run(
-        bytes32 pokeMessage,
-        IScribeOptimistic.SchnorrSignatureData memory schnorrData,
-        uint opPokeTimestamp
-    ) public {
+    function run()
+        //bytes32 pokeMessage,
+        //IScribeOptimistic.SchnorrSignatureData memory schnorrData,
+        //uint opPokeTimestamp
+        public
+    {
+        bytes32 pokeMessage;
+        IScribeOptimistic.SchnorrSignatureData memory schnorrData;
+        uint opPokeTimestamp = block.timestamp;
+
         // Check whether last opPoke already finalized.
         uint opChallengePeriod = opScribe.opChallengePeriod();
         if (opPokeTimestamp + opChallengePeriod <= block.timestamp) {
@@ -51,17 +57,24 @@ contract Searcher is Script {
         );
 
         // Challenge last opPoke.
-        ok = opScribe.opChallenge(schnorrData);
+        try opScribe.opChallenge(schnorrData) returns (bool ok_) {
+            ok = ok_;
+        } catch {
+            // !!! THIS MUST NOT HAPPEN !!!
+            console2.log("==> [ERROR] Searcher::run: challenging reverted");
+            assert(false);
+        }
+
         if (!ok) {
             // !!! THIS MUST NOT HAPPEN !!!
             console2.log("==> [ERROR] Searcher::run: challenging failed");
             assert(false);
+        } else {
+            uint balanceAfter = wallet.balance;
+            console2.log("==> Searcher::run: challenging succeeded");
+            console2.log(
+                "==> Searcher::run: balance after: ", vm.toString(balanceAfter)
+            );
         }
-
-        uint balanceAfter = wallet.balance;
-        console2.log("==> Searcher::run: challenging succeeded");
-        console2.log(
-            "==> Searcher::run: balance after: ", vm.toString(balanceAfter)
-        );
     }
 }

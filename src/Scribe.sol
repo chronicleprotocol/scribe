@@ -9,8 +9,6 @@ import {LibSchnorr} from "./libs/LibSchnorr.sol";
 import {LibSecp256k1} from "./libs/LibSecp256k1.sol";
 import {LibBytes} from "./libs/LibBytes.sol";
 
-import {console2} from "forge-std/console2.sol";
-
 // @todo Invariant tests for storage mutations.
 //       based on msg.sender + selector,
 //                timestamp + last tx, etc..
@@ -51,16 +49,16 @@ contract Scribe is IScribe, Auth, Toll {
     /// @dev Size of a word is 32 bytes, i.e. 245 bits.
     uint private constant WORD_SIZE = 32;
 
-    uint public constant maxFeeds = 255;
+    /// @dev The maximum number of feeds supported.
+    uint public constant maxFeeds = type(uint8).max - 1;
 
     //--------------------------------------------------------------------------
     // Immutables
 
+    /// @inheritdoc IScribe
     bytes32 public immutable wat;
 
-    // Message to be ECDSA signed by feed in order to be lifted.
-    // Proves ownership of private key and circumvents rogue-key attack
-    // vector.
+    /// @inheritdoc IScribe
     bytes32 public immutable watMessage;
 
     //--------------------------------------------------------------------------
@@ -85,6 +83,7 @@ contract Scribe is IScribe, Auth, Toll {
     //--------------------------------------------------------------------------
     // Security Parameters Storage
 
+    /// @inheritdoc IScribe
     /// @dev Note to have as last in storage to enable downstream contracts to
     ///      pack the slot.
     uint8 public bar;
@@ -194,7 +193,7 @@ contract Scribe is IScribe, Auth, Toll {
     function verifySchnorrSignature(
         bytes32 message,
         SchnorrSignatureData calldata schnorrData
-    ) external returns (bool, bytes memory) {
+    ) external view returns (bool, bytes memory) {
         return _verifySchnorrSignature(message, schnorrData);
     }
 
@@ -226,7 +225,7 @@ contract Scribe is IScribe, Auth, Toll {
     function _verifySchnorrSignature(
         bytes32 message,
         SchnorrSignatureData calldata schnorrData
-    ) internal returns (bool, bytes memory) {
+    ) internal view returns (bool, bytes memory) {
         // Get the number of signers. Note that length of schnorrData.signersBlob
         // is byte denominated.
         // @todo Verify that signersBlob is not loaded into memory.
@@ -262,7 +261,6 @@ contract Scribe is IScribe, Auth, Toll {
         // first signer's index.
         // Note that schnorrData.signersBlob is encoded in big-endian.
         uint signerIndex = signersBlobWord.getByteAtIndex(31);
-        console2.log("signerIndex", signerIndex);
 
         // Expect signerIndex to not be zero or out of bounds.
         // @todo check whether index zero?
@@ -325,7 +323,6 @@ contract Scribe is IScribe, Auth, Toll {
 
             // Get next byte as next signer's index.
             signerIndex = signersBlobWord.getByteAtIndex(31 - (i % WORD_SIZE));
-            console2.log("signerIndex", signerIndex);
 
             // Expect signerIndex to not be out of bounds.
             if (signerIndex >= pubKeysLength) {
@@ -375,8 +372,6 @@ contract Scribe is IScribe, Auth, Toll {
 
             // Aggregate signerPubKey by adding it to aggPubKey.
             aggPubKey.addAffinePoint(signerPubKey);
-            console2.log("Scribe: aggPubKey.x", aggPubKey.toAffine().x);
-            console2.log("Scribe: aggPubKey.y", aggPubKey.toAffine().y);
         }
 
         // Perform signature verification.

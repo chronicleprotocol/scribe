@@ -75,8 +75,8 @@ import {LibBytesTest} from "./LibBytesTest.sol";
 contract LibBytesTest_ is LibBytesTest {}
 
 //------------------------------------------------------------------------------
-// Test: EVM Assumptions
+// Test: EVM Requirement Tests
 
-import {EcRecoverTest} from "./EcRecoverTest.sol";
+import {EVMTest} from "./EVMTest.sol";
 
-contract EcRecoverTest_ is EcRecoverTest {}
+contract EVMTest_ is EVMTest {}

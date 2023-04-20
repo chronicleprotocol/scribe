@@ -19,4 +19,11 @@ lcov.info
 # Binaries
 bin/*
 
+# Flattened contracts
+flattened/
+
+# Heimdall output directory
+# See https://github.com/Jon-Becker/heimdall-rs
+output/
+
 TODO

@@ -5,7 +5,7 @@ import {console2} from "forge-std/console2.sol";
 
 import {IScribe} from "src/IScribe.sol";
 
-import {LibSchnorrExtended} from "./libs/LibSchnorrExtended.sol";
+import {LibSchnorrExtended} from "../libs/LibSchnorrExtended.sol";
 //import {LibSecp256k1Extended} from "./libs/LibSecp256k1Extended.sol";
 
 /**

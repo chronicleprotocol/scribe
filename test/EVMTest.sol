@@ -1,3 +1,67 @@
 // Tests:
 // - ecrecover invariants
 // - calldataload() returns zero if no calldata/out of calldata range?
+
+pragma solidity ^0.8.16;
+
+import {Test} from "forge-std/Test.sol";
+import {console2} from "forge-std/console2.sol";
+
+import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
+
+/**
+ * @notice Tests Requirements for EVM Version
+ */
+abstract contract EVMTest is Test {
+    /// @dev Tests that an assembly calldataload from an out-of-bounds calldata
+    ///      index returns 0.
+    ///      Note that ScribeOptimistic::opChallenge() requires such an
+    ///      expression to _not revert_.
+    function test_calldataload_ReadingNonExistingCalldataReturnsZero(uint index) public {
+        uint minIndex;
+        assembly ("memory-safe") {
+            minIndex := calldatasize()
+        }
+        vm.assume(minIndex <= index);
+
+        uint got;
+        assembly ("memory-safe") {
+            got := calldataload(index)
+        }
+        assertEq(got, 0);
+    }
+
+    /// @dev Tests that:
+    ///      s ∊ [Q, type(uint).max] -> ecrecover(_, _, _, s) = address(0)
+    function test_ecrecover_ReturnsZeroAddress_If_S_IsGreaterThanOrEqualToQ(
+        uint privKeySeed,
+        uint sSeed
+    ) public {
+        // Let privKey ∊ [1, Q).
+        uint privKey = bound(privKeySeed, 1, LibSecp256k1.Q() - 1);
+
+        // Let s ∊ [Q, type(uint).max].
+        bytes32 s = bytes32(bound(sSeed, LibSecp256k1.Q(), type(uint).max));
+
+        // Create ECDSA signature.
+        (uint8 v, bytes32 r,) = vm.sign(privKey, keccak256("scribe"));
+
+        assertEq(ecrecover(keccak256("scribe"), v, r, s), address(0));
+    }
+
+    /// @dev Tests that:
+    ///      ecrecover(_, _, 0, _) -> address(0)
+    function test_ecrecover_ReturnsZeroAddress_If_R_IsZero(
+        uint privKeySeed
+    ) public {
+        // Let privKey ∊ [1, Q).
+        uint privKey = bound(privKeySeed, 1, LibSecp256k1.Q() - 1);
+
+        // Create ECDSA signature.
+        (uint8 v, , bytes32 s) = vm.sign(privKey, keccak256("scribe"));
+
+        bytes32 r = 0;
+
+        assertEq(ecrecover(keccak256("scribe"), v, r, s), address(0));
+    }
+}
