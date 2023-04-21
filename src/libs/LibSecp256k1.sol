@@ -143,7 +143,7 @@ library LibSecp256k1 {
     ///      nevertheless has side effects by writing the result into the
     ///      `self` memory variable.
     ///
-    /// @custom:invariant Only memory mutated is the `self` variable.
+    /// @custom:invariant Only mutates `self` memory variable.
     /// @custom:invariant Reverts iff out of gas.
     /// @custom:invariant Uses constant amount of gas.
     function addAffinePoint(JacobianPoint memory self, Point memory p)

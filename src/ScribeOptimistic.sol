@@ -400,7 +400,7 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
     // Private Helpers
 
     function _payout(address payable receiver, uint reward) private {
-        (bool ok, ) = receiver.call{value: reward}("");
+        (bool ok,) = receiver.call{value: reward}("");
         if (!ok) {
             // @todo Emit event?
         }

@@ -141,7 +141,7 @@ contract Scribe is IScribe, Auth, Toll {
             _revert(err);
         }
 
-        // Store pokeData's val in _pokeData storage.
+        // Store pokeData's val in _pokeData storage and set its age to now.
         _pokeData.val = pokeData.val;
         _pokeData.age = uint32(block.timestamp);
 
@@ -490,7 +490,7 @@ contract Scribe is IScribe, Auth, Toll {
         view
         returns (LibSecp256k1.Point memory)
     {
-        // Push immutable to stack as assembly accessing not supported.
+        // Push immutable to stack as accessing through assembly not supported.
         uint slotPubKeys = SLOT_pubKeys;
 
         LibSecp256k1.Point memory pubKey;
