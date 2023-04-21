@@ -133,7 +133,7 @@ contract Scribe is IScribe, Auth, Toll {
         // Construct pokeMessage.
         bytes32 pokeMessage = constructPokeMessage(pokeData);
 
-        // Revert if schnorrData is invalid.
+        // Revert if schnorrData does not verify pokeData.
         bool ok;
         bytes memory err;
         (ok, err) = _verifySchnorrSignature(pokeMessage, schnorrData);
@@ -153,12 +153,6 @@ contract Scribe is IScribe, Auth, Toll {
         view
         returns (bytes32)
     {
-        // @todo Use calldata and hash yourself/load from calldata.
-        //       Need three words, use scratch space + zero word.
-        //       Also change order of checks in poke to not load into memory
-        //       (with expansion) if not necessary.
-        // @audit-issue Problem with optimistic. Needs to have memory argument :/
-
         // pokeMessage = H(tag ‖ H(wat ‖ pokeData))
         return keccak256(
             abi.encodePacked(
@@ -170,31 +164,11 @@ contract Scribe is IScribe, Auth, Toll {
                 )
             )
         );
-
-        // @todo Malleability due to encodePacked vs encode?
-        // @todo Calldata is already abi encoded. Possible to optimize?
-        //       See https://medium.com/coinmonks/full-knowledge-user-proofs-working-with-storage-without-paying-for-gas-e124cef0c078.
-        //return keccak256(
-        //    abi.encode(
-        //        "\x19Ethereum Signed Message:\n32",
-        //        pokeData.val,
-        //        pokeData.age,
-        //        wat
-        //    )
-        //);
     }
 
     //--------------------------------------------------------------------------
     // Schnorr Signature Verification
 
-    // Calldata:
-    // [0x00] selector
-    // [0x04] message
-    // [0x24] schnorrSignature
-    // [0x44] schnorrCommitment
-    // [0x64] offset(signersBlob)      = 0x80 (selector not counted)
-    // [0x84] len(signersBlob)
-    // [0xa4] signersBlob[0]
     function verifySchnorrSignature(
         bytes32 message,
         SchnorrSignatureData calldata schnorrData
@@ -342,11 +316,13 @@ contract Scribe is IScribe, Auth, Toll {
             if (!pubKey.isZeroPoint()) {
                 feed = pubKey.toAddress();
                 assert(feed != address(0));
+
                 feedIndex = _feeds[feed];
                 assert(feedIndex != 0);
 
                 feedsList[ctr] = feed;
                 feedsIndexesList[ctr] = feedIndex;
+
                 ctr++;
             }
         }
@@ -415,7 +391,6 @@ contract Scribe is IScribe, Auth, Toll {
             _feeds[feed] = index;
         }
 
-        // @todo Problem with uint8 may no able to hold all possible signer indexes!
         assert(index <= maxFeeds);
 
         return index;
@@ -465,7 +440,8 @@ contract Scribe is IScribe, Auth, Toll {
 
     /// @dev Halts execution by reverting with `err`.
     function _revert(bytes memory err) internal pure {
-        // assert(err.length != 0);
+        assert(err.length != 0);
+
         assembly ("memory-safe") {
             let size := mload(err)
             let offset := add(err, 0x20)
@@ -533,6 +509,7 @@ contract Scribe is IScribe, Auth, Toll {
             mstore(pubKey, x)
             mstore(add(pubKey, 0x20), y)
         }
+
         assert(index < _pubKeys.length || pubKey.isZeroPoint());
 
         // Note that pubKey is zero if index out of bounds.

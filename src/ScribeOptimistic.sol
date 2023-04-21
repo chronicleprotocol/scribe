@@ -40,14 +40,21 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
     // @todo More docs: Is truncated hash.
     //       Why secure? -> 160 bits is enough
     //       Why truncated? -> slot packing
-    uint160 private _schnorrDataHash;
+    uint160 private _schnorrDataCommitment;
 
-    uint32 private _initialOpPokeDataTimestamp;
+    uint32 private _originalOpPokeDataAge;
 
     //--------------------------------------------------------------------------
     // opPokeData Storage
 
     PokeData private _opPokeData;
+
+    uint public maxChallengeReward;
+
+    function challengeReward() public view returns (uint) {
+        uint balance = address(this).balance;
+        return balance > maxChallengeReward ? maxChallengeReward : balance;
+    }
 
     //--------------------------------------------------------------------------
     // Constructor and Receive Function
@@ -100,19 +107,14 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
             revert StaleMessage(pokeData.age, age);
         }
 
-        // @todo Optimize schnorrData calldata usage. Do not load into memory?
-        //       Use assembly, overwrite everything from solc (scratch space, etc)
-        //       _after_ everything else is done and no execution given back to solc.
-        //       This should lower the memory usage because we overwrite already
-        //       allocated memory and don't expand.
-
-        bytes32 ecdsaMessage = _constructOpPokeMessage(pokeData, schnorrData);
+        // Construct opPokeMessage.
+        bytes32 opPokeMessage = _constructOpPokeMessage(pokeData, schnorrData);
 
         // Recover ECDSA signer.
         address signer =
-            ecrecover(ecdsaMessage, ecdsaData.v, ecdsaData.r, ecdsaData.s);
+            ecrecover(opPokeMessage, ecdsaData.v, ecdsaData.r, ecdsaData.s);
 
-        // Get signer's feedIndex.
+        // Load signer's feedIndex.
         uint feedIndex = _feeds[signer];
 
         // Revert if signer is not feed.
@@ -120,9 +122,9 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
             revert SignerNotFeed(signer);
         }
 
-        // Store the signer and bind them to their commitment.
+        // Store the signer and bind them to their provided schnorrData.
         opFeedIndex = uint8(feedIndex);
-        _schnorrDataHash = uint160(
+        _schnorrDataCommitment = uint160(
             uint(
                 keccak256(
                     abi.encodePacked(
@@ -142,14 +144,12 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
             _pokeData = opPokeData;
         }
 
-        // Store given pokeData in _opPokeData storage. Note to set the
-        // opPokeData's age to the current timestamp and _not_ the given
-        // pokeData's age.
+        // Store provided pokeData's val in _opPokeData storage.
         _opPokeData.val = pokeData.val;
         _opPokeData.age = uint32(block.timestamp);
 
-        // @audit-issue !!!
-        _initialOpPokeDataTimestamp = pokeData.age;
+        // Store pokeData's age to be able to recreate original pokeMessage.
+        _originalOpPokeDataAge = pokeData.age;
 
         // @todo Test for event emission.
         // @todo Event emission needs whole schnorrData + pokeMessage
@@ -184,6 +184,7 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
             revert NoOpPokeToChallenge();
         }
 
+        // Construct truncated hash from schnorrData.
         uint160 schnorrDataHash = uint160(
             uint(
                 keccak256(
@@ -196,19 +197,19 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
             )
         );
 
-        // Revert if schnorrData argument does not match stored hash.
-        if (schnorrDataHash != _schnorrDataHash) {
+        // Revert if schnorrDataHash does not match _schnorrDataCommitment.
+        if (schnorrDataHash != _schnorrDataCommitment) {
             // @todo Refactor error types.
             //revert ArgumentsDoNotMatchOpCommitment(commitment, opCommitment);
             revert();
         }
 
-        // Verify schnorrSignatureData.
+        // Decide whether schnorrData verifies opPokeData.
         bool ok;
         bytes memory err;
         (ok, err) = _verifySchnorrSignature(
             constructPokeMessage(
-                PokeData({val: opPokeData.val, age: _initialOpPokeDataTimestamp})
+                PokeData({val: opPokeData.val, age: _originalOpPokeDataAge})
             ),
             schnorrData
         );
@@ -228,12 +229,13 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
             // feed.
             _drop(address(this), opFeedIndex);
 
-            // Pay challenge bounty to caller.
-            _rewardChallenger(payable(msg.sender));
+            // Pay reward to challenger.
+            _payout(payable(msg.sender), challengeReward());
 
             // @todo Emit event with err.
         }
 
+        // Return whether challenging was successful.
         return !ok;
     }
 
@@ -397,11 +399,8 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
     //--------------------------------------------------------------------------
     // Private Helpers
 
-    function _rewardChallenger(address payable receiver) private {
-        uint bounty = address(this).balance;
-
-        (bool ok, /*bytes memory data*/ ) = receiver.call{value: bounty}("");
-
+    function _payout(address payable receiver, uint reward) private {
+        (bool ok, ) = receiver.call{value: reward}("");
         if (!ok) {
             // @todo Emit event?
         }
