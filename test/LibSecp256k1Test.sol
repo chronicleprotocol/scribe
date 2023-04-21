@@ -16,6 +16,7 @@ abstract contract LibSecp256k1Test is Test {
     // - toAffine conversion correct !
     // - toAffine never reverts (except if OOG)
     // - _invMod equal to LibSecp256k1Extended::invMod
+    // - point.toJacobian().toAffine() == point
 
     function testDifferentialFuzz_addAffinePoint(uint privKeyA, uint privKeyB)
         public

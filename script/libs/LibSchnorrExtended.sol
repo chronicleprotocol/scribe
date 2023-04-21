@@ -41,12 +41,13 @@ library LibSchnorrExtended {
         uint signature = computeSignature(privKey, nonce, challenge);
 
         // BONUS: Make sure signature can be verified.
-        bool ok = verifySignature(
-            pubKey, message, bytes32(signature), commitment
-        );
+        bool ok =
+            verifySignature(pubKey, message, bytes32(signature), commitment);
         if (!ok) {
             console2.log(
-                StdStyle.red("[INTERNAL ERROR] LibSchnorrExtended: could not verify own signature")
+                StdStyle.red(
+                    "[INTERNAL ERROR] LibSchnorrExtended: could not verify own signature"
+                )
             );
         }
 
@@ -116,7 +117,9 @@ library LibSchnorrExtended {
         );
         if (!ok) {
             console2.log(
-                StdStyle.red("[INTERNAL ERROR] LibSchnorrExtended: could not verify own signature")
+                StdStyle.red(
+                    "[INTERNAL ERROR] LibSchnorrExtended: could not verify own signature"
+                )
             );
         }
 

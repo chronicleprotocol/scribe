@@ -7,7 +7,7 @@ import {IScribe} from "./IScribe.sol";
 
 import {LibSchnorr} from "./libs/LibSchnorr.sol";
 import {LibSecp256k1} from "./libs/LibSecp256k1.sol";
-import {LibBytes} from "./libs/LibBytes.sol";
+import {LibSchnorrSignatureData} from "./libs/LibSchnorrSignatureData.sol";
 
 // @todo Invariant tests for storage mutations.
 //       based on msg.sender + selector,
@@ -27,7 +27,7 @@ contract Scribe is IScribe, Auth, Toll {
     using LibSchnorr for LibSecp256k1.Point;
     using LibSecp256k1 for LibSecp256k1.Point;
     using LibSecp256k1 for LibSecp256k1.JacobianPoint;
-    using LibBytes for uint;
+    using LibSchnorrSignatureData for SchnorrSignatureData;
 
     /*
     Terms:
@@ -46,8 +46,7 @@ contract Scribe is IScribe, Auth, Toll {
     //--------------------------------------------------------------------------
     // Constants
 
-    /// @dev Size of a word is 32 bytes, i.e. 245 bits.
-    uint private constant WORD_SIZE = 32;
+    uint private immutable SLOT_pubKeys;
 
     /// @dev The maximum number of feeds supported.
     uint public constant maxFeeds = type(uint8).max - 1;
@@ -109,6 +108,14 @@ contract Scribe is IScribe, Auth, Toll {
 
         // Let _pubKeys[0] be the zero point.
         _pubKeys.push(LibSecp256k1.ZERO_POINT());
+
+        // Let SLOT_pubKeys be _pubKeys[0].slot.
+        uint pubKeysSlot;
+        assembly ("memory-safe") {
+            mstore(0x00, _pubKeys.slot)
+            pubKeysSlot := keccak256(0x00, 0x20)
+        }
+        SLOT_pubKeys = pubKeysSlot;
     }
 
     //--------------------------------------------------------------------------
@@ -123,20 +130,18 @@ contract Scribe is IScribe, Auth, Toll {
             revert StaleMessage(pokeData.age, _pokeData.age);
         }
 
+        // Construct pokeMessage.
+        bytes32 pokeMessage = constructPokeMessage(pokeData);
+
         // Revert if schnorrData is invalid.
         bool ok;
         bytes memory err;
-        // forgefmt: disable-next-item
-        (ok, err) = _verifySchnorrSignature(
-            constructPokeMessage(pokeData),
-            schnorrData
-        );
+        (ok, err) = _verifySchnorrSignature(pokeMessage, schnorrData);
         if (!ok) {
             _revert(err);
         }
 
-        // Store pokeData's age in _pokeData storage.
-        // Note to set age of _pokeData to block.timestamp.
+        // Store pokeData's val in _pokeData storage.
         _pokeData.val = pokeData.val;
         _pokeData.age = uint32(block.timestamp);
 
@@ -197,194 +202,89 @@ contract Scribe is IScribe, Auth, Toll {
         return _verifySchnorrSignature(message, schnorrData);
     }
 
-    /// @dev Calldata layout for `schnorrData`:
-    ///
-    ///      [schnorrData]        signature             -> schnorrData.signature
-    ///      [schnorrData + 0x20] commitment            -> schnorrData.commitment
-    ///      [schnorrData + 0x40] offset(signersBlob)
-    ///      [schnorrData + 0x60] len(signersBlob)      -> schnorrData.signersBlob.length
-    ///      [schnorrData + 0x80] signersBlob[0]        -> schnorrData.signersBlob[0]
-    ///      ...
-    ///
-    ///      Note that the `schnorrData` variable holds the offset to the
-    ///      `schnorrData` struct:
-    ///
-    ///      ```solidity
-    ///      bytes32 signature;
-    ///      assembly {
-    ///         signature := calldataload(schnorrData)
-    ///      }
-    ///      assert(signature == schnorrData.signature)
-    ///      ```
-    ///
-    ///      Note that `offset(signersBlob)` is the offset to `signersBlob[0]`
-    ///      from the index `offset(signersBlob)`.
-    ///
     /// @custom:invariant Reverts iff out of gas.
     /// @custom:invariant Does not run into an infinite loop.
     function _verifySchnorrSignature(
         bytes32 message,
         SchnorrSignatureData calldata schnorrData
     ) internal view returns (bool, bytes memory) {
-        // Get the number of signers. Note that length of schnorrData.signersBlob
-        // is byte denominated.
-        // @todo Verify that signersBlob is not loaded into memory.
-        uint numberSigners = schnorrData.signersBlob.length;
-
-        // Expect number of signers to equal bar.
+        // Fail if bar not reached.
+        uint numberSigners = schnorrData.signerIndexLength();
         if (numberSigners != bar) {
-            bytes memory err = abi.encodeWithSelector(
-                IScribe.BarNotReached.selector, uint8(numberSigners), bar
-            );
-
-            return (false, err);
+            return (false, _errorBarNotReached(uint8(numberSigners), bar));
         }
 
-        // Get the length of list of public keys.
-        uint pubKeysLength = _pubKeys.length;
-
-        // Compute schnorrData.signerBlob's calldata offset.
-        uint schnorrDataSignersBlobOffset;
-        assembly ("memory-safe") {
-            // The calldata index to schnorrData.signersBlob[0] is the
-            // schnorrData's calldata offset plus 4 words, i.e. 0x80.
-            schnorrDataSignersBlobOffset := add(schnorrData, 0x80)
-        }
-
-        // Load first word from schnorrData.signersBlob.
-        uint signersBlobWord;
-        assembly ("memory-safe") {
-            signersBlobWord := calldataload(schnorrDataSignersBlobOffset)
-        }
-
-        // Let the first byte of schnorrData.signersBlob's first word be the
-        // first signer's index.
-        // Note that schnorrData.signersBlob is encoded in big-endian.
-        uint signerIndex = signersBlobWord.getByteAtIndex(31);
-
-        // Expect signerIndex to not be zero or out of bounds.
-        // @todo check whether index zero?
-        if (signerIndex == 0 || signerIndex >= pubKeysLength) {
-            bytes memory err = abi.encodeWithSelector(
-                IScribe.InvalidFeedIndex.selector,
-                uint8(signerIndex),
-                uint8(pubKeysLength)
-            );
-
-            return (false, err);
-        }
+        // Load first signerIndex from schnorrData.
+        uint signerIndex = schnorrData.getSignerIndex(0);
 
         // Let signerPubKey be the currently processed signer's public key.
-        LibSecp256k1.Point memory signerPubKey = _pubKeys[signerIndex];
+        LibSecp256k1.Point memory signerPubKey;
+        signerPubKey = _unsafeLoadPubKeyAt(signerIndex);
 
         // Let signer be the address of the current signerPubKey.
         address signer = signerPubKey.toAddress();
 
-        // Expect signerPubKey to not be the zero point. This ensures the public
-        // key corresponds to a feed's public key.
-        // @todo Error type does not fit.
+        // Fail if signer's pubKey is zero point.
         if (signerPubKey.isZeroPoint()) {
-            bytes memory err =
-                abi.encodeWithSelector(IScribe.SignerNotFeed.selector, signer);
-
-            return (false, err);
+            return (false, _errorSignerNotFeed(signer));
         }
 
         // Let aggPubKey be the sum of already processed signers' public keys.
         // Note that aggPubKey is in Jacobian coordinates.
-        LibSecp256k1.JacobianPoint memory aggPubKey = signerPubKey.toJacobian();
-
-        // @audit BUG: bar is only checked via calldata encoding, not in actual loop!
+        LibSecp256k1.JacobianPoint memory aggPubKey;
+        aggPubKey = signerPubKey.toJacobian();
 
         // Iterate over encoded signers. Check each signer's integrity and
         // uniqueness. If signer is valid, aggregate their public key to
         // aggPubKey.
         address lastSigner;
-        for (uint i = 1; i < numberSigners; i++) {
+        for (uint i = 1; i < bar; i++) {
             // Cache the last processed signer.
             lastSigner = signer;
-
-            // Load next word from schnorrData.signersBlob if word boundary hit.
-            if (i % WORD_SIZE == 0) {
-                assembly ("memory-safe") {
-                    // Note that overflow is not possible as i's upper size
-                    // limit is type(uint8).max.
-                    let calldataIndex := add(schnorrDataSignersBlobOffset, i)
-
-                    // @audit What if not enough calldata? Reverts? Returns zero?
-                    signersBlobWord := calldataload(calldataIndex)
-                }
-            }
 
             // @todo Formalize calldata signersBlob.
             //       First signers is in _highest order byte_.
             //       Define encoding mechanism via encodePacked.
             //       Decoding via loop + getByteAtIndex
 
-            // Get next byte as next signer's index.
-            signerIndex = signersBlobWord.getByteAtIndex(31 - (i % WORD_SIZE));
+            // Load next signerIndex from schnorrData.
+            signerIndex = schnorrData.getSignerIndex(i);
 
-            // Expect signerIndex to not be out of bounds.
-            if (signerIndex >= pubKeysLength) {
-                bytes memory err = abi.encodeWithSelector(
-                    IScribe.InvalidFeedIndex.selector,
-                    uint8(signerIndex),
-                    uint8(pubKeysLength)
-                );
-
-                return (false, err);
-            }
-
-            // Load next signerPubKey.
-            signerPubKey = _pubKeys[signerIndex];
+            // Load next signerPubKey from storage.
+            signerPubKey = _unsafeLoadPubKeyAt(signerIndex);
 
             // Update signer variable.
             signer = signerPubKey.toAddress();
 
-            // @todo Error off. Use signerIndex invalid?
-            // Expect signerPubKey to not be the zero point. This ensures the
-            // public key corresponds to a feed's public key.
+            // @todo Error off.
+            // Fail if signer's pubKey is zero point.
             if (signerPubKey.isZeroPoint()) {
-                bytes memory err = abi.encodeWithSelector(
-                    IScribe.SignerNotFeed.selector, signer
-                );
-
-                return (false, err);
+                return (false, _errorSignerNotFeed(signer));
             }
 
-            // Expect signer addresses to be strictly monotonically increasing.
+            // Fail if signers not strictly monotonically increasing.
             // This prevents double signing attacks and enforces strict ordering.
             if (uint160(lastSigner) >= uint160(signer)) {
-                bytes memory err =
-                    abi.encodeWithSelector(IScribe.SignersNotOrdered.selector);
-
-                return (false, err);
+                return (false, _errorSignersNotOrdered());
             }
 
             // If the x coordinates of two points are equal, one of the
             // following cases hold:
             // 1) The two points are equal
             // 2) The sum of the two points is the "Point at Infinity"
-            //
             // See slide 24 at https://www.math.brown.edu/johsilve/Presentations/WyomingEllipticCurve.pdf.
-            //
             assert(aggPubKey.x != signerPubKey.x);
 
             // Aggregate signerPubKey by adding it to aggPubKey.
             aggPubKey.addAffinePoint(signerPubKey);
         }
 
-        // Perform signature verification.
+        // Fail if signature verification fails.
         bool ok = aggPubKey.toAffine().verifySignature(
             message, schnorrData.signature, schnorrData.commitment
         );
-
-        // Expect signature verification to succeed.
         if (!ok) {
-            bytes memory err =
-                abi.encodeWithSelector(IScribe.SchnorrSignatureInvalid.selector);
-
-            return (false, err);
+            return (false, _errorSchnorrSignatureInvalid());
         }
 
         // Otherwise Schnorr signature is valid.
@@ -571,6 +471,72 @@ contract Scribe is IScribe, Auth, Toll {
             let offset := add(err, 0x20)
             revert(offset, size)
         }
+    }
+
+    function _errorBarNotReached(uint8 got, uint8 want)
+        private
+        pure
+        returns (bytes memory)
+    {
+        assert(got != want);
+
+        return abi.encodeWithSelector(IScribe.BarNotReached.selector, got, want);
+    }
+
+    function _errorSignerNotFeed(address signer)
+        private
+        view // @todo View due to assert.
+        returns (bytes memory)
+    {
+        assert(_feeds[signer] == 0);
+
+        return abi.encodeWithSelector(IScribe.SignerNotFeed.selector, signer);
+    }
+
+    function _errorSignersNotOrdered() private pure returns (bytes memory) {
+        return abi.encodeWithSelector(IScribe.SignersNotOrdered.selector);
+    }
+
+    // @todo Rename to just SignatureInvalid?
+    function _errorSchnorrSignatureInvalid()
+        private
+        pure
+        returns (bytes memory)
+    {
+        return abi.encodeWithSelector(IScribe.SchnorrSignatureInvalid.selector);
+    }
+
+    // @todo doc: unsafe because no index out of bounds check.
+    //            Instead just returns zero point if so.
+    //            Secure because zero point cannot verify signature.
+    function _unsafeLoadPubKeyAt(uint index)
+        private
+        view
+        returns (LibSecp256k1.Point memory)
+    {
+        // Push immutable to stack as assembly accessing not supported.
+        uint slotPubKeys = SLOT_pubKeys;
+
+        LibSecp256k1.Point memory pubKey;
+        assembly ("memory-safe") {
+            // Note that a pubKey consists of two words.
+            let realIndex := add(index, index)
+
+            // Compute slot of _pubKeys[index].
+            let slot := add(slotPubKeys, realIndex)
+
+            // Load _pubKeys[index]'s coordinates to stack.
+            let x := sload(slot)
+            let y := sload(add(slot, 1))
+
+            // Store coordinates in pubKey memory location.
+            mstore(pubKey, x)
+            mstore(add(pubKey, 0x20), y)
+        }
+        assert(index < _pubKeys.length || pubKey.isZeroPoint());
+
+        // Note that pubKey is zero if index out of bounds.
+        return pubKey;
     }
 
     //--------------------------------------------------------------------------

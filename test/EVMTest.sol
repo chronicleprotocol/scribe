@@ -1,7 +1,3 @@
-// Tests:
-// - ecrecover invariants
-// - calldataload() returns zero if no calldata/out of calldata range?
-
 pragma solidity ^0.8.16;
 
 import {Test} from "forge-std/Test.sol";
@@ -34,7 +30,7 @@ abstract contract EVMTest is Test {
     }
 
     /// @dev Tests that:
-    ///      s ∊ [Q, type(uint).max] -> ecrecover(_, _, _, s) = address(0)
+    ///         s ∊ [Q, type(uint).max] → ecrecover(_, _, _, s) = address(0)
     function test_ecrecover_ReturnsZeroAddress_If_S_IsGreaterThanOrEqualToQ(
         uint privKeySeed,
         uint sSeed
@@ -52,7 +48,7 @@ abstract contract EVMTest is Test {
     }
 
     /// @dev Tests that:
-    ///      ecrecover(_, _, 0, _) -> address(0)
+    ///         ecrecover(_, _, 0, _) → address(0)
     function test_ecrecover_ReturnsZeroAddress_If_R_IsZero(uint privKeySeed)
         public
     {
@@ -62,9 +58,6 @@ abstract contract EVMTest is Test {
         // Create ECDSA signature.
         (uint8 v,, bytes32 s) = vm.sign(privKey, keccak256("scribe"));
 
-        // Let r be zero.
-        bytes32 r = 0;
-
-        assertEq(ecrecover(keccak256("scribe"), v, r, s), address(0));
+        assertEq(ecrecover(keccak256("scribe"), v, 0, s), address(0));
     }
 }

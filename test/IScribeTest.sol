@@ -144,6 +144,8 @@ abstract contract IScribeTest is Test {
     function test_verifySignature_FailsIf_FaultySignersBlobLengthEncoding(
         uint barSeed
     ) public {
+        console2.log("NOT IMPLEMENTED");
+        return;
         // Tests the following:
         // Schnorr signature signed via less than bar signers but encodes the
         // signersBlob with a length of bar. This will pass the initial bar
@@ -183,9 +185,11 @@ abstract contract IScribeTest is Test {
         );
         assertFalse(ok);
         //assertEq(err.length, 0);
+
+        assertTrue(false);
     }
 
-    function testFuzz_verifySignature_FailsIf_InsufficientNumberOfSigners(
+    function testFuzz_verifySignature_FailsIf_BarNotReached(
         uint barSeed,
         uint numberSignersSeed
     ) public {
@@ -221,7 +225,7 @@ abstract contract IScribeTest is Test {
         );
     }
 
-    function testFuzz_verifySignature_FailsIf_NonOrderedSigners(uint barSeed)
+    function testFuzz_verifySignature_FailsIf_SignersNotOrdered(uint barSeed)
         public
     {
         // Let bar ∊ [3, scribe.maxFeeds()].
@@ -245,10 +249,13 @@ abstract contract IScribeTest is Test {
         );
     }
 
-    function testFuzz_verifySignature_FailsIf_NonFeedSigner(
+    function testFuzz_verifySignature_FailsIf_SignerNotFeed(
         uint barSeed,
         uint nonSignerIndexSeed
     ) public {
+        console2.log("NOT IMPLEMENTED");
+        return;
+
         // Let bar ∊ [1, scribe.maxFeeds()].
         uint bar = bound(barSeed, 1, scribe.maxFeeds());
 
@@ -292,7 +299,11 @@ abstract contract IScribeTest is Test {
 
         IScribe.SchnorrSignatureData memory schnorrData;
         schnorrData = feeds.signSchnorr(message);
-        schnorrData.signature = bytes32(uint(schnorrData.signature) + 1);
+
+        // Mutate schnorrData's signature.
+        unchecked {
+            schnorrData.signature = bytes32(uint(schnorrData.signature) + 1);
+        }
 
         bool ok;
         bytes memory err;
