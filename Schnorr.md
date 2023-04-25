@@ -41,7 +41,7 @@ Signing:
 
    Let `e` be the _challenge_
 
-5. Compute `s = k - (e * x)`
+5. Compute `s = k + (e * x) mod Q`
 
    Let `s` be the _signature_
 
@@ -59,17 +59,16 @@ Verification:
 
 2. Compute _commitment_:
 ```
-  [e]P + [s]G               | s = k - (e * x)
-= [e]P + [k - (e * x)]G     | P = [x]G
-= [e * x]G + [k - e * x]G   | Distributive Law
-= [e * x + k - e * x]G      | Commutative Law
-= [k - e * x + e * x]G      | -(e * x) + (e * x) = 0
+  [s]G - [e]P               | s = k + (e * x)
+= [k + (e * x)]G - [e]P     | P = [x]G
+= [k + (e * x)]G - [e * x]G | Distributive Law
+= [k + (e * x) - (e * x)]G  | (e * x) - (e * x) = 0
 = [k]G                      | R = [k]G
 = R                         | Let ()ₑ be the Ethereum address of a Point
 → Rₑ
 ```
 
-3. Verification succeeds iff `([e]P + [s]G)ₑ = Rₑ`
+3. Verification succeeds iff `([s]G - [e]P)ₑ = Rₑ`
 
 
 Key Aggregation for Multisignatures:
@@ -122,53 +121,51 @@ elliptic curve multiplication in secp256k1 for the verification process.
 The ecrecover precompile can roughly be implemented in python via[^vitalik-ethresearch-post]:
 ```python
 def ecdsa_raw_recover(msghash, vrs):
-    v, r, s = vrs
-    y = # (get y coordinate for EC point with x=r, with same parity as v)
-    Gz = jacobian_multiply((Gx, Gy, 1), (Q - hash_to_int(msghash)) % Q)
-    XY = jacobian_multiply((r, y, 1), s)
-    Qr = jacobian_add(Gz, XY)
-    N = jacobian_multiply(Qr, inv(r, Q))
-    return from_jacobian(N)
+   v, r, s = vrs
+   y = # (get y coordinate for EC point with x=r, with same parity as v)
+   Gz = jacobian_multiply((Gx, Gy, 1), (Q - hash_to_int(msghash)) % Q)
+   XY = jacobian_multiply((r, y, 1), s)
+   Qr = jacobian_add(Gz, XY)
+   N = jacobian_multiply(Qr, inv(r, Q))
+   return from_jacobian(N)
 ```
 
 Note that ecrecover also uses `s` as variable. From this point forward, let
 the Schnorr signature's `s` be `sig`.
 
-A single ecrecover call can compute `([e]P + [sig]G)ₑ = ([k]G)ₑ = Rₑ` via the
+A single ecrecover call can compute `([sig]G - [e]P)ₑ = ([k]G)ₑ = Rₑ` via the
 following inputs:
 ```
 msghash = -sig * Pₓ
 v       = Pₚ + 27
 r       = Pₓ
-s       = e * Pₓ
+s       = Q - (e * Pₓ)
 ```
 
 Note that ecrecover returns the Ethereum address of `R` and not `R` itself.
 
 The ecrecover call then digests to:
 ```
-Gz = [Q - (-sig * Pₓ)]G    | Double negation
-   = [Q + (sig * Pₓ)]G     | Addition with Q can be removed in (mod Q)
-   = [sig * Pₓ]G           | sig = k - (e * x)
-   = [k - (e * x) * Pₓ]G
+Gz = [Q - (-sig * Pₓ)]G     | Double negation
+   = [Q + (sig * Pₓ)]G      | Addition with Q can be removed in (mod Q)
+   = [sig * Pₓ]G            | sig = k + (e * x)
+   = [(k + (e * x)) * Pₓ]G
 
-XY = [e * Pₓ]P       | P = [x]G
-   = [e * Pₓ * x]G
+XY = [Q - (e * Pₓ)]P        | P = [x]G
+   = [(Q - (e * Pₓ)) * x]G
 
-Qr = Gz + XY                               | Gz = [k - (e * x) * Pₓ]G
-   = [k - (e * x) * Pₓ]G + XY              | XY = [e * Pₓ * x]G
-   = [k - (e * x) * Pₓ]G + [e * Pₓ * x]G
+Qr = Gz + XY                                        | Gz = [(k + (e * x)) * Pₓ]G
+   = [(k + (e * x)) * Pₓ]G + XY                     | XY = [(Q - (e * Pₓ)) * x]G
+   = [(k + (e * x)) * Pₓ]G + [(Q - (e * Pₓ)) * x]G
 
-N  = Qr * Pₓ⁻¹                                           | Qr = [k - (e * x) * Pₓ]G + [e * Pₓ * x]G
-   = ([k - (e * x) * Pₓ]G + [e * Pₓ * x]G) * Pₓ⁻¹        | Distributive law
-   = [k - (e * x) * Pₓ * Pₓ⁻¹]G + [e * Pₓ * x * Pₓ⁻¹]G   | Pₓ * Pₓ⁻¹ = 1
-   = [k - (e * x)]G + [e * x]G                           | sig = k - (e * x)
-   = [sig]G + [e * x]G                                   | P = [x]G
-   = [sig]G + [e]P
+N  = Qr * Pₓ⁻¹                                                    | Qr = [(k + (e * x)) * Pₓ]G + [(Q - (e * Pₓ)) * x]G
+   = [(k + (e * x)) * Pₓ]G + [(Q - (e * Pₓ)) * x]G * Pₓ⁻¹         | Distributive law
+   = [(k + (e * x)) * Pₓ * Pₓ⁻¹]G + [(Q - (e * Pₓ)) * x * Pₓ⁻¹]G  | Pₓ * Pₓ⁻¹ = 1
+   = [(k + (e * x))]G + [Q - e * x]G                              | sig = k + (e * x)
+   = [sig]G + [Q - e * x]G                                        | Q - (e * x) = -(e * x) in (mod Q)
+   = [sig]G - [e * x]G                                            | P = [x]G
+   = [sig]G - [e]P
 ```
-
-Note that ecrecover returns the zero address for `s-values ≥ Q`. It is
-therefore the caller's responsibility to ensure `s = e * Pₓ < Q`.
 
 
 Resources:

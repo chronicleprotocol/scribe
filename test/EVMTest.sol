@@ -42,9 +42,10 @@ abstract contract EVMTest is Test {
         bytes32 s = bytes32(bound(sSeed, LibSecp256k1.Q(), type(uint).max));
 
         // Create ECDSA signature.
-        (uint8 v, bytes32 r,) = vm.sign(privKey, keccak256("scribe"));
+        (, bytes32 r,) = vm.sign(privKey, keccak256("scribe"));
 
-        assertEq(ecrecover(keccak256("scribe"), v, r, s), address(0));
+        assertEq(ecrecover(keccak256("scribe"), 27, r, s), address(0));
+        assertEq(ecrecover(keccak256("scribe"), 28, r, s), address(0));
     }
 
     /// @dev Tests that:
@@ -56,8 +57,9 @@ abstract contract EVMTest is Test {
         uint privKey = bound(privKeySeed, 1, LibSecp256k1.Q() - 1);
 
         // Create ECDSA signature.
-        (uint8 v,, bytes32 s) = vm.sign(privKey, keccak256("scribe"));
+        (,, bytes32 s) = vm.sign(privKey, keccak256("scribe"));
 
-        assertEq(ecrecover(keccak256("scribe"), v, 0, s), address(0));
+        assertEq(ecrecover(keccak256("scribe"), 27, 0, s), address(0));
+        assertEq(ecrecover(keccak256("scribe"), 28, 0, s), address(0));
     }
 }
