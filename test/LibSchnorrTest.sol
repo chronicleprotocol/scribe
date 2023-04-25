@@ -179,9 +179,9 @@ abstract contract LibSchnorrTest is Test {
         uint privKeySeed,
         bytes32 message,
         uint pubKeyXMask,
-        uint pubKeyYMask
+        bool flipParity
     ) public {
-        vm.assume(pubKeyXMask != 0 || pubKeyYMask != 0);
+        vm.assume(pubKeyXMask != 0 || flipParity);
 
         // Let privKey ∊ [1, Q).
         uint privKey = bound(privKeySeed, 1, LibSecp256k1.Q() - 1);
@@ -194,7 +194,7 @@ abstract contract LibSchnorrTest is Test {
         // Compute and mutate pubKey.
         LibSecp256k1.Point memory pubKey = privKey.derivePublicKey();
         pubKey.x = pubKey.x ^ pubKeyXMask;
-        pubKey.y = pubKey.y ^ pubKeyYMask;
+        pubKey.y = flipParity ? pubKey.y + 1 : pubKey.y;
 
         // Signature verification should not succeed.
         bool ok = LibSchnorr.verifySignature(

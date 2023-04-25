@@ -58,7 +58,7 @@ library LibSchnorrSignatureData {
         return word.getByteAtIndex(byteIndex);
     }
 
-    function signerIndexLength(
+    function getSignerIndexLength(
         IScribe.SchnorrSignatureData calldata schnorrData
     ) internal pure returns (uint) {
         return schnorrData.signersBlob.length;

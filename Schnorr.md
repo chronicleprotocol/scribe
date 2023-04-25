@@ -37,7 +37,7 @@ Signing:
 
    Let `Rₑ` be the _commitment_
 
-4. Construct `e = H(Pₓ ‖ Pₚ ‖ Rₑ ‖ m) mod Q`
+4. Construct `e = H(Pₓ ‖ Pₚ ‖ m ‖ Rₑ) mod Q`
 
    Let `e` be the _challenge_
 

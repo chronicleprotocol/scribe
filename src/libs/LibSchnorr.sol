@@ -26,17 +26,16 @@ library LibSchnorr {
         bytes32 signature,
         address commitment
     ) internal pure returns (bool) {
-        // Return false if commitment is address(0) or signature is trivial.
+        // Return false if signature or commitment is zero.
         //
         // Note that ecrecover recovers address(0) if the r-value is zero.
         // As r = Pₓ = pubKey.x and commitment != address(0), a non-zero check
         // for pubKey.x can be abdicated.
-        if (commitment == address(0) || signature == 0) {
+        if (signature == 0 || commitment == address(0)) {
             return false;
         }
 
-        // @todo This two paragraphs contradict each other?
-        // Note that signatures must be less than Q to prevent signature
+        // Note to enforce signature is less than Q to prevent signature
         // malleability. However, this check is disabled because the Scribe
         // contracts only accept messages with strictly monotonically
         // increasing timestamps, circumventing replay attack vectors and
@@ -49,24 +48,7 @@ library LibSchnorr {
         //     return false;
         // }
 
-        // Note that since EIP-2, all transactions whose s-value is greater than
-        // Q/2 are considered invalid in order to protect against ECDSA's
-        // signature malleability vulnerability. However, this does _not_ apply
-        // to the ecrecover precompile! Note further, that the Schnorr
-        // signature scheme does not have this malleability issue.
-        //
-        // Therefore, a check whether ecrecover's s-value = e * Pₓ > Q/2 can be
-        // abdicated.
-        //
-        // See "Appendix F: Signing Transactions" §311 in the Yellow Paper and
-        // "EIP-2: Homestead Hard-fork Changes".
-        //
-        // However, note that ecrecover returns address(0) for a s-value ≥ Q.
-        // It is therefore the callers responsibility to ensure the s-value
-        // computed via their Schnorr signature is not ≥ Q!
-
         // Construct challenge = H(Pₓ ‖ Pₚ ‖ m ‖ Rₑ) mod Q
-        // @todo Challenge here different created than in spec.
         uint challenge = uint(
             keccak256(
                 abi.encodePacked(
@@ -99,20 +81,15 @@ library LibSchnorr {
         // Set r = Pₓ
         uint r = pubKey.x;
 
-        // @audit-issue Original/Own Scheme
-        // Compute s = e * Pₓ (mod Q)
-        //uint s = mulmod(challenge, pubKey.x, LibSecp256k1.Q());
-
-        // @audit-issue BIP-340 Scheme
         // Compute s = Q - (e * Pₓ) (mod Q)
         uint s =
             LibSecp256k1.Q() - mulmod(challenge, pubKey.x, LibSecp256k1.Q());
 
-        // Compute ([e]P + [s]G)ₑ via ecrecover.
+        // Compute ([s]G - [e]P)ₑ via ecrecover.
         address recovered =
             ecrecover(bytes32(msgHash), uint8(v), bytes32(r), bytes32(s));
 
-        // Verification succeeds iff ([e]P + [s]G)ₑ = Rₑ.
+        // Verification succeeds iff ([s]G - [e]P)ₑ = Rₑ.
         return commitment == recovered;
     }
 

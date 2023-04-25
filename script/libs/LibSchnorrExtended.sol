@@ -151,11 +151,6 @@ library LibSchnorrExtended {
         // Set r = Pₓ
         uint r = pubKey.x;
 
-        // @audit-issue Original/Own Scheme
-        // Compute s = e * Pₓ (mod Q)
-        //uint s = mulmod(challenge, pubKey.x, LibSecp256k1.Q());
-
-        // @audit-issue BIP-340 Scheme
         // Compute s = Q - (e * Pₓ) (mod Q)
         uint s =
             LibSecp256k1.Q() - mulmod(challenge, pubKey.x, LibSecp256k1.Q());
@@ -224,7 +219,6 @@ library LibSchnorrExtended {
         address commitment
     ) internal pure returns (bytes32) {
         // e = H(Pₓ ‖ Pₚ ‖ m ‖ Rₑ) mod Q
-        // @todo Challenge here differently created than in spec.
         return bytes32(
             uint(
                 keccak256(
@@ -241,17 +235,6 @@ library LibSchnorrExtended {
         pure
         returns (uint)
     {
-        // @audit-issue Original/Own Scheme
-        // s = k - (e * x)       (mod Q)
-        //   = k + (Q - (e * x)) (mod Q)
-        // // forgefmt: disable-next-item
-        //return addmod(
-        //    nonce,
-        //    LibSecp256k1.Q() - mulmod(uint(challenge), privKey, LibSecp256k1.Q()),
-        //    LibSecp256k1.Q()
-        //);
-
-        // @audit-issue BIP-340 Scheme
         // s = k + (e * x) (mod Q)
         return addmod(
             nonce,
