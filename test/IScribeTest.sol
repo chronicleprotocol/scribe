@@ -491,13 +491,11 @@ abstract contract IScribeTest is Test {
         feeds[0] = LibFeed.newFeed(privKeySigner);
         feeds[1] = LibFeed.newFeed(privKeyFeed);
 
-        IScribe.ECDSAData[] memory ecdsaDatas =
-            new IScribe.ECDSAData[](2);
+        IScribe.ECDSAData[] memory ecdsaDatas = new IScribe.ECDSAData[](2);
         ecdsaDatas[0] = feeds[0].signECDSA(WAT_MESSAGE);
         ecdsaDatas[1] = ecdsaDatas[0];
 
-        LibSecp256k1.Point[] memory pubKeys =
-            new LibSecp256k1.Point[](2);
+        LibSecp256k1.Point[] memory pubKeys = new LibSecp256k1.Point[](2);
         pubKeys[0] = feeds[0].pubKey;
         pubKeys[1] = feeds[1].pubKey;
 
@@ -595,7 +593,9 @@ abstract contract IScribeTest is Test {
             // Don't expect event for duplicates.
             if (!addressFilter[pubKeys[i].toAddress()]) {
                 vm.expectEmit();
-                emit FeedDropped(address(this), pubKeys[i].toAddress(), indexCtr++);
+                emit FeedDropped(
+                    address(this), pubKeys[i].toAddress(), indexCtr++
+                );
             }
 
             addressFilter[pubKeys[i].toAddress()] = true;

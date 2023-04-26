@@ -130,6 +130,7 @@ interface IScribe {
     ///         `pokeData`.
     /// @dev The message is defined as:
     ///         H(tag ‖ H(wat ‖ pokeData)), where H() is the keccak256 function.
+    /// @param pokeData The pokeData to create the message for.
     /// @return Message for `pokeData`.
     function constructPokeMessage(PokeData calldata pokeData)
         external

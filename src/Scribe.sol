@@ -229,13 +229,8 @@ contract Scribe is IScribe, Auth, Toll {
         // aggPubKey.
         address lastSigner;
         for (uint i = 1; i < bar; i++) {
-            // Cache the last processed signer.
+            // Cache last processed signer.
             lastSigner = signer;
-
-            // @todo Formalize calldata signersBlob.
-            //       First signers is in _highest order byte_.
-            //       Define encoding mechanism via encodePacked.
-            //       Decoding via loop + getByteAtIndex
 
             // Load next signerIndex from schnorrData.
             signerIndex = schnorrData.getSignerIndex(i);
@@ -257,11 +252,8 @@ contract Scribe is IScribe, Auth, Toll {
                 return (false, _errorSignersNotOrdered());
             }
 
-            // If the x coordinates of two points are equal, one of the
-            // following cases hold:
-            // 1) The two points are equal
-            // 2) The sum of the two points is the "Point at Infinity"
-            // See slide 24 at https://www.math.brown.edu/johsilve/Presentations/WyomingEllipticCurve.pdf.
+            // Having same x coordinates means either double-signing/rogue-key
+            // attack or result is Point at Infinity.
             assert(aggPubKey.x != signerPubKey.x);
 
             // Aggregate signerPubKey by adding it to aggPubKey.
@@ -421,7 +413,6 @@ contract Scribe is IScribe, Auth, Toll {
 
             emit FeedLifted(msg.sender, feed, index);
         }
-
         require(index <= maxFeeds);
 
         return index;

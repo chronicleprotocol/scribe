@@ -8,9 +8,6 @@ import {Scribe} from "./Scribe.sol";
 import {LibSchnorr} from "./libs/LibSchnorr.sol";
 import {LibSecp256k1} from "./libs/LibSecp256k1.sol";
 
-// @todo variable to set searcher reward instead of using address(this).balance?
-// @todo auth'ed function to withdraw eth?
-
 // @todo Invariant: A values age is the age the contract _first_ received the value.
 
 /**
@@ -37,11 +34,13 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
     /// @inheritdoc IScribeOptimistic
     uint8 public opFeedIndex;
 
-    // @todo More docs: Is truncated hash.
-    //       Why secure? -> 160 bits is enough
-    //       Why truncated? -> slot packing
+    /// @dev The truncated hash of the schnorrData provided in last opPoke.
+    ///      Binds the opFeed to their schnorrData.
     uint160 private _schnorrDataCommitment;
 
+    /// @dev The age of the pokeData provided in last opPoke.
+    ///      Ensures Schnorr signature can be verified after setting
+    ///      pokeData's age to block.timestamp during opPoke.
     uint32 private _originalOpPokeDataAge;
 
     //--------------------------------------------------------------------------
@@ -49,16 +48,8 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
 
     PokeData private _opPokeData;
 
+    /// @inheritdoc IScribeOptimistic
     uint public maxChallengeReward;
-
-    function challengeReward() public view returns (uint) {
-        uint balance = address(this).balance;
-        return balance > maxChallengeReward ? maxChallengeReward : balance;
-    }
-
-    function setMaxChallengeReward(uint maxChallengeReward_) external auth {
-        maxChallengeReward = maxChallengeReward_;
-    }
 
     //--------------------------------------------------------------------------
     // Constructor and Receive Function
@@ -72,16 +63,6 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
 
     //--------------------------------------------------------------------------
     // Optimistic Poke Functionality
-
-    // @todo Make (and use) documentation:
-    // - _pokeData   : PokeData storage slot holding only finalized PokeDatas
-    // - _opPokeData : PokeData storage slot. May hold finalized PokeData.
-    // - curPokeData : The oracle's current PokeData. One of {_pokeData, _opPOkeData}
-    //                 curPokeData = (_opPokeData == Finalized) && _opPokeData.age > _pokeData.age
-    //                      ? _opPokeData : _pokeData
-    // - usrPokeData : PokeData calldata given by user.
-    //
-    // - opPokeData  : _opPokeData memory cache.
 
     /// @inheritdoc IScribeOptimistic
     function opPoke(
@@ -155,18 +136,7 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         // Store pokeData's age to be able to recreate original pokeMessage.
         _originalOpPokeDataAge = pokeData.age;
 
-        // @todo Test for event emission.
-        // @todo Event emission needs whole schnorrData + pokeMessage
-        //       This allows everyone to do:
-        //          if (scribe.verifySchnorrSignature(pokeMessage, schnorrData) == false):
-        //              opChallenge(schnorrData);
-        //emit OpPoked(
-        //    msg.sender,
-        //    signer,
-        //    pokeData.val,
-        //    uint32(block.timestamp),
-        //    opCommitment
-        //);
+        emit OpPoked(msg.sender, signer, schnorrData, pokeData);
     }
 
     /// @inheritdoc IScribeOptimistic
@@ -184,7 +154,6 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
 
         // Revert if _opPokeData is not challengeable.
         if (!opPokeDataChallengeable) {
-            // @todo Rename to "NothingToChallenge"?
             revert NoOpPokeToChallenge();
         }
 
@@ -203,9 +172,7 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
 
         // Revert if schnorrDataHash does not match _schnorrDataCommitment.
         if (schnorrDataHash != _schnorrDataCommitment) {
-            // @todo Refactor error types.
-            //revert ArgumentsDoNotMatchOpCommitment(commitment, opCommitment);
-            revert();
+            revert SchnorrDataMismatch(schnorrDataHash, _schnorrDataCommitment);
         }
 
         // Decide whether schnorrData verifies opPokeData.
@@ -219,6 +186,8 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         );
 
         if (ok) {
+            emit OpPokeChallengedUnsuccessfully(msg.sender);
+
             // Decide whether _opPokeData stale already.
             bool opPokeDataStale = opPokeData.age <= _pokeData.age;
 
@@ -228,21 +197,25 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
                 _pokeData = _opPokeData;
             }
         } else {
+            emit OpPokeChallengedSuccessfully(msg.sender, err);
+
             // Drop opFeed and delete invalid _opPokeData.
             // Use address(this) as caller to indicate self-governed drop of
             // feed.
             _drop(address(this), opFeedIndex);
 
             // Pay reward to challenger.
-            _payout(payable(msg.sender), challengeReward());
-
-            // @todo Emit event with err.
+            uint reward = challengeReward();
+            if (_sendETH(payable(msg.sender), reward)) {
+                emit OpChallengeRewardPaid(msg.sender, reward);
+            }
         }
 
         // Return whether challenging was successful.
         return !ok;
     }
 
+    /// @inheritdoc IScribeOptimistic
     function constructOpPokeMessage(
         PokeData calldata pokeData,
         SchnorrData calldata schnorrData
@@ -254,7 +227,6 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         PokeData calldata pokeData,
         SchnorrData calldata schnorrData
     ) internal view returns (bytes32) {
-        // opPokeMessage = H(tag ‖ H(wat ‖ pokeData ‖ schnorrData))
         return keccak256(
             abi.encodePacked(
                 "\x19Ethereum Signed Message:\n32",
@@ -314,7 +286,6 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         return (val, val != 0);
     }
 
-    /// @dev Returns the oracle's current value.
     function _currentVal() private view returns (uint128) {
         // Load pokeData slots from storage.
         PokeData memory pokeData = _pokeData;
@@ -353,16 +324,12 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         _afterAuthedAction();
     }
 
-    /// @dev Overwritten from upstream contract to enforce _afterAuthedAction()
-    ///      is executed after the initial function execution.
     function _drop(address caller, uint feedIndex) internal override(Scribe) {
         super._drop(caller, feedIndex);
 
         _afterAuthedAction();
     }
 
-    /// @dev Overwritten from upstream contract to enforce _afterAuthedAction()
-    ///      is executed after the initial function execution.
     function _setBar(uint8 bar_) internal override(Scribe) {
         super._setBar(bar_);
 
@@ -384,7 +351,7 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         // Note that this ensures a valid opPoke cannot become invalid
         // after an auth'ed configuration change.
         if (!opPokeDataFinalized) {
-            emit OpPokeDataDropped(msg.sender, _opPokeData.val, _opPokeData.age);
+            emit OpPokeDataDropped(msg.sender, _opPokeData);
             delete _opPokeData;
         }
 
@@ -401,12 +368,35 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
     }
 
     //--------------------------------------------------------------------------
-    // Private Helpers
+    // Searcher Incentivization Logic
 
-    function _payout(address payable receiver, uint reward) private {
-        (bool ok,) = receiver.call{value: reward}("");
-        if (!ok) {
-            // @todo Emit event?
+    /// @inheritdoc IScribeOptimistic
+    function challengeReward() public view returns (uint) {
+        uint balance = address(this).balance;
+        return balance > maxChallengeReward ? maxChallengeReward : balance;
+    }
+
+    /// @inheritdoc IScribeOptimistic
+    function setMaxChallengeReward(uint maxChallengeReward_) external auth {
+        if (maxChallengeReward != maxChallengeReward_) {
+            emit MaxChallengeRewardUpdated(
+                msg.sender, maxChallengeReward, maxChallengeReward_
+            );
+            maxChallengeReward = maxChallengeReward_;
         }
+    }
+
+    /// @inheritdoc IScribeOptimistic
+    function withdrawETH(address payable receiver, uint amount) external auth {
+        bool ok = _sendETH(receiver, amount);
+        require(ok);
+    }
+
+    function _sendETH(address payable receiver, uint reward)
+        private
+        returns (bool)
+    {
+        (bool ok,) = receiver.call{value: reward}("");
+        return ok;
     }
 }

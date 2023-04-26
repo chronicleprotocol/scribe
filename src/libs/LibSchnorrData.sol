@@ -16,6 +16,7 @@ library LibSchnorrData {
     uint private constant WORD_SIZE = 32;
 
     // @todo Big-endian encoded.
+    //       First signers is in _highest order byte_.
     /// @dev Calldata layout for `schnorrData`:
     ///
     ///      [schnorrData]        signature             -> schnorrData.signature

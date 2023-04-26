@@ -14,10 +14,6 @@ import {IScribeTest} from "./IScribeTest.sol";
 
 import {LibFeed} from "script/libs/LibFeed.sol";
 
-// @todo Regarding Event emission testing:
-//       Use _only_ vm.recordLogs() + vm.getRecordedLogs(), see https://github.com/foundry-rs/forge-std/blob/master/src/Vm.sol#L155.
-//       Provides a harder patterns than vm.expectEmit.
-
 /**
  * @notice Provides IScribeOptimistic Unit Tests
  */
@@ -29,12 +25,25 @@ abstract contract IScribeOptimisticTest is IScribeTest {
     IScribeOptimistic private opScribe;
 
     // Events copied from IScribeOptimistic.
-    // @todo Add missing events + test for emission.
-    event OpPokeDataDropped(address indexed caller, uint128 val, uint32 age);
+    event OpPoked(
+        address indexed caller,
+        address indexed opFeed,
+        IScribe.SchnorrData schnorrData,
+        IScribe.PokeData pokeData
+    );
+    event OpPokeChallengedSuccessfully(address indexed caller, bytes schnorrErr);
+    event OpPokeChallengedUnsuccessfully(address indexed caller);
+    event OpChallengeRewardPaid(address indexed challenger, uint reward);
+    event OpPokeDataDropped(address indexed caller, IScribe.PokeData pokeData);
     event OpChallengePeriodUpdated(
         address indexed caller,
         uint16 oldOpChallengePeriod,
         uint16 newOpChallengePeriod
+    );
+    event MaxChallengeRewardUpdated(
+        address indexed caller,
+        uint oldMaxChallengeReward,
+        uint newMaxChallengeReward
     );
 
     function setUp(address scribe_) internal override(IScribeTest) {
@@ -468,28 +477,40 @@ abstract contract IScribeOptimisticTest is IScribeTest {
     //              -> check via expect(isStale)
 
     function test_setOpChallengePeriod_IsAfterAuthedActionProtected() public {
-        _setUpFeedsAndOpPokeOnce(1, uint32(block.timestamp));
+        IScribe.PokeData memory pokeData;
+        pokeData.val = 1;
+        pokeData.age = uint32(block.timestamp);
+
+        _setUpFeedsAndOpPokeOnce(pokeData);
 
         vm.expectEmit();
-        emit OpPokeDataDropped(address(this), 1, uint32(block.timestamp));
+        emit OpPokeDataDropped(address(this), pokeData);
 
         opScribe.setOpChallengePeriod(1);
     }
 
     function test_drop_Single_IsAfterAuthedActionProtected() public {
-        _setUpFeedsAndOpPokeOnce(1, uint32(block.timestamp));
+        IScribe.PokeData memory pokeData;
+        pokeData.val = 1;
+        pokeData.age = uint32(block.timestamp);
+
+        _setUpFeedsAndOpPokeOnce(pokeData);
 
         vm.expectEmit();
-        emit OpPokeDataDropped(address(this), 1, uint32(block.timestamp));
+        emit OpPokeDataDropped(address(this), pokeData);
 
         opScribe.drop(1);
     }
 
     function test_drop_Multiple_IsAfterAuthedActionProtected() public {
-        _setUpFeedsAndOpPokeOnce(1, uint32(block.timestamp));
+        IScribe.PokeData memory pokeData;
+        pokeData.val = 1;
+        pokeData.age = uint32(block.timestamp);
+
+        _setUpFeedsAndOpPokeOnce(pokeData);
 
         vm.expectEmit();
-        emit OpPokeDataDropped(address(this), 1, uint32(block.timestamp));
+        emit OpPokeDataDropped(address(this), pokeData);
 
         uint[] memory feedIndexes = new uint[](1);
         feedIndexes[0] = 1;
@@ -498,10 +519,14 @@ abstract contract IScribeOptimisticTest is IScribeTest {
     }
 
     function test_setBar_IsAfterAuthedActionProtected() public {
-        _setUpFeedsAndOpPokeOnce(1, uint32(block.timestamp));
+        IScribe.PokeData memory pokeData;
+        pokeData.val = 1;
+        pokeData.age = uint32(block.timestamp);
+
+        _setUpFeedsAndOpPokeOnce(pokeData);
 
         vm.expectEmit();
-        emit OpPokeDataDropped(address(this), 1, uint32(block.timestamp));
+        emit OpPokeDataDropped(address(this), pokeData);
 
         opScribe.setBar(1);
     }
@@ -509,12 +534,8 @@ abstract contract IScribeOptimisticTest is IScribeTest {
     //--------------------------------------------------------------------------
     // Private Helpers
 
-    function _setUpFeedsAndOpPokeOnce(uint128 val, uint32 age) private {
+    function _setUpFeedsAndOpPokeOnce(IScribe.PokeData memory pokeData) private {
         LibFeed.Feed[] memory feeds = _createAndLiftFeeds(opScribe.bar());
-
-        IScribe.PokeData memory pokeData;
-        pokeData.val = val;
-        pokeData.age = age;
 
         IScribe.SchnorrData memory schnorrData;
         schnorrData = feeds.signSchnorr(opScribe.constructPokeMessage(pokeData));

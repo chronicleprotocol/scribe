@@ -93,9 +93,9 @@ library LibSchnorr {
         return commitment == recovered;
     }
 
-    /*//////////////////////////////////////////////////////////////
-                                BIP-340
-    //////////////////////////////////////////////////////////////*/
+    // -- BIP-340 --
+    //
+    // @todo Remove
 
     function verifySignatureBIP340(
         LibSecp256k1.Point memory pubKey,
