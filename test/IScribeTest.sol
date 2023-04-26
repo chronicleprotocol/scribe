@@ -30,14 +30,12 @@ abstract contract IScribeTest is Test {
     mapping(address => bool) internal addressFilter;
 
     // Events copied from IScribe.
-    // @todo Add missing events + test for emission.
     event Poked(address indexed caller, uint128 val, uint32 age);
-    event FeedLifted(address indexed caller, address indexed feed);
-    event FeedDropped(address indexed caller, address indexed feed);
+    event FeedLifted(address indexed caller, address indexed feed, uint index);
+    event FeedDropped(address indexed caller, address indexed feed, uint index);
     event BarUpdated(address indexed caller, uint8 oldBar, uint8 newBar);
 
     function setUp(address scribe_) internal virtual {
-        // @todo Deploy via script.
         scribe = IScribe(scribe_);
 
         // Cache constants.
@@ -141,54 +139,6 @@ abstract contract IScribeTest is Test {
         assertEq(err.length, 0);
     }
 
-    function test_verifySignature_FailsIf_FaultySignersBlobLengthEncoding(
-        uint barSeed
-    ) public {
-        console2.log("NOT IMPLEMENTED");
-        return;
-        // Tests the following:
-        // Schnorr signature signed via less than bar signers but encodes the
-        // signersBlob with a length of bar. This will pass the initial bar
-        // check, but fail due to insufficient amount of calldata.
-
-        // Let bar ∊ [1, scribe.maxFeeds()].
-        uint bar = bound(barSeed, 1, scribe.maxFeeds());
-        bar = 3;
-
-        scribe.setBar(uint8(bar));
-        LibFeed.Feed[] memory feeds = _createAndLiftFeeds(bar);
-
-        assembly ("memory-safe") {
-            // Set length to less than bar.
-            mstore(feeds, sub(bar, 1))
-        }
-
-        bytes32 message = keccak256("scribe");
-
-        IScribe.SchnorrSignatureData memory schnorrData;
-        schnorrData = feeds.signSchnorr(message);
-
-        // @todo Fix IScribeTest::test_verifySignature_FailsIf_FaultySignersBlobLengthEncoding.
-        //       Seem to write into wrong memory space?
-        bytes memory signersBlob = schnorrData.signersBlob;
-        assembly ("memory-safe") {
-            // Set length of signersBlob to bar.
-            mstore(signersBlob, bar)
-        }
-
-        bool ok;
-        bytes memory err;
-        // forgefmt: disable-next-item
-        (ok, err) = scribe.verifySchnorrSignature(
-            message,
-            feeds.signSchnorr(message)
-        );
-        assertFalse(ok);
-        //assertEq(err.length, 0);
-
-        assertTrue(false);
-    }
-
     function testFuzz_verifySignature_FailsIf_BarNotReached(
         uint barSeed,
         uint numberSignersSeed
@@ -253,9 +203,6 @@ abstract contract IScribeTest is Test {
         uint barSeed,
         uint nonSignerIndexSeed
     ) public {
-        console2.log("NOT IMPLEMENTED");
-        return;
-
         // Let bar ∊ [1, scribe.maxFeeds()].
         uint bar = bound(barSeed, 1, scribe.maxFeeds());
 
@@ -277,13 +224,13 @@ abstract contract IScribeTest is Test {
             feeds.signSchnorr(message)
         );
         assertFalse(ok);
-        // @todo Fix error check when error types finalized.
-        //assertEq(
-        //    err,
-        //    abi.encodeWithSelector(
-        //        IScribe.SignerNotFeed.selector, notFeed.pubKey.toAddress()
-        //    )
-        //);
+        assertEq(
+            err,
+            abi.encodeWithSelector(
+                IScribe.SignerNotFeed.selector,
+                LibSecp256k1.ZERO_POINT().toAddress()
+            )
+        );
     }
 
     function testFuzz_verifySignature_FailsIf_SignatureInvalid(uint barSeed)
@@ -297,7 +244,7 @@ abstract contract IScribeTest is Test {
 
         bytes32 message = keccak256("scribe");
 
-        IScribe.SchnorrSignatureData memory schnorrData;
+        IScribe.SchnorrData memory schnorrData;
         schnorrData = feeds.signSchnorr(message);
 
         // Mutate schnorrData's signature.
@@ -335,12 +282,15 @@ abstract contract IScribeTest is Test {
             vm.assume(pokeDatas[i].age > uint32(block.timestamp));
         }
 
-        IScribe.SchnorrSignatureData memory schnorrData;
+        IScribe.SchnorrData memory schnorrData;
         bool ok;
         uint val;
         for (uint i; i < pokeDatas.length; i++) {
             schnorrData =
                 feeds.signSchnorr(scribe.constructPokeMessage(pokeDatas[i]));
+
+            vm.expectEmit();
+            emit Poked(address(this), pokeDatas[i].val, pokeDatas[i].age);
 
             scribe.poke(pokeDatas[i], schnorrData);
 
@@ -363,7 +313,7 @@ abstract contract IScribeTest is Test {
         pokeData.val = 1;
         pokeData.age = 0;
 
-        IScribe.SchnorrSignatureData memory schnorrData;
+        IScribe.SchnorrData memory schnorrData;
         schnorrData = feeds.signSchnorr(scribe.constructPokeMessage(pokeData));
 
         vm.expectRevert(
@@ -380,7 +330,7 @@ abstract contract IScribeTest is Test {
         vm.assume(pokeData.val != 0);
         vm.assume(pokeData.age != 0);
 
-        IScribe.SchnorrSignatureData memory schnorrData;
+        IScribe.SchnorrData memory schnorrData;
         schnorrData = feeds.signSchnorr(scribe.constructPokeMessage(pokeData));
 
         // Poke once.
@@ -412,8 +362,8 @@ abstract contract IScribeTest is Test {
 
         LibFeed.Feed memory feed = LibFeed.newFeed(privKey);
 
-        vm.expectEmit(true, true, true, true);
-        emit FeedLifted(address(this), feed.pubKey.toAddress());
+        vm.expectEmit();
+        emit FeedLifted(address(this), feed.pubKey.toAddress(), 1);
 
         uint index = scribe.lift(feed.pubKey, feed.signECDSA(WAT_MESSAGE));
         assertEq(index, 1);
@@ -434,10 +384,14 @@ abstract contract IScribeTest is Test {
         assertEq(indexes[0], 1);
     }
 
-    function test_lift_Single_FailsIf_PubKeyIsZero() public {
+    function test_lift_Single_FailsIf_ECDSADataInvalid() public {
+        uint privKeySigner = 1;
+        uint privKeyFeed = 2;
+
         vm.expectRevert();
         scribe.lift(
-            LibSecp256k1.ZERO_POINT(), IScribe.ECDSASignatureData(0, 0, 0)
+            LibFeed.newFeed(privKeyFeed).pubKey,
+            LibFeed.newFeed(privKeySigner).signECDSA(WAT_MESSAGE)
         );
     }
 
@@ -476,17 +430,20 @@ abstract contract IScribeTest is Test {
         }
 
         // Make signatures.
-        IScribe.ECDSASignatureData[] memory ecdsaDatas =
-            new IScribe.ECDSASignatureData[](feeds_.length);
+        IScribe.ECDSAData[] memory ecdsaDatas =
+            new IScribe.ECDSAData[](feeds_.length);
         for (uint i; i < feeds_.length; i++) {
             ecdsaDatas[i] = feeds_[i].signECDSA(WAT_MESSAGE);
         }
 
+        uint indexCtr = 1;
         for (uint i; i < feeds_.length; i++) {
             // Don't expect event for duplicates.
             if (!addressFilter[feeds_[i].pubKey.toAddress()]) {
-                vm.expectEmit(true, true, true, true);
-                emit FeedLifted(address(this), feeds_[i].pubKey.toAddress());
+                vm.expectEmit();
+                emit FeedLifted(
+                    address(this), feeds_[i].pubKey.toAddress(), indexCtr++
+                );
             }
             addressFilter[feeds_[i].pubKey.toAddress()] = true;
         }
@@ -526,34 +483,49 @@ abstract contract IScribeTest is Test {
         }
     }
 
-    function test_lift_Multiple_FailsIf_PubKeyIsZero() public {
+    function test_lift_Multiple_FailsIf_ECDSADataInvalid() public {
+        uint privKeySigner = 1;
+        uint privKeyFeed = 2;
+
+        LibFeed.Feed[] memory feeds = new LibFeed.Feed[](2);
+        feeds[0] = LibFeed.newFeed(privKeySigner);
+        feeds[1] = LibFeed.newFeed(privKeyFeed);
+
+        IScribe.ECDSAData[] memory ecdsaDatas =
+            new IScribe.ECDSAData[](2);
+        ecdsaDatas[0] = feeds[0].signECDSA(WAT_MESSAGE);
+        ecdsaDatas[1] = ecdsaDatas[0];
+
+        LibSecp256k1.Point[] memory pubKeys =
+            new LibSecp256k1.Point[](2);
+        pubKeys[0] = feeds[0].pubKey;
+        pubKeys[1] = feeds[1].pubKey;
+
         vm.expectRevert();
-        scribe.lift(
-            new LibSecp256k1.Point[](1), new IScribe.ECDSASignatureData[](1)
-        );
+        scribe.lift(pubKeys, ecdsaDatas);
     }
 
     function test_lift_multiple_FailsIf_MaxFeedsReached() public {
         uint maxFeeds = scribe.maxFeeds();
 
         // Make feeds.
-        LibFeed.Feed[] memory feeds_ = new LibFeed.Feed[](maxFeeds + 1);
+        LibFeed.Feed[] memory feeds = new LibFeed.Feed[](maxFeeds + 1);
         for (uint i; i < maxFeeds + 1; i++) {
-            feeds_[i] = LibFeed.newFeed(i + 1);
+            feeds[i] = LibFeed.newFeed(i + 1);
         }
 
         // Make list of public keys.
         LibSecp256k1.Point[] memory pubKeys =
             new LibSecp256k1.Point[](maxFeeds + 1);
         for (uint i; i < maxFeeds + 1; i++) {
-            pubKeys[i] = feeds_[i].pubKey;
+            pubKeys[i] = feeds[i].pubKey;
         }
 
         // Make signatures.
-        IScribe.ECDSASignatureData[] memory ecdsaDatas =
-            new IScribe.ECDSASignatureData[](maxFeeds + 1);
+        IScribe.ECDSAData[] memory ecdsaDatas =
+            new IScribe.ECDSAData[](maxFeeds + 1);
         for (uint i; i < maxFeeds + 1; i++) {
-            ecdsaDatas[i] = feeds_[i].signECDSA(WAT_MESSAGE);
+            ecdsaDatas[i] = feeds[i].signECDSA(WAT_MESSAGE);
         }
 
         vm.expectRevert();
@@ -569,8 +541,8 @@ abstract contract IScribeTest is Test {
         uint index = scribe.lift(feed.pubKey, feed.signECDSA(WAT_MESSAGE));
         assertEq(index, 1);
 
-        vm.expectEmit(true, true, true, true);
-        emit FeedDropped(address(this), feed.pubKey.toAddress());
+        vm.expectEmit();
+        emit FeedDropped(address(this), feed.pubKey.toAddress(), 1);
 
         scribe.drop(1);
 
@@ -608,8 +580,8 @@ abstract contract IScribeTest is Test {
         }
 
         // Make signatures.
-        IScribe.ECDSASignatureData[] memory ecdsaDatas =
-            new IScribe.ECDSASignatureData[](feeds_.length);
+        IScribe.ECDSAData[] memory ecdsaDatas =
+            new IScribe.ECDSAData[](feeds_.length);
         for (uint i; i < feeds_.length; i++) {
             ecdsaDatas[i] = feeds_[i].signECDSA(WAT_MESSAGE);
         }
@@ -618,11 +590,12 @@ abstract contract IScribeTest is Test {
         uint[] memory indexes = scribe.lift(pubKeys, ecdsaDatas);
 
         // Expect events.
+        uint indexCtr = 1;
         for (uint i; i < pubKeys.length; i++) {
             // Don't expect event for duplicates.
             if (!addressFilter[pubKeys[i].toAddress()]) {
-                vm.expectEmit(true, true, true, true);
-                emit FeedDropped(address(this), pubKeys[i].toAddress());
+                vm.expectEmit();
+                emit FeedDropped(address(this), pubKeys[i].toAddress(), indexCtr++);
             }
 
             addressFilter[pubKeys[i].toAddress()] = true;
@@ -690,7 +663,7 @@ abstract contract IScribeTest is Test {
 
         // Only expect event if bar actually changes.
         if (bar != scribe.bar()) {
-            vm.expectEmit(true, true, true, true);
+            vm.expectEmit();
             emit BarUpdated(address(this), scribe.bar(), bar);
         }
 
@@ -731,14 +704,12 @@ abstract contract IScribeTest is Test {
                 IAuth.NotAuthorized.selector, address(0xbeef)
             )
         );
-        scribe.lift(
-            LibSecp256k1.ZERO_POINT(), IScribe.ECDSASignatureData(0, 0, 0)
-        );
+        scribe.lift(LibSecp256k1.ZERO_POINT(), IScribe.ECDSAData(0, 0, 0));
     }
 
     function test_lift_Multiple_IsAuthProtected() public {
         LibSecp256k1.Point[] memory pubKeys;
-        IScribe.ECDSASignatureData[] memory ecdsaDatas;
+        IScribe.ECDSAData[] memory ecdsaDatas;
 
         vm.prank(address(0xbeef));
         vm.expectRevert(

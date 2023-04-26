@@ -26,7 +26,7 @@ contract ScribeHandler is CommonBase, StdUtils {
     mapping(uint => uint) internal _feedIndexesPerPrivKey;
 
     IScribe.PokeData[] internal _ghost_pokeDatas;
-    IScribe.SchnorrSignatureData[] internal _ghost_schnorrSignatureDatas;
+    IScribe.SchnorrData[] internal _ghost_schnorrSignatureDatas;
     uint32 public ghost_lastPokeTimestamp;
     bool public ghost_barUpdated;
     bool public ghost_FeedsLifted;
@@ -92,7 +92,7 @@ contract ScribeHandler is CommonBase, StdUtils {
         }
 
         // Create schnorrSignatureData.
-        IScribe.SchnorrSignatureData memory schnorrData;
+        IScribe.SchnorrData memory schnorrData;
         schnorrData = signers.signSchnorr(scribe.constructPokeMessage(pokeData));
 
         // Execute poke.
@@ -137,7 +137,7 @@ contract ScribeHandler is CommonBase, StdUtils {
         }
 
         // @todo Make invalid, if requested.
-        IScribe.SchnorrSignatureData memory schnorrData;
+        IScribe.SchnorrData memory schnorrData;
         schnorrData = signers.signSchnorr(scribe.constructPokeMessage(pokeData));
 
         // @todo If requested, randomize order of signers.
@@ -229,7 +229,7 @@ contract ScribeHandler is CommonBase, StdUtils {
     function ghost_schnorrSignatureDatas()
         external
         view
-        returns (IScribe.SchnorrSignatureData[] memory)
+        returns (IScribe.SchnorrData[] memory)
     {
         return _ghost_schnorrSignatureDatas;
     }

@@ -56,6 +56,10 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         return balance > maxChallengeReward ? maxChallengeReward : balance;
     }
 
+    function setMaxChallengeReward(uint maxChallengeReward_) external auth {
+        maxChallengeReward = maxChallengeReward_;
+    }
+
     //--------------------------------------------------------------------------
     // Constructor and Receive Function
 
@@ -82,8 +86,8 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
     /// @inheritdoc IScribeOptimistic
     function opPoke(
         PokeData calldata pokeData,
-        SchnorrSignatureData calldata schnorrData,
-        ECDSASignatureData calldata ecdsaData
+        SchnorrData calldata schnorrData,
+        ECDSAData calldata ecdsaData
     ) external payable {
         // Load _opPokeData from storage.
         PokeData memory opPokeData = _opPokeData;
@@ -166,7 +170,7 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
     }
 
     /// @inheritdoc IScribeOptimistic
-    function opChallenge(SchnorrSignatureData calldata schnorrData)
+    function opChallenge(SchnorrData calldata schnorrData)
         external
         payable
         returns (bool)
@@ -241,14 +245,14 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
 
     function constructOpPokeMessage(
         PokeData calldata pokeData,
-        SchnorrSignatureData calldata schnorrData
+        SchnorrData calldata schnorrData
     ) external view returns (bytes32) {
         return _constructOpPokeMessage(pokeData, schnorrData);
     }
 
     function _constructOpPokeMessage(
         PokeData calldata pokeData,
-        SchnorrSignatureData calldata schnorrData
+        SchnorrData calldata schnorrData
     ) internal view returns (bytes32) {
         // opPokeMessage = H(tag ‖ H(wat ‖ pokeData ‖ schnorrData))
         return keccak256(

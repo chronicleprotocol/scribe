@@ -132,26 +132,24 @@ abstract contract IScribeInvariantTest is Test {
             return;
         }
 
-        IScribe.SchnorrSignatureData[] memory schnorrSignatureDatas =
+        IScribe.SchnorrData[] memory schnorrSignatureDatas =
             handler.ghost_schnorrSignatureDatas();
 
         uint len = schnorrSignatureDatas.length;
         if (len != 0) {
-            IScribe.SchnorrSignatureData memory last =
-                schnorrSignatureDatas[len - 1];
+            IScribe.SchnorrData memory last = schnorrSignatureDatas[len - 1];
 
             //assertTrue(last.signers.length >= scribe.bar());
         }
     }
 
     function invariant_poke_SignersAreOrdered() public {
-        IScribe.SchnorrSignatureData[] memory schnorrSignatureDatas =
+        IScribe.SchnorrData[] memory schnorrSignatureDatas =
             handler.ghost_schnorrSignatureDatas();
 
         uint len = schnorrSignatureDatas.length;
         if (len != 0) {
-            IScribe.SchnorrSignatureData memory last =
-                schnorrSignatureDatas[len - 1];
+            IScribe.SchnorrData memory last = schnorrSignatureDatas[len - 1];
 
             //for (uint i = 1; i < last.signers.length; i++) {
             //    uint160 pre = uint160(last.signers[i - 1]);
@@ -168,13 +166,12 @@ abstract contract IScribeInvariantTest is Test {
             return;
         }
 
-        IScribe.SchnorrSignatureData[] memory schnorrSignatureDatas =
+        IScribe.SchnorrData[] memory schnorrSignatureDatas =
             handler.ghost_schnorrSignatureDatas();
 
         uint len = schnorrSignatureDatas.length;
         if (len != 0) {
-            IScribe.SchnorrSignatureData memory last =
-                schnorrSignatureDatas[len - 1];
+            IScribe.SchnorrData memory last = schnorrSignatureDatas[len - 1];
 
             //for (uint i; i < last.signers.length; i++) {
             //    assertTrue(scribe.feeds(last.signers[i]));

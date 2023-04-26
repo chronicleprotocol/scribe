@@ -9,7 +9,7 @@ import {LibBytes} from "./LibBytes.sol";
  *
  * @notice
  */
-library LibSchnorrSignatureData {
+library LibSchnorrData {
     using LibBytes for uint;
 
     /// @dev Size of a word is 32 bytes, i.e. 245 bits.
@@ -39,7 +39,7 @@ library LibSchnorrSignatureData {
     ///      Note that `offset(signersBlob)` is the offset to `signersBlob[0]`
     ///      from the index `offset(signersBlob)`.
     function getSignerIndex(
-        IScribe.SchnorrSignatureData calldata schnorrData,
+        IScribe.SchnorrData calldata schnorrData,
         uint index
     ) internal pure returns (uint) {
         uint wordIndex = (index / WORD_SIZE) * WORD_SIZE;
@@ -58,9 +58,11 @@ library LibSchnorrSignatureData {
         return word.getByteAtIndex(byteIndex);
     }
 
-    function getSignerIndexLength(
-        IScribe.SchnorrSignatureData calldata schnorrData
-    ) internal pure returns (uint) {
+    function getSignerIndexLength(IScribe.SchnorrData calldata schnorrData)
+        internal
+        pure
+        returns (uint)
+    {
         return schnorrData.signersBlob.length;
     }
 }

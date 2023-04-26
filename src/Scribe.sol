@@ -7,11 +7,7 @@ import {IScribe} from "./IScribe.sol";
 
 import {LibSchnorr} from "./libs/LibSchnorr.sol";
 import {LibSecp256k1} from "./libs/LibSecp256k1.sol";
-import {LibSchnorrSignatureData} from "./libs/LibSchnorrSignatureData.sol";
-
-// @todo Invariant tests for storage mutations.
-//       based on msg.sender + selector,
-//                timestamp + last tx, etc..
+import {LibSchnorrData} from "./libs/LibSchnorrData.sol";
 
 /**
  * @title Scribe
@@ -27,32 +23,21 @@ contract Scribe is IScribe, Auth, Toll {
     using LibSchnorr for LibSecp256k1.Point;
     using LibSecp256k1 for LibSecp256k1.Point;
     using LibSecp256k1 for LibSecp256k1.JacobianPoint;
-    using LibSchnorrSignatureData for SchnorrSignatureData;
-
-    /*
-    Terms:
-        feed = address being whitelisted to participate as signer in Schnorr signature for poke
-               Proven to be owner of the address via ECDSA signature check
-               Each feed has an immutable index.
-
-        signer = address participating as signer in Schnorr signature for poke
-                 MUST be checked whether being feed!
-
-        signerPubKey = public key of signer
-
-        pubKey = Public key, i.e. secp256k1 point
-    */
+    using LibSchnorrData for SchnorrData;
 
     //--------------------------------------------------------------------------
     // Constants
 
-    uint private immutable SLOT_pubKeys;
-
-    /// @dev The maximum number of feeds supported.
+    /// @dev The maximum number of feed lifts supported.
+    ///      Note that this constraint is due to feed's indexes being encoded as
+    ///      uint8 in SchnorrData.signersBlob.
     uint public constant maxFeeds = type(uint8).max - 1;
 
     //--------------------------------------------------------------------------
     // Immutables
+
+    /// @dev The storage slot of _pubKeys[0].
+    uint private immutable SLOT_pubKeys;
 
     /// @inheritdoc IScribe
     bytes32 public immutable wat;
@@ -63,20 +48,54 @@ contract Scribe is IScribe, Auth, Toll {
     //--------------------------------------------------------------------------
     // PokeData Storage
 
+    /// @custom:invariant Only function `poke` may mutate the struct's state.
+    ///                     preTx(_pokeData) != postTx(_pokeData)
+    ///                         → msg.sig == "poke"
+    /// @custom:invariant Field `age` is strictly monotonically increasing.
+    ///                     preTx(_pokeDat.age) != postTx(_pokeData.age)
+    ///                         → preTx(_pokeData.age) < postTx(_pokeData.age)
+    /// @custom:invariant Field `age` may only be mutated to block.timestamp.
+    ///                     preTx(_pokeData.age) != postTx(_pokeData.age)
+    ///                         → postTx(_pokeData.age) == block.timestamp
+    /// @custom:invariant Field `val` can only be read by toll'ed caller.
     PokeData internal _pokeData;
 
     //--------------------------------------------------------------------------
     // Feeds Storage
 
-    // List of public keys from lifted feeds.
-    // Ownership of private key proven via ECDSA signature.
-    // Immutable in that sense that new pubKeys are only appended.
-    // If pubKey removed, due to feed being dropped, we keep the hole in the array.
-    // Index 0 MUST be zero point.
-    // IMPORTANT INVARIANT: NO PUBLIC KEY EXISTS MORE THAN ONCE IN LIST!!!!
+    /// @dev List of feeds' public keys.
+    /// @custom:invariant Index 0 is zero point.
+    ///                     _pubKeys[0].isZeroPoint()
+    /// @custom:invariant A non-zero public key exists at most once.
+    ///                     ∀x ∊ PublicKeys: x.isZeroPoint() ∨ count(x in _pubKeys) <= 1
+    /// @custom:invariant Length is strictly monotonically increasing.
+    ///                     preTx(_pubKeys.length) <= posTx(_pubKeys.length)
+    /// @custom:invariant Existing public key may only be deleted, never mutated.
+    ///                     ∀x ∊ uint: preTx(_pubKeys[x]) != postTx(_pubKeys[x])
+    ///                         → postTx(_pubKeys[x].isZeroPoint())
+    /// @custom:invariant Newly added public key is non-zero.
+    ///                     preTx(_pubKeys.length) != postTx(_pubKeys.length)
+    ///                         → postTx(!_pubKeys[_pubKeys.length-1].isZeroPoint())
+    /// @custom:invariant Only functions `lift` and `drop` may mutate the array's state.
+    ///                     ∀x ∊ uint: preTx(_pubKeys[x]) != postTx(_pubKeys[x])
+    ///                         → (msg.sig == "lift" ∨ msg.sig == "drop")
+    /// @custom:invariant Array's state may only be mutated by auth'ed caller.
+    ///                     ∀x ∊ uint: preTx(_pubKeys[x]) != postTx(_pubKeys[x])
+    ///                         → authed(msg.sender)
     LibSecp256k1.Point[] internal _pubKeys;
 
-    // 0 if not feed. If not 0, image is index in pubKeys array.
+    /// @dev Mapping of feeds' address to its public key index in _pubKeys.
+    /// @custom:invariant Image of mapping is [0, _pubKeys.length).
+    ///                     ∀x ∊ Address: _feeds[x] ∊ [0, _pubKeys.length)
+    /// @custom:invariant Image of mapping links to feed's public key in _pubKeys.
+    ///                     ∀x ∊ Address: _feeds[x] == y and y != 0
+    ///                         → _pubKeys[y].toAddress() == x
+    /// @custom:invariant Only functions `lift` and `drop` may mutate the mapping's state.
+    ///                     ∀x ∊ Address: preTx(_feeds[x]) != postTx(_feeds[x])
+    ///                         → (msg.sig == "lift" ∨ msg.sig == "drop")
+    /// @custom:invariant Mapping's state may only be mutated by auth'ed caller.
+    ///                     ∀x ∊ Address: preTx(_feeds[x]) != postTx(_feeds[x])
+    ///                         → authed(msg.sender)
     mapping(address => uint) internal _feeds;
 
     //--------------------------------------------------------------------------
@@ -93,17 +112,12 @@ contract Scribe is IScribe, Auth, Toll {
     constructor(bytes32 wat_) {
         require(wat_ != 0);
 
-        // Set wat storage.
+        // Set wat immutables.
         wat = wat_;
-        // forgefmt: disable-next-item
-        watMessage = keccak256(
-            abi.encodePacked(
-                "\x19Ethereum Signed Message:\n32",
-                wat
-            )
-        );
+        watMessage =
+            keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", wat));
 
-        // Let initial bar be >1. @todo Why bar must be >1 not just >0?
+        // Let initial bar be 2.
         _setBar(2);
 
         // Let _pubKeys[0] be the zero point.
@@ -121,22 +135,23 @@ contract Scribe is IScribe, Auth, Toll {
     //--------------------------------------------------------------------------
     // Poke Functionality
 
-    function poke(
-        PokeData calldata pokeData,
-        SchnorrSignatureData calldata schnorrData
-    ) external {
+    /// @inheritdoc IScribe
+    function poke(PokeData calldata pokeData, SchnorrData calldata schnorrData)
+        external
+    {
         // Revert if pokeData is stale.
         if (pokeData.age <= _pokeData.age) {
             revert StaleMessage(pokeData.age, _pokeData.age);
         }
 
-        // Construct pokeMessage.
-        bytes32 pokeMessage = constructPokeMessage(pokeData);
-
-        // Revert if schnorrData does not verify pokeData.
+        // Revert if schnorrData does not prove integrity of pokeData.
         bool ok;
         bytes memory err;
-        (ok, err) = _verifySchnorrSignature(pokeMessage, schnorrData);
+        // forgefmt: disable-next-item
+        (ok, err) = _verifySchnorrSignature(
+            constructPokeMessage(pokeData),
+            schnorrData
+        );
         if (!ok) {
             _revert(err);
         }
@@ -148,12 +163,12 @@ contract Scribe is IScribe, Auth, Toll {
         emit Poked(msg.sender, pokeData.val, pokeData.age);
     }
 
+    /// @inheritdoc IScribe
     function constructPokeMessage(PokeData memory pokeData)
         public
         view
         returns (bytes32)
     {
-        // pokeMessage = H(tag ‖ H(wat ‖ pokeData))
         return keccak256(
             abi.encodePacked(
                 "\x19Ethereum Signed Message:\n32",
@@ -169,9 +184,10 @@ contract Scribe is IScribe, Auth, Toll {
     //--------------------------------------------------------------------------
     // Schnorr Signature Verification
 
+    /// @inheritdoc IScribe
     function verifySchnorrSignature(
         bytes32 message,
-        SchnorrSignatureData calldata schnorrData
+        SchnorrData calldata schnorrData
     ) external view returns (bool, bytes memory) {
         return _verifySchnorrSignature(message, schnorrData);
     }
@@ -180,10 +196,10 @@ contract Scribe is IScribe, Auth, Toll {
     /// @custom:invariant Does not run into an infinite loop.
     function _verifySchnorrSignature(
         bytes32 message,
-        SchnorrSignatureData calldata schnorrData
+        SchnorrData calldata schnorrData
     ) internal view returns (bool, bytes memory) {
         // Fail if bar not reached.
-        uint numberSigners = schnorrData.signerIndexLength();
+        uint numberSigners = schnorrData.getSignerIndexLength();
         if (numberSigners != bar) {
             return (false, _errorBarNotReached(uint8(numberSigners), bar));
         }
@@ -230,7 +246,6 @@ contract Scribe is IScribe, Auth, Toll {
             // Update signer variable.
             signer = signerPubKey.toAddress();
 
-            // @todo Error off.
             // Fail if signer's pubKey is zero point.
             if (signerPubKey.isZeroPoint()) {
                 return (false, _errorSignerNotFeed(signer));
@@ -281,7 +296,6 @@ contract Scribe is IScribe, Auth, Toll {
         return (val != 0, val);
     }
 
-    // @todo Should peek return non-finalized opPoke if optimistic?
     /// @dev Only callable by toll'ed address.
     function peek() external view virtual toll returns (uint, bool) {
         uint val = _pokeData.val;
@@ -291,13 +305,32 @@ contract Scribe is IScribe, Auth, Toll {
     //--------------------------------------------------------------------------
     // Public View Functions
 
+    /// @inheritdoc IScribe
     function feeds(address who) external view returns (bool, uint) {
         uint index = _feeds[who];
         assert(index != 0 ? !_pubKeys[index].isZeroPoint() : true);
         return (index != 0, index);
     }
 
-    // @todo Can feeds() return duplicates? Don't think so. Check!
+    /// @inheritdoc IScribe
+    function feeds(uint index) external view returns (bool, address) {
+        if (index >= _pubKeys.length) {
+            return (false, address(0));
+        }
+
+        LibSecp256k1.Point memory pubKey = _pubKeys[index];
+        if (pubKey.isZeroPoint()) {
+            return (false, address(0));
+        }
+
+        return (true, pubKey.toAddress());
+    }
+
+    /// @inheritdoc IScribe
+    /// @custom:invariant Result arrays do not contain duplicates.
+    ///                     (addrs, indexes) = feeds()
+    ///                         → ∀x ∊ Address: count(x in addrs) <= 1
+    ///                           ⋀ ∀y ∊ uint: count(y in indexes) <= 1
     function feeds() external view returns (address[] memory, uint[] memory) {
         // Initiate arrays with upper limit length.
         uint upperLimitLength = _pubKeys.length;
@@ -339,21 +372,19 @@ contract Scribe is IScribe, Auth, Toll {
     //--------------------------------------------------------------------------
     // Auth'ed Functionality
 
-    // @todo FeedLifted event should have index of feed!
-    // @todo FeedDropped event should have index of feed!
-    //       -> Invariant: feed index emitted via FeedDropped will never be
-    //                     written to again.
-
-    function lift(
-        LibSecp256k1.Point memory pubKey,
-        ECDSASignatureData memory ecdsaData
-    ) external auth returns (uint) {
+    /// @inheritdoc IScribe
+    function lift(LibSecp256k1.Point memory pubKey, ECDSAData memory ecdsaData)
+        external
+        auth
+        returns (uint)
+    {
         return _lift(pubKey, ecdsaData);
     }
 
+    /// @inheritdoc IScribe
     function lift(
         LibSecp256k1.Point[] memory pubKeys,
-        ECDSASignatureData[] memory ecdsaDatas
+        ECDSAData[] memory ecdsaDatas
     ) external auth returns (uint[] memory) {
         require(pubKeys.length == ecdsaDatas.length);
 
@@ -366,10 +397,10 @@ contract Scribe is IScribe, Auth, Toll {
         return indexes;
     }
 
-    function _lift(
-        LibSecp256k1.Point memory pubKey,
-        ECDSASignatureData memory ecdsaData
-    ) private returns (uint) {
+    function _lift(LibSecp256k1.Point memory pubKey, ECDSAData memory ecdsaData)
+        private
+        returns (uint)
+    {
         address feed = pubKey.toAddress();
         assert(feed != address(0));
 
@@ -384,22 +415,24 @@ contract Scribe is IScribe, Auth, Toll {
 
         uint index = _feeds[feed];
         if (index == 0) {
-            emit FeedLifted(msg.sender, feed);
-
             _pubKeys.push(pubKey);
             index = _pubKeys.length - 1;
             _feeds[feed] = index;
+
+            emit FeedLifted(msg.sender, feed, index);
         }
 
-        assert(index <= maxFeeds);
+        require(index <= maxFeeds);
 
         return index;
     }
 
+    /// @inheritdoc IScribe
     function drop(uint feedIndex) external auth {
         _drop(msg.sender, feedIndex);
     }
 
+    /// @inheritdoc IScribe
     function drop(uint[] memory feedIndexes) external auth {
         for (uint i; i < feedIndexes.length; i++) {
             _drop(msg.sender, feedIndexes[i]);
@@ -413,13 +446,14 @@ contract Scribe is IScribe, Auth, Toll {
         address feed = _pubKeys[feedIndex].toAddress();
 
         if (_feeds[feed] != 0) {
-            emit FeedDropped(caller, feed);
+            emit FeedDropped(caller, feed, _feeds[feed]);
 
             _feeds[feed] = 0;
             _pubKeys[feedIndex] = LibSecp256k1.ZERO_POINT();
         }
     }
 
+    /// @inheritdoc IScribe
     function setBar(uint8 bar_) external auth {
         _setBar(bar_);
     }
@@ -449,6 +483,39 @@ contract Scribe is IScribe, Auth, Toll {
         }
     }
 
+    /// @dev Returns the public key at _pubKeys[index], or zero point if index
+    ///      out of bounds.
+    function _unsafeLoadPubKeyAt(uint index)
+        private
+        view
+        returns (LibSecp256k1.Point memory)
+    {
+        // Push immutable to stack as accessing through assembly not supported.
+        uint slotPubKeys = SLOT_pubKeys;
+
+        LibSecp256k1.Point memory pubKey;
+        assembly ("memory-safe") {
+            // Note that a pubKey consists of two words.
+            let realIndex := mul(index, 2)
+
+            // Compute slot of _pubKeys[index].
+            let slot := add(slotPubKeys, realIndex)
+
+            // Load _pubKeys[index]'s coordinates to stack.
+            let x := sload(slot)
+            let y := sload(add(slot, 1))
+
+            // Store coordinates in pubKey memory location.
+            mstore(pubKey, x)
+            mstore(add(pubKey, 0x20), y)
+        }
+
+        assert(index < _pubKeys.length || pubKey.isZeroPoint());
+
+        // Note that pubKey is zero if index out of bounds.
+        return pubKey;
+    }
+
     function _errorBarNotReached(uint8 got, uint8 want)
         private
         pure
@@ -473,47 +540,12 @@ contract Scribe is IScribe, Auth, Toll {
         return abi.encodeWithSelector(IScribe.SignersNotOrdered.selector);
     }
 
-    // @todo Rename to just SignatureInvalid?
     function _errorSchnorrSignatureInvalid()
         private
         pure
         returns (bytes memory)
     {
         return abi.encodeWithSelector(IScribe.SchnorrSignatureInvalid.selector);
-    }
-
-    // @todo doc: unsafe because no index out of bounds check.
-    //            Instead just returns zero point if so.
-    //            Secure because zero point cannot verify signature.
-    function _unsafeLoadPubKeyAt(uint index)
-        private
-        view
-        returns (LibSecp256k1.Point memory)
-    {
-        // Push immutable to stack as accessing through assembly not supported.
-        uint slotPubKeys = SLOT_pubKeys;
-
-        LibSecp256k1.Point memory pubKey;
-        assembly ("memory-safe") {
-            // Note that a pubKey consists of two words.
-            let realIndex := add(index, index)
-
-            // Compute slot of _pubKeys[index].
-            let slot := add(slotPubKeys, realIndex)
-
-            // Load _pubKeys[index]'s coordinates to stack.
-            let x := sload(slot)
-            let y := sload(add(slot, 1))
-
-            // Store coordinates in pubKey memory location.
-            mstore(pubKey, x)
-            mstore(add(pubKey, 0x20), y)
-        }
-
-        assert(index < _pubKeys.length || pubKey.isZeroPoint());
-
-        // Note that pubKey is zero if index out of bounds.
-        return pubKey;
     }
 
     //--------------------------------------------------------------------------

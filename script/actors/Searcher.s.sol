@@ -19,12 +19,12 @@ contract Searcher is Script {
 
     function run()
         //bytes32 pokeMessage,
-        //IScribeOptimistic.SchnorrSignatureData memory schnorrData,
+        //IScribeOptimistic.SchnorrData memory schnorrData,
         //uint opPokeTimestamp
         public
     {
         bytes32 pokeMessage;
-        IScribeOptimistic.SchnorrSignatureData memory schnorrData;
+        IScribeOptimistic.SchnorrData memory schnorrData;
         uint opPokeTimestamp = block.timestamp;
 
         // Check whether last opPoke already finalized.

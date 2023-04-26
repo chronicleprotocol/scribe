@@ -53,27 +53,27 @@ library LibFeed {
         });
     }
 
-    /// @dev Returns a ECDSA signature of type IScribe.ECDSASignatureData
+    /// @dev Returns a ECDSA signature of type IScribe.ECDSAData
     ///      signing `message` via `self`'s private key.
     function signECDSA(Feed memory self, bytes32 message)
         internal
         pure
-        returns (IScribe.ECDSASignatureData memory)
+        returns (IScribe.ECDSAData memory)
     {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(self.privKey, message);
 
-        return IScribe.ECDSASignatureData(v, r, s);
+        return IScribe.ECDSAData(v, r, s);
     }
 
-    /// @dev Returns a Schnorr signature of type IScribe.SchnorrSignatureData
+    /// @dev Returns a Schnorr signature of type IScribe.SchnorrData
     ///      signing `message` via `self`'s private key.
     function signSchnorr(Feed memory self, bytes32 message)
         internal
-        returns (IScribe.SchnorrSignatureData memory)
+        returns (IScribe.SchnorrData memory)
     {
         (uint signature, address commitment) = self.privKey.signMessage(message);
 
-        return IScribe.SchnorrSignatureData({
+        return IScribe.SchnorrData({
             signature: bytes32(signature),
             commitment: commitment,
             signersBlob: abi.encodePacked(self.index)
@@ -81,11 +81,11 @@ library LibFeed {
     }
 
     /// @dev Returns a Schnorr multi-signature (aggregated signature) of type
-    ///      IScribe.SchnorrSignatureData signing `message` via `selfs`' private
+    ///      IScribe.SchnorrData signing `message` via `selfs`' private
     ///      keys.
     function signSchnorr(Feed[] memory selfs, bytes32 message)
         internal
-        returns (IScribe.SchnorrSignatureData memory)
+        returns (IScribe.SchnorrData memory)
     {
         // Create multi-signature.
         uint[] memory privKeys = new uint[](selfs.length);
@@ -101,7 +101,7 @@ library LibFeed {
             signersBlob = abi.encodePacked(signersBlob, sortedIndexes[i]);
         }
 
-        return IScribe.SchnorrSignatureData({
+        return IScribe.SchnorrData({
             signature: bytes32(signature),
             commitment: commitment,
             signersBlob: signersBlob
@@ -111,7 +111,7 @@ library LibFeed {
     function signSchnorr_withoutOrderingSignerIndexes(
         Feed[] memory selfs,
         bytes32 message
-    ) internal returns (IScribe.SchnorrSignatureData memory) {
+    ) internal returns (IScribe.SchnorrData memory) {
         // Create multi-signature.
         uint[] memory privKeys = new uint[](selfs.length);
         for (uint i; i < selfs.length; i++) {
@@ -131,7 +131,7 @@ library LibFeed {
             signersBlob = abi.encodePacked(signersBlob, signerIndexes[i]);
         }
 
-        return IScribe.SchnorrSignatureData({
+        return IScribe.SchnorrData({
             signature: bytes32(signature),
             commitment: commitment,
             signersBlob: signersBlob

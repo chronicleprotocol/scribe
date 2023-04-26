@@ -66,14 +66,14 @@ interface IScribeOptimistic is IScribe {
     ///      invalidating opPokes, there is no risk of ETH being stuck in the
     ///      contract.
     /// @param pokeData The PokeData being poked.
-    /// @param schnorrData The SchnorrSignatureData optimistically assumed to be
+    /// @param schnorrData The SchnorrData optimistically assumed to be
     ///                    proving the `pokeData`'s integrity.
-    /// @param ecdsaData The ECDSASignatureData proving the integrity of the
+    /// @param ecdsaData The ECDSAData proving the integrity of the
     ///                  `pokeData` and `schnorrData`.
     function opPoke(
         PokeData calldata pokeData,
-        SchnorrSignatureData calldata schnorrData,
-        ECDSASignatureData calldata ecdsaData
+        SchnorrData calldata schnorrData,
+        ECDSAData calldata ecdsaData
     ) external payable;
 
     /// @notice Challenges the current challengeable opPoke.
@@ -85,10 +85,10 @@ interface IScribeOptimistic is IScribe {
     ///      As the contract is able to receive ETH and pays ETH as bounty for
     ///      invalidating opPokes, there is no risk of ETH being stuck in the
     ///      contract.
-    /// @param schnorrData The SchnorrSignatureData initially provided via
+    /// @param schnorrData The SchnorrData initially provided via
     ///                    opPoke.
     /// @return True if opPoke declared invalid, false otherwise.
-    function opChallenge(SchnorrSignatureData calldata schnorrData)
+    function opChallenge(SchnorrData calldata schnorrData)
         external
         payable
         returns (bool);
@@ -96,7 +96,7 @@ interface IScribeOptimistic is IScribe {
     // @todo NatSpec
     function constructOpPokeMessage(
         PokeData calldata pokeData,
-        SchnorrSignatureData calldata schnorrData
+        SchnorrData calldata schnorrData
     ) external view returns (bytes32);
 
     // @todo NatSpec
@@ -111,4 +111,6 @@ interface IScribeOptimistic is IScribe {
     /// @dev Reverts if opChallengePeriod is zero.
     /// @param opChallengePeriod The value to update opChallengePeriod to.
     function setOpChallengePeriod(uint16 opChallengePeriod) external;
+
+    function setMaxChallengeReward(uint maxChallengeReward_) external;
 }
