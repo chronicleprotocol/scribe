@@ -14,9 +14,8 @@ import {LibSecp256k1} from "./LibSecp256k1.sol";
 library LibSchnorr {
     using LibSecp256k1 for LibSecp256k1.Point;
 
-    /// @dev Returns false if commitment is address(0).
-    /// @dev Returns false if pubKey.x is zero.
-    /// @dev Returns false if signature is zero.
+    /// @dev Returns whether `signature` and `commitment` sign via `pubKey`
+    ///      message `message`.
     ///
     /// @custom:invariant Reverts iff out of gas.
     /// @custom:invariant Uses constant amount of gas.
