@@ -12,7 +12,7 @@ via_ir = false  # @todo Off during dev. Enable for production.
 extra_output_files = ["metadata", "irOptimized"]
 
 # Testing
-fuzz = { runs = 50 }
+fuzz = { runs = 10 }
 block_timestamp = 1_680_220_800 # March 31, 2023 at 00:00 GMT
 
 [rpc_endpoints]

@@ -14,9 +14,6 @@ import {IScribeTest} from "./IScribeTest.sol";
 
 import {LibFeed} from "script/libs/LibFeed.sol";
 
-/**
- * @notice Provides IScribeOptimistic Unit Tests
- */
 abstract contract IScribeOptimisticTest is IScribeTest {
     using LibSecp256k1 for LibSecp256k1.Point;
     using LibFeed for LibFeed.Feed;

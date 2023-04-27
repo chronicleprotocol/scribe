@@ -11,11 +11,15 @@ import {LibSchnorrData} from "./libs/LibSchnorrData.sol";
 
 /**
  * @title Scribe
+ * @custom:version 1.0.0
  *
  * @notice Schnorr Signatures
  *         Aggregated, strong and true
  *         Delivering the truth
  *         Just for you
+ *
+ * @author merkleplant
+ * @custom:coauthor jar-o
  */
 contract Scribe is IScribe, Auth, Toll {
     using LibSchnorr for LibSecp256k1.Point;

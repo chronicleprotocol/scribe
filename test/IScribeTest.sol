@@ -12,9 +12,6 @@ import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
 
 import {LibFeed} from "script/libs/LibFeed.sol";
 
-/**
- * @notice Provides IScribe Unit Tests
- */
 abstract contract IScribeTest is Test {
     using LibSecp256k1 for LibSecp256k1.Point;
     using LibFeed for LibFeed.Feed;

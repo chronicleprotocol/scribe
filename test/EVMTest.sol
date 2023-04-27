@@ -5,9 +5,6 @@ import {console2} from "forge-std/console2.sol";
 
 import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
 
-/**
- * @notice Tests Requirements for EVM Version
- */
 abstract contract EVMTest is Test {
     /// @dev Tests that an assembly calldataload from an out-of-bounds calldata
     ///      index returns 0.
