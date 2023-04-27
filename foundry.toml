@@ -15,6 +15,9 @@ extra_output_files = ["metadata", "irOptimized"]
 fuzz = { runs = 10 }
 block_timestamp = 1_680_220_800 # March 31, 2023 at 00:00 GMT
 
+[invariant]
+fail_on_revert = true
+
 [rpc_endpoints]
 mainnet = "https://rpc.ankr.com/eth"
 optimism = "https://rpc.ankr.com/optimism"

@@ -269,6 +269,8 @@ abstract contract IScribeTest is Test {
     function testFuzz_poke(IScribe.PokeData[] memory pokeDatas) public {
         LibFeed.Feed[] memory feeds = _createAndLiftFeeds(scribe.bar());
 
+        // @todo Need bigger fix.
+
         // Ensure pokeDatas' val is never zero and pokeData's age is greater
         // than block.timestamp. Note that block.timestamp is not increased
         // in this test, so it is sufficient to ensure each age is newer than
@@ -325,7 +327,8 @@ abstract contract IScribeTest is Test {
         LibFeed.Feed[] memory feeds = _createAndLiftFeeds(scribe.bar());
 
         vm.assume(pokeData.val != 0);
-        vm.assume(pokeData.age != 0);
+        // Let pokeData's age ∊ [1, block.timestamp].
+        pokeData.age = uint32(bound(pokeData.age, 1, block.timestamp));
 
         IScribe.SchnorrData memory schnorrData;
         schnorrData = feeds.signSchnorr(scribe.constructPokeMessage(pokeData));
@@ -347,6 +350,23 @@ abstract contract IScribeTest is Test {
                 IScribe.StaleMessage.selector, pokeData.age, currentAge
             )
         );
+        scribe.poke(pokeData, schnorrData);
+    }
+
+    function testFuzz_poke_FailsIf_AgeIsInTheFuture(
+        IScribe.PokeData memory pokeData
+    ) public {
+        LibFeed.Feed[] memory feeds = _createAndLiftFeeds(scribe.bar());
+
+        vm.assume(pokeData.val != 0);
+        // Let pokeData's age ∊ [block.timestamp+1, type(uint32).max].
+        pokeData.age =
+            uint32(bound(pokeData.age, block.timestamp + 1, type(uint32).max));
+
+        IScribe.SchnorrData memory schnorrData;
+        schnorrData = feeds.signSchnorr(scribe.constructPokeMessage(pokeData));
+
+        vm.expectRevert();
         scribe.poke(pokeData, schnorrData);
     }
 
@@ -616,6 +636,11 @@ abstract contract IScribeTest is Test {
         (feedAddresses, feedIndexes) = scribe.feeds();
         assertEq(feedAddresses.length, feedIndexes.length);
         assertEq(feedAddresses.length, 0);
+    }
+
+    function test_drop_IndexZero() public {
+        // Does nothing.
+        scribe.drop(0);
     }
 
     function testFuzz_liftDropLift(uint privKey) public {

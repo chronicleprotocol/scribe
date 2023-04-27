@@ -7,7 +7,7 @@ import {IAuth} from "chronicle-std/auth/IAuth.sol";
 import {IToll} from "chronicle-std/toll/IToll.sol";
 
 import {IScribe} from "src/IScribe.sol";
-import {Scribe} from "src/Scribe.sol";
+import {ScribeInspectable} from "../inspectable/ScribeInspectable.sol";
 
 import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
 
@@ -16,18 +16,18 @@ import {ScribeHandler} from "./ScribeHandler.sol";
 abstract contract IScribeInvariantTest is Test {
     using LibSecp256k1 for LibSecp256k1.Point;
 
-    IScribe private scribe;
+    ScribeInspectable private scribe;
     ScribeHandler private handler;
 
     function setUp(address scribe_, address handler_) internal virtual {
-        scribe = IScribe(scribe_);
+        scribe = ScribeInspectable(scribe_);
         handler = ScribeHandler(handler_);
 
         // Toll address(this).
-        IToll(address(scribe)).kiss(address(this));
+        scribe.kiss(address(this));
 
         // Make handler auth'ed.
-        IAuth(address(scribe)).rely(address(handler));
+        scribe.rely(address(handler));
 
         // Finish handler initialization.
         // Needs to be done after handler is auth'ed.
@@ -41,200 +41,121 @@ abstract contract IScribeInvariantTest is Test {
     }
 
     function _targetSelectors() internal virtual returns (bytes4[] memory) {
-        bytes4[] memory selectors = new bytes4[](6);
+        bytes4[] memory selectors = new bytes4[](5);
         selectors[0] = ScribeHandler.warp.selector;
         selectors[1] = ScribeHandler.poke.selector;
-        selectors[2] = ScribeHandler.pokeFaulty.selector;
-        selectors[3] = ScribeHandler.setBar.selector;
-        selectors[4] = ScribeHandler.lift.selector;
-        selectors[5] = ScribeHandler.drop.selector;
+        selectors[2] = ScribeHandler.setBar.selector;
+        selectors[3] = ScribeHandler.lift.selector;
+        selectors[4] = ScribeHandler.drop.selector;
 
         return selectors;
     }
 
-    //--------------------------------------------------------------------------
-    // Invariants: Read Functions
-
-    function invariant_read_OnlyFailsIf_NoPokeYetOrLastPokeWasZero() public {
-        try scribe.read() returns (uint) {}
-        catch {
-            IScribe.PokeData[] memory pokeDatas = handler.ghost_pokeDatas();
-
-            uint len = pokeDatas.length;
-            if (len != 0) {
-                IScribe.PokeData memory lastPokeData = pokeDatas[len - 1];
-
-                assertEq(lastPokeData.val, 0);
-            }
-        }
-    }
-
-    function invariant_read_ReturnsTheLastPokedValue() public {
-        try scribe.read() returns (uint val) {
-            IScribe.PokeData[] memory pokeDatas = handler.ghost_pokeDatas();
-
-            uint len = pokeDatas.length;
-            assertTrue(len != 0); // Otherwise read should revert.
-
-            IScribe.PokeData memory lastPokeData = pokeDatas[len - 1];
-            assertEq(val, lastPokeData.val);
-        } catch {}
-    }
-
-    function invariant_peek_OnlyReturnsFalseIf_NoPokeYetOrLastPokeWasZero()
-        public
-    {
-        (, bool ok) = scribe.peek();
-        if (!ok) {
-            IScribe.PokeData[] memory pokeDatas = handler.ghost_pokeDatas();
-
-            uint len = pokeDatas.length;
-            if (len != 0) {
-                IScribe.PokeData memory lastPokeData = pokeDatas[len - 1];
-
-                assertEq(lastPokeData.val, 0);
-            }
-        }
-    }
-
-    function invariant_peek_ReturnsTheLastPokedValue() public {
-        (uint val, bool ok) = scribe.peek();
-        if (ok) {
-            IScribe.PokeData[] memory pokeDatas = handler.ghost_pokeDatas();
-
-            uint len = pokeDatas.length;
-            assertTrue(len != 0); // Otherwise peek should return false.
-
-            IScribe.PokeData memory lastPokeData = pokeDatas[len - 1];
-            assertEq(val, lastPokeData.val);
-        }
-    }
-
-    //--------------------------------------------------------------------------
-    // Invariants: Poke Function
+    // -- Poke --
 
     function invariant_poke_PokeTimestampsAreStrictlyMonotonicallyIncreasing()
         public
     {
-        IScribe.PokeData[] memory pokeDatas = handler.ghost_pokeDatas();
+        // Get scribe's pokeData before the execution.
+        IScribe.PokeData memory beforePokeData = handler.scribe_lastPokeData();
 
-        for (uint i = 1; i < pokeDatas.length; i++) {
-            uint preAge = pokeDatas[i - 1].age;
-            uint curAge = pokeDatas[i].age;
+        // Get scribe's current pokeData.
+        IScribe.PokeData memory currentPokeData;
+        currentPokeData = scribe.inspectable_pokeData();
 
-            assertTrue(preAge < curAge);
+        if (beforePokeData.age != currentPokeData.age) {
+            assertTrue(beforePokeData.age < currentPokeData.age);
+        } else {
+            assertEq(beforePokeData.age, currentPokeData.age);
         }
     }
 
-    function invariant_poke_SignersReachBar() public {
-        // Return if bar updated since last poke.
-        if (handler.ghost_barUpdated()) {
-            return;
-        }
+    function invariant_poke_PokeTimestampIsOnlyMutatedToCurrentTimestamp()
+        public
+    {
+        // Get scribe's pokeData before the execution.
+        IScribe.PokeData memory beforePokeData = handler.scribe_lastPokeData();
 
-        IScribe.SchnorrData[] memory schnorrSignatureDatas =
-            handler.ghost_schnorrSignatureDatas();
+        // Get scribe's current pokeData.
+        IScribe.PokeData memory currentPokeData;
+        currentPokeData = scribe.inspectable_pokeData();
 
-        uint len = schnorrSignatureDatas.length;
-        if (len != 0) {
-            IScribe.SchnorrData memory last = schnorrSignatureDatas[len - 1];
-
-            //assertTrue(last.signers.length >= scribe.bar());
+        if (beforePokeData.age != currentPokeData.age) {
+            assertEq(currentPokeData.age, uint32(block.timestamp));
         }
     }
 
-    function invariant_poke_SignersAreOrdered() public {
-        IScribe.SchnorrData[] memory schnorrSignatureDatas =
-            handler.ghost_schnorrSignatureDatas();
+    // -- PubKeys --
 
-        uint len = schnorrSignatureDatas.length;
-        if (len != 0) {
-            IScribe.SchnorrData memory last = schnorrSignatureDatas[len - 1];
+    function invariant_pubKeys_AtIndexZeroIsZeroPoint() public {
+        assertTrue(scribe.inspectable_pubKeys(0).isZeroPoint());
+    }
 
-            //for (uint i = 1; i < last.signers.length; i++) {
-            //    uint160 pre = uint160(last.signers[i - 1]);
-            //    uint160 cur = uint160(last.signers[i]);
+    mapping(bytes32 => bool) private pubKeyFilter;
 
-            //    assertTrue(pre < cur);
-            //}
+    function invariant_pubKeys_NonZeroPubKeyExistsAtMostOnce() public {
+        LibSecp256k1.Point[] memory pubKeys = scribe.inspectable_pubKeys();
+        for (uint i; i < pubKeys.length; i++) {
+            if (pubKeys[i].isZeroPoint()) continue;
+
+            bytes32 id = keccak256(abi.encodePacked(pubKeys[i].x, pubKeys[i].y));
+
+            assertFalse(pubKeyFilter[id]);
+            pubKeyFilter[id] = true;
         }
     }
 
-    function invariant_poke_SignersAreFeeds() public {
-        // Return if bar updated since last poke.
-        if (handler.ghost_FeedsDropped()) {
-            return;
+    function invariant_pubKeys_LengthIsStrictlyMonotonicallyIncreasing()
+        public
+    {
+        uint lastLen = handler.scribe_lastPubKeysLength();
+        uint currentLen = scribe.inspectable_pubKeys().length;
+
+        assertTrue(lastLen <= currentLen);
+    }
+
+    function invariant_pubKeys_ZeroPointIsNeverAddedAsPubKey() public {
+        uint lastLen = handler.scribe_lastPubKeysLength();
+
+        LibSecp256k1.Point[] memory pubKeys;
+        pubKeys = scribe.inspectable_pubKeys();
+
+        if (lastLen != pubKeys.length) {
+            assertFalse(pubKeys[pubKeys.length - 1].isZeroPoint());
         }
+    }
 
-        IScribe.SchnorrData[] memory schnorrSignatureDatas =
-            handler.ghost_schnorrSignatureDatas();
+    // -- Feeds --
 
-        uint len = schnorrSignatureDatas.length;
-        if (len != 0) {
-            IScribe.SchnorrData memory last = schnorrSignatureDatas[len - 1];
+    function invariant_feeds_ImageIsZeroToLengthOfPubKeys() public {
+        address[] memory feedAddrs = handler.ghost_feedAddresses();
+        uint pubKeysLen = scribe.inspectable_pubKeys().length;
 
-            //for (uint i; i < last.signers.length; i++) {
-            //    assertTrue(scribe.feeds(last.signers[i]));
-            //}
+        for (uint i; i < feedAddrs.length; i++) {
+            uint index = scribe.inspectable_feeds(feedAddrs[i]);
+
+            assertTrue(index < pubKeysLen);
         }
     }
 
-    function invariant_poke_SchnorrSignatureValid() public {
-        // @todo Implement once Schnorr signature verification enabled.
-        console2.log("NOT IMPLEMENTED");
-    }
+    function invariant_feeds_LinkToTheirPublicKeys() public {
+        address[] memory feedAddrs = handler.ghost_feedAddresses();
 
-    //--------------------------------------------------------------------------
-    // Invariants: Feeds
+        LibSecp256k1.Point[] memory pubKeys;
+        pubKeys = scribe.inspectable_pubKeys();
 
-    function invariant_feeds_OnlyContainsLiftedFeedAddresses() public {
-        //address[] memory feeds = scribe.feeds();
+        LibSecp256k1.Point memory pubKey;
+        for (uint i; i < feedAddrs.length; i++) {
+            uint index = scribe.inspectable_feeds(feedAddrs[i]);
 
-        //for (uint i; i < feeds.length; i++) {
-        //    assertTrue(scribe.feeds(feeds[i]));
-        //}
-    }
-
-    function invariant_feeds_ContainsAllLiftedFeedAddresses() public {
-        address[] memory feedsTouched = handler.ghost_feedsTouched();
-        //address[] memory feeds = scribe.feeds();
-
-        /*
-        for (uint i; i < feedsTouched.length; i++) {
-            // If touched feed is still feed...
-            if (scribe.feeds(feedsTouched[i])) {
-                // ...feeds list must contain it.
-                for (uint j; j < feeds.length; j++) {
-                    // Break inner loop if feed found.
-                    if (feeds[j] == feedsTouched[i]) {
-                        break;
-                    }
-
-                    // Fail if feeds list does not contain feed.
-                    if (j == feeds.length - 1) {
-                        assertTrue(false);
-                    }
-                }
+            pubKey = pubKeys[index];
+            if (!pubKey.isZeroPoint()) {
+                assertEq(pubKey.toAddress(), feedAddrs[i]);
             }
         }
-        */
     }
 
-    function invariant_feeds_ZeroPointIsNotFeed() public {
-        address zeroPointAddr = LibSecp256k1.ZERO_POINT().toAddress();
-
-        // Check via feeds(address)(bool)
-        //assertFalse(scribe.feeds(zeroPointAddr));
-
-        // Check via feeds()(address[])
-        //address[] memory feeds = scribe.feeds();
-        //for (uint i; i < feeds.length; i++) {
-        //    assertFalse(feeds[i] == zeroPointAddr);
-        //}
-    }
-
-    //--------------------------------------------------------------------------
-    // Invariants: Bar
+    // -- Bar --
 
     function invariant_bar_IsNeverZero() public {
         assertTrue(scribe.bar() != 0);

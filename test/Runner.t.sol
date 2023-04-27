@@ -5,6 +5,7 @@ pragma solidity ^0.8.16;
 // @todo Use deployment and maintanence scripts.
 
 import {Scribe} from "src/Scribe.sol";
+import {ScribeInspectable} from "./inspectable/ScribeInspectable.sol";
 import {IScribe} from "src/IScribe.sol";
 
 import {IScribeTest} from "./IScribeTest.sol";
@@ -15,21 +16,22 @@ contract ScribeTest is IScribeTest {
     function setUp() public {
         setUp(address(new Scribe("ETH/USD")));
     }
-
-    // @todo Add tests for poke_optimized.
 }
 
-/*
 contract ScribeInvariantTest is IScribeInvariantTest {
     function setUp() public {
-        setUp(address(new Scribe("ETH/USD")), address(new ScribeHandler()));
+        setUp(
+            address(new ScribeInspectable("ETH/USD")),
+            address(new ScribeHandler())
+        );
     }
 }
-*/
 
 // -- Test: Optimistic Scribe --
 
 import {ScribeOptimistic} from "src/ScribeOptimistic.sol";
+import {ScribeOptimisticInspectable} from
+    "./inspectable/ScribeOptimisticInspectable.sol";
 import {IScribeOptimistic} from "src/IScribeOptimistic.sol";
 
 import {IScribeOptimisticTest} from "./IScribeOptimisticTest.sol";
@@ -41,20 +43,16 @@ contract ScribeOptimisticTest is IScribeOptimisticTest {
     function setUp() public {
         setUp(address(new ScribeOptimistic("ETH/USD")));
     }
-
-    // @todo Add tests for poke_optimized + opPoke_optimized.
 }
 
-/*
 contract ScribeOptimisticInvariantTest is IScribeOptimisticInvariantTest {
     function setUp() public {
         setUp(
-            address(new ScribeOptimistic("ETH/USD")),
+            address(new ScribeOptimisticInspectable("ETH/USD")),
             address(new ScribeOptimisticHandler())
         );
     }
 }
-*/
 
 // -- Test: Libraries --
 

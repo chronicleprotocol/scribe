@@ -9,7 +9,6 @@ interface IScribe {
         uint32 age;
     }
 
-    // @todo Document signersBlob decoding.
     /// @dev SchnorrData encapsulates a (aggregated) Schnorr signature.
     ///      Schnorr signatures are used to prove a PokeData's integrity.
     struct SchnorrData {

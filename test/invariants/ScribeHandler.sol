@@ -1,29 +1,24 @@
 pragma solidity ^0.8.16;
 
+import {console2} from "forge-std/console2.sol";
 import {CommonBase} from "forge-std/Base.sol";
 import {StdUtils} from "forge-std/StdUtils.sol";
+import {StdStyle} from "forge-std/StdStyle.sol";
 
 import {IScribe} from "src/IScribe.sol";
+import {ScribeInspectable} from "../inspectable/ScribeInspectable.sol";
 
 import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
 
 import {LibFeed} from "script/libs/LibFeed.sol";
 
+import {FeedSet, LibFeedSet} from "./FeedSet.sol";
+
 contract ScribeHandler is CommonBase, StdUtils {
     using LibSecp256k1 for LibSecp256k1.Point;
     using LibFeed for LibFeed.Feed;
     using LibFeed for LibFeed.Feed[];
-
-    struct State {
-        IScribe.PokeData _pokeData;
-        LibSecp256k1.Point[] _pubKeys;
-        mapping(address => uint) _feeds;
-        uint8 bar;
-    }
-
-    struct Transaction {
-        bytes4 selector;
-    }
+    using LibFeedSet for FeedSet;
 
     uint public constant MAX_BAR = 10;
 
@@ -32,230 +27,153 @@ contract ScribeHandler is CommonBase, StdUtils {
 
     IScribe public scribe;
 
-    LibFeed.Feed[] internal _ghost_feeds;
-    LibFeed.Feed[] internal _ghost_feedsTouched;
-    mapping(uint => uint) internal _feedIndexesPerPrivKey;
+    IScribe.PokeData internal _scribe_lastPokeData;
+    uint public scribe_lastPubKeysLength;
 
-    IScribe.PokeData[] internal _ghost_pokeDatas;
-    IScribe.SchnorrData[] internal _ghost_schnorrSignatureDatas;
-    uint32 public ghost_lastPokeTimestamp;
-    bool public ghost_barUpdated;
-    bool public ghost_FeedsLifted;
-    bool public ghost_FeedsDropped;
+    uint internal nextPrivKey = 2;
+    FeedSet internal feedSet;
 
-    modifier noConfigsUpdated() {
+    modifier cacheScribeState() {
+        // forgefmt: disable-next-item
+        _scribe_lastPokeData = ScribeInspectable(address(scribe)).inspectable_pokeData();
+        // forgefmt: disable-next-item
+        scribe_lastPubKeysLength = ScribeInspectable(address(scribe)).inspectable_pubKeys().length;
         _;
-        ghost_barUpdated = false;
-        ghost_FeedsLifted = false;
-        ghost_FeedsDropped = false;
     }
 
-    //--------------------------------------------------------------------------
-    // Initialization
-
-    function init(address scribe_) external {
+    function init(address scribe_) public virtual {
         scribe = IScribe(scribe_);
 
         // Cache constants.
         WAT = scribe.wat();
         WAT_MESSAGE = scribe.watMessage();
 
-        // Create and whitelist 2 * MAX_BAR feeds.
-        uint numberFeeds = 2 * MAX_BAR;
-        LibFeed.Feed memory feed;
-        for (uint i; i < numberFeeds; i++) {
-            feed = LibFeed.newFeed({privKey: i + 2, index: uint8(i + 1)});
+        _ensureBarFeedsLifted();
+    }
 
-            _ghost_feeds.push(feed);
-            _feedIndexesPerPrivKey[feed.privKey] = i;
-            _ghost_feedsTouched.push(feed);
+    function _ensureBarFeedsLifted() internal {
+        uint bar = scribe.bar();
+        (address[] memory feeds,) = scribe.feeds();
 
-            scribe.lift(feed.pubKey, feed.signECDSA(WAT_MESSAGE));
+        if (feeds.length < bar) {
+            // Lift feeds until bar is reached.
+            uint missing = bar - feeds.length;
+            LibFeed.Feed memory feed;
+            for (uint i; i < missing; i++) {
+                feed = LibFeed.newFeed(nextPrivKey++);
+
+                // Lift feed and set its index.
+                uint index =
+                    scribe.lift(feed.pubKey, feed.signECDSA(WAT_MESSAGE));
+                feed.index = uint8(index);
+
+                // Store feed in feedSet.
+                feedSet.add(feed, true);
+            }
         }
     }
 
-    //--------------------------------------------------------------------------
-    // Target Functions
+    // -- Target Functions --
 
     function warp(uint seed) external {
         uint amount = bound(seed, 0, 1 hours);
         vm.warp(block.timestamp + amount);
     }
 
-    function poke(uint valSeed, uint ageSeed, uint numberSignersSeed)
-        external
-        noConfigsUpdated
-    {
+    function poke(uint valSeed, uint ageSeed) external cacheScribeState {
+        _ensureBarFeedsLifted();
+
+        // Get set of bar many feeds from feedSet.
+        LibFeed.Feed[] memory feeds = feedSet.liftedFeeds(scribe.bar());
+
         // Create pokeData.
         IScribe.PokeData memory pokeData = IScribe.PokeData({
             val: _randPokeDataVal(valSeed),
             age: _randPokeDataAge(ageSeed)
         });
 
-        // Make list of signers.
-        // Note that the number of signers is random, but bounded to always
-        // reach bar.
-        uint numberSigners =
-            bound(numberSignersSeed, scribe.bar(), _ghost_feeds.length);
-        LibFeed.Feed[] memory signers = new LibFeed.Feed[](numberSigners);
-        for (uint i; i < numberSigners; i++) {
-            signers[i] = _ghost_feeds[i];
+        bytes32 pokeMessage = scribe.constructPokeMessage(pokeData);
+        IScribe.SchnorrData memory schnorrData = feeds.signSchnorr(pokeMessage);
+
+        // Note to not poke if schnorr signature is valid, but cannot be
+        // verified via LibSchnorr::verifySignature.
+        (bool ok,) = scribe.verifySchnorrSignature(pokeMessage, schnorrData);
+        if (ok) {
+            // Execute poke.
+            scribe.poke(
+                pokeData,
+                feeds.signSchnorr(scribe.constructPokeMessage(pokeData))
+            );
+        } else {
+            console2.log(
+                StdStyle.yellow(
+                    "ScribeHandler::poke: Skipping because Schnorr cannot be verified"
+                )
+            );
         }
-
-        // Create schnorrSignatureData.
-        IScribe.SchnorrData memory schnorrData;
-        schnorrData = signers.signSchnorr(scribe.constructPokeMessage(pokeData));
-
-        // Execute poke.
-        scribe.poke(pokeData, schnorrData);
-
-        // Store pokeData, schnorrSignatureData and current timestamp.
-        _ghost_pokeDatas.push(pokeData);
-        _ghost_schnorrSignatureDatas.push(schnorrData);
-        ghost_lastPokeTimestamp = uint32(block.timestamp);
     }
 
-    function pokeFaulty(
-        uint valSeed,
-        uint ageSeed,
-        uint numberSignersSeed,
-        bool includeNonFeedSigner,
-        uint nonFeedSignerSeed,
-        bool sortSigners
-    ) external noConfigsUpdated {
-        // Create pokeData.
-        IScribe.PokeData memory pokeData = IScribe.PokeData({
-            val: _randPokeDataVal(valSeed),
-            age: _randPokeDataAge(ageSeed)
-        });
+    function lift() external cacheScribeState {
+        // Create new feed.
+        LibFeed.Feed memory feed = LibFeed.newFeed(nextPrivKey++);
 
-        // Make list of signers.
-        // Note that the number of signers is random, but bounded in a way that
-        // gives a 50:50 chance of whether bar is reached.
-        uint numberSigners = bound(numberSignersSeed, 0, 2 * scribe.bar());
-        LibFeed.Feed[] memory signers = new LibFeed.Feed[](numberSigners);
-        for (uint i; i < numberSigners; i++) {
-            signers[i] = _ghost_feeds[i];
-        }
+        // Lift feed and set its index.
+        uint index = scribe.lift(feed.pubKey, feed.signECDSA(WAT_MESSAGE));
+        feed.index = uint8(index);
 
-        // @audit For some reason, the two seem to be codependent.
-        //        See via: Uncomment corresponding checks individually.
-        // Include non feed signer, if requested.
-        if (includeNonFeedSigner) {
-            uint index = bound(nonFeedSignerSeed, 0, numberSigners);
-            // Point not on curve, so cannot be feed.
-            signers[index] = LibFeed.Feed(1, LibSecp256k1.Point(1, 1), 0);
-        }
-
-        // @todo Make invalid, if requested.
-        IScribe.SchnorrData memory schnorrData;
-        schnorrData = signers.signSchnorr(scribe.constructPokeMessage(pokeData));
-
-        // @todo If requested, randomize order of signers.
-        if (!sortSigners) {
-            //signers = LibHelpers.sortAddresses(signers);
-        }
-
-        // Execute poke.
-        scribe.poke(pokeData, schnorrData);
-
-        // Store pokeData, schnorrData and current timestamp.
-        _ghost_pokeDatas.push(pokeData);
-        _ghost_schnorrSignatureDatas.push(schnorrData);
-        ghost_lastPokeTimestamp = uint32(block.timestamp);
+        // Store feed in feedSet.
+        feedSet.add(feed, true);
     }
 
-    function setBar(uint barSeed) external {
+    function drop(uint seed) external cacheScribeState {
+        // Get random feed from feedSet.
+        // Note that feed may not be lifted.
+        LibFeed.Feed memory feed = LibFeedSet.rand(feedSet, seed);
+
+        // Receive index of feed. Index is zero if not lifted.
+        (, uint index) = scribe.feeds(feed.pubKey.toAddress());
+
+        // Drop feed.
+        scribe.drop(index);
+
+        // Mark feed as non-lifted in feedSet.
+        feedSet.updateLifted(feed, false);
+    }
+
+    function setBar(uint barSeed) external cacheScribeState {
         uint8 newBar = uint8(bound(barSeed, 0, MAX_BAR));
 
-        // Reverts if newBar is 0.
-        scribe.setBar(newBar);
-
-        // Set barUpdated flag to true.
-        ghost_barUpdated = true;
+        // Should revert if newBar is 0.
+        try scribe.setBar(newBar) {} catch {}
     }
 
-    function lift(uint privKey) external {
-        // Return if feed exists already.
-        if (_feedIndexesPerPrivKey[privKey] != 0) {
-            return;
-        }
+    // -- Ghost View Functions --
 
-        LibFeed.Feed memory feed = LibFeed.newFeed(privKey);
-
-        _ghost_feeds.push(feed);
-        _feedIndexesPerPrivKey[privKey] = _ghost_feeds.length - 1;
-        _ghost_feedsTouched.push(feed);
-        scribe.lift(feed.pubKey, feed.signECDSA(WAT_MESSAGE));
-
-        // Set feedsLifted flag to true.
-        ghost_FeedsLifted = true;
-    }
-
-    function drop(uint feedSeed) external {
-        uint feedIndex = bound(feedSeed, 0, _ghost_feeds.length);
-
-        scribe.drop(_ghost_feeds[feedIndex].index);
-
-        // Remove feed from internal list of feeds.
-        delete _feedIndexesPerPrivKey[_ghost_feeds[feedIndex].privKey];
-        delete _ghost_feeds[feedIndex];
-
-        // Set feedsDropped flag to true.
-        ghost_FeedsDropped = true;
-    }
-
-    //--------------------------------------------------------------------------
-    // Ghost View Functions
-
-    function ghost_feeds() external view returns (address[] memory) {
-        address[] memory feeds = new address[](_ghost_feeds.length);
-
-        for (uint i; i < feeds.length; i++) {
-            feeds[i] = _ghost_feeds[i].pubKey.toAddress();
-        }
-
-        return feeds;
-    }
-
-    function ghost_feedsTouched() external view returns (address[] memory) {
-        address[] memory feedsTouched =
-            new address[](_ghost_feedsTouched.length);
-
-        for (uint i; i < feedsTouched.length; i++) {
-            feedsTouched[i] = _ghost_feedsTouched[i].pubKey.toAddress();
-        }
-
-        return feedsTouched;
-    }
-
-    function ghost_pokeDatas()
+    function scribe_lastPokeData()
         external
         view
-        returns (IScribe.PokeData[] memory)
+        returns (IScribe.PokeData memory)
     {
-        return _ghost_pokeDatas;
+        return _scribe_lastPokeData;
     }
 
-    function ghost_schnorrSignatureDatas()
-        external
-        view
-        returns (IScribe.SchnorrData[] memory)
-    {
-        return _ghost_schnorrSignatureDatas;
+    function ghost_feedAddresses() external view returns (address[] memory) {
+        address[] memory addrs = new address[](feedSet.feeds.length);
+        for (uint i; i < addrs.length; i++) {
+            addrs[i] = feedSet.feeds[i].pubKey.toAddress();
+        }
+        return addrs;
     }
 
-    //--------------------------------------------------------------------------
-    // Private Helpers
+    // -- Helpers --
 
-    function _randPokeDataVal(uint seed) private view returns (uint128) {
-        return uint128(bound(seed, 0, type(uint128).max));
+    function _randPokeDataVal(uint seed) internal view returns (uint128) {
+        uint val = bound(seed, 0, type(uint128).max);
+        return uint128(val);
     }
 
-    function _randPokeDataAge(uint seed) private view returns (uint32) {
-        uint32 last = ghost_lastPokeTimestamp;
-
-        // Note that an age of last reverts.
-        return uint32(bound(seed, last, block.timestamp));
+    function _randPokeDataAge(uint seed) internal view returns (uint32) {
+        uint age = bound(seed, _scribe_lastPokeData.age + 1, type(uint32).max);
+        return uint32(age);
     }
 }

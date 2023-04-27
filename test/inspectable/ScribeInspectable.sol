@@ -3,25 +3,16 @@ pragma solidity ^0.8.16;
 import {Auth} from "chronicle-std/auth/Auth.sol";
 import {Toll} from "chronicle-std/toll/Toll.sol";
 
-import {IScribe} from "./IScribe.sol";
+import {IScribe} from "src/IScribe.sol";
 
-import {LibSchnorr} from "./libs/LibSchnorr.sol";
-import {LibSecp256k1} from "./libs/LibSecp256k1.sol";
-import {LibSchnorrData} from "./libs/LibSchnorrData.sol";
+import {LibSchnorr} from "src/libs/LibSchnorr.sol";
+import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
+import {LibSchnorrData} from "src/libs/LibSchnorrData.sol";
 
 /**
- * @title Scribe
- * @custom:version 1.0.0
- *
- * @notice Schnorr Signatures
- *         Aggregated, strong and true
- *         Delivering the truth
- *         Just for you
- *
- * @author merkleplant
- * @custom:coauthor jar-o
+ * @dev Scribe version providing functions to inspect internal state.
  */
-contract Scribe is IScribe, Auth, Toll {
+contract ScribeInspectable is IScribe, Auth, Toll {
     using LibSchnorr for LibSecp256k1.Point;
     using LibSecp256k1 for LibSecp256k1.Point;
     using LibSecp256k1 for LibSecp256k1.JacobianPoint;
@@ -160,11 +151,6 @@ contract Scribe is IScribe, Auth, Toll {
         // Revert if pokeData is stale.
         if (pokeData.age <= _pokeData.age) {
             revert StaleMessage(pokeData.age, _pokeData.age);
-        }
-        // @todo Issue with future timestamps.
-        // Revert if pokeData is from the future.
-        if (pokeData.age > uint32(block.timestamp)) {
-            revert();
         }
 
         // Revert if schnorrData does not prove integrity of pokeData.
@@ -346,6 +332,10 @@ contract Scribe is IScribe, Auth, Toll {
     }
 
     /// @inheritdoc IScribe
+    /// @custom:invariant Result arrays do not contain duplicates.
+    ///                     (addrs, indexes) = feeds()
+    ///                         →   ∀x ∊ Address: count(x in addrs) <= 1
+    ///                           ⋀ ∀y ∊ uint: count(y in indexes) <= 1
     function feeds() external view returns (address[] memory, uint[] memory) {
         // Initiate arrays with upper limit length.
         uint upperLimitLength = _pubKeys.length;
@@ -567,4 +557,31 @@ contract Scribe is IScribe, Auth, Toll {
 
     /// @dev Defines the authorization for IToll's authenticated functions.
     function toll_auth() internal override(Toll) auth {}
+
+    //--------------------------------------------------------------------------
+    // Inspectable
+
+    function inspectable_pokeData() public view returns (PokeData memory) {
+        return _pokeData;
+    }
+
+    function inspectable_pubKeys()
+        public
+        view
+        returns (LibSecp256k1.Point[] memory)
+    {
+        return _pubKeys;
+    }
+
+    function inspectable_pubKeys(uint index)
+        public
+        view
+        returns (LibSecp256k1.Point memory)
+    {
+        return _unsafeLoadPubKeyAt(index);
+    }
+
+    function inspectable_feeds(address addr) public view returns (uint) {
+        return _feeds[addr];
+    }
 }

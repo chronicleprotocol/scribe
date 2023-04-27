@@ -1,13 +1,8 @@
 pragma solidity ^0.8.16;
 
-import {Test} from "forge-std/Test.sol";
-import {console2} from "forge-std/console2.sol";
-
-import {IAuth} from "chronicle-std/auth/IAuth.sol";
-import {IToll} from "chronicle-std/toll/IToll.sol";
-
 import {IScribeOptimistic} from "src/IScribeOptimistic.sol";
-import {ScribeOptimistic} from "src/ScribeOptimistic.sol";
+import {ScribeOptimisticInspectable} from
+    "../inspectable/ScribeOptimisticInspectable.sol";
 
 import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
 
@@ -28,7 +23,7 @@ abstract contract IScribeOptimisticInvariantTest is IScribeInvariantTest {
     {
         super.setUp(scribe_, handler_);
 
-        opScribe = IScribeOptimistic(scribe_);
+        opScribe = ScribeOptimisticInspectable(payable(scribe_));
         opHandler = ScribeOptimisticHandler(handler_);
     }
 

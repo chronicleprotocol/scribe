@@ -21,8 +21,8 @@ interface IScribeOptimistic is IScribe {
     /// @notice Emitted when oracles was successfully opPoked.
     /// @param caller The caller's address.
     /// @param opFeed The feed that signed the opPoke.
-    /// @param schnorrData The schnorrData
-    /// @param pokeData todo
+    /// @param schnorrData The schnorrData opPoked.
+    /// @param pokeData The pokeData opPoked.
     event OpPoked(
         address indexed caller,
         address indexed opFeed,
