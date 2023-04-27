@@ -36,7 +36,7 @@ library LibFeed {
 
     /// @dev Returns a new feed instance with private key `privKey` and feed
     ///      index 0. Note that 0 is never a valid index!
-    function newFeed(uint privKey) internal returns (Feed memory) {
+    function newFeed(uint privKey) internal pure returns (Feed memory) {
         return newFeed(privKey, 0);
     }
 
@@ -44,6 +44,7 @@ library LibFeed {
     ///      index `index` in a Scribe instance.
     function newFeed(uint privKey, uint8 index)
         internal
+        pure
         returns (Feed memory)
     {
         return Feed({
@@ -69,6 +70,7 @@ library LibFeed {
     ///      signing `message` via `self`'s private key.
     function signSchnorr(Feed memory self, bytes32 message)
         internal
+        view
         returns (IScribe.SchnorrData memory)
     {
         (uint signature, address commitment) = self.privKey.signMessage(message);
@@ -85,6 +87,7 @@ library LibFeed {
     ///      keys.
     function signSchnorr(Feed[] memory selfs, bytes32 message)
         internal
+        view
         returns (IScribe.SchnorrData memory)
     {
         // Create multi-signature.
@@ -111,7 +114,7 @@ library LibFeed {
     function signSchnorr_withoutOrderingSignerIndexes(
         Feed[] memory selfs,
         bytes32 message
-    ) internal returns (IScribe.SchnorrData memory) {
+    ) internal view returns (IScribe.SchnorrData memory) {
         // Create multi-signature.
         uint[] memory privKeys = new uint[](selfs.length);
         for (uint i; i < selfs.length; i++) {

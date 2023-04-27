@@ -5,8 +5,6 @@ import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
 /**
  * @title LibSecp256k1Extended
  *
- * @notice
- *
  * @author Modified from Jordi Baylina's [ecsol](https://github.com/jbaylina/ecsol/blob/c2256afad126b7500e6f879a9369b100e47d435d/ec.sol).
  */
 library LibSecp256k1Extended {
