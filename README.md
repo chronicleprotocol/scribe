@@ -1,4 +1,4 @@
-<img align="right" width="250" height="150" top="100" src="./assets/logo.jpeg">
+<img align="right" width="200" height="250" top="100" src="./assets/logo.jpeg">
 
 # Scribe •
 
