@@ -55,24 +55,15 @@ contract ScribeOptimisticInvariantTest is IScribeOptimisticInvariantTest {
 */
 
 //------------------------------------------------------------------------------
-// Test: Secp256k1 Libraries
+// Test: Libraries
 
 import {LibSecp256k1Test} from "./LibSecp256k1Test.sol";
-import {LibSecp256k1ExtendedTest} from "./LibSecp256k1ExtendedTest.sol";
 
 contract LibSecp256k1Test_ is LibSecp256k1Test {}
-
-contract LibSecp256k1ExtendedTest_ is LibSecp256k1ExtendedTest {}
-
-//------------------------------------------------------------------------------
-// Test: Schnorr Libraries
 
 import {LibSchnorrTest} from "./LibSchnorrTest.sol";
 
 contract LibSchnorrTest_ is LibSchnorrTest {}
-
-//------------------------------------------------------------------------------
-// Test: Bytes Library
 
 import {LibBytesTest} from "./LibBytesTest.sol";
 

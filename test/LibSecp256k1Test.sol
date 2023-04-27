@@ -13,6 +13,37 @@ abstract contract LibSecp256k1Test is Test {
     using LibSecp256k1 for LibSecp256k1.JacobianPoint;
     using LibSecp256k1Extended for uint;
 
+    // -- toAddress --
+
+    function testDifferentialFuzz_toAddress(uint privKey) public {
+        // Bound privKey to secp256k1's order, i.e. privKey ∊ [1, Q).
+        privKey = bound(privKey, 1, LibSecp256k1.Q() - 1);
+
+        address want = vm.addr(privKey);
+        address got = LibDissig.toPoint(privKey).toAddress();
+
+        assertEq(want, got);
+    }
+
+    // -- toAffine --
+
+    function test_toAffine_DoesNotRevert(
+        LibSecp256k1.JacobianPoint memory jacPoint
+    ) public pure {
+        jacPoint.toAffine();
+    }
+
+    function test_toJacobian_toAffine(uint privKey) public {
+        // Bound privKey to secp256k1's order, i.e. privKey ∊ [1, Q).
+        privKey = bound(privKey, 1, LibSecp256k1.Q() - 1);
+
+        LibSecp256k1.Point memory want = privKey.derivePublicKey();
+        LibSecp256k1.Point memory got = want.toJacobian().toAffine();
+
+        assertEq(want.x, got.x);
+        assertEq(want.y, got.y);
+    }
+
     // -- addAffinePoint --
 
     function test_addAffinePoint_UsesConstantAmountOfGas(
@@ -33,94 +64,66 @@ abstract contract LibSecp256k1Test is Test {
     function test_addAffinePoint_DoesNotRevert(
         LibSecp256k1.JacobianPoint memory jacPoint,
         LibSecp256k1.Point memory p
-    ) public {
+    ) public pure {
         jacPoint.addAffinePoint(p);
     }
 
-    /*
-    // @todo addAffinePoint differential fuzz test broken...
-    function testDifferentialFuzz_addAffinePoint(uint privKeyA, uint privKeyB)
-        public
-    {
-        // Bound privKeys to secp256k1's order, i.e. privKeys ∊ [1, Q).
-        privKeyA = bound(privKeyA, 1, LibSecp256k1.Q() - 1);
-        privKeyB = bound(privKeyB, 1, LibSecp256k1.Q() - 1);
+    struct VectorTestCase {
+        // Test: p + q = expected
+        LibSecp256k1.Point p;
+        LibSecp256k1.Point q;
+        LibSecp256k1.Point expected;
+    }
 
-        vm.assume(privKeyA != privKeyB);
+    function testVectors_addAffinePoint() public {
+        string[] memory inputs = new string[](2);
+        inputs[0] = "node";
+        inputs[1] = "test/vectors/points.js";
 
-        LibSecp256k1.Point memory pointA = privKeyA.derivePublicKey();
-        LibSecp256k1.Point memory pointB = privKeyB.derivePublicKey();
+        uint[] memory rawCoordinates = abi.decode(vm.ffi(inputs), (uint[]));
 
-        // LibSecp256k1Extended
-        LibSecp256k1.Point memory want = LibSecp256k1Extended.add(
-            pointA.toJacobian(), pointB.toJacobian()
-        ).toAffine();
+        // Parse raw coordinates to VectorTestCases.
+        VectorTestCase[] memory testCases =
+            new VectorTestCase[](rawCoordinates.length / 2 / 3);
+        uint rawCoordinatesCtr;
+        for (uint i; i < testCases.length; i++) {
+            VectorTestCase memory cur = testCases[i];
 
-        // LibSecp256k1
-        LibSecp256k1.JacobianPoint memory jacPointA = pointA.toJacobian();
-        // Note that addAffinePoint writes directly into jacPointA's memory.
-        jacPointA.addAffinePoint(pointB);
-
-        LibSecp256k1.Point memory got = jacPointA.toAffine();
-
-        // LibDissig
-        LibSecp256k1.Point memory pointC = LibDissig.toPoint(privKeyA);
-        LibSecp256k1.Point memory pointD = LibDissig.toPoint(privKeyB);
-        LibSecp256k1.Point memory pointE = LibDissig.aggregateToPoint(privKeyA, privKeyB);
-
-        if (pointE.x == want.x) {
-            console2.log("pointE == want");
-            return;
+            cur.p.x = rawCoordinates[rawCoordinatesCtr++];
+            cur.p.y = rawCoordinates[rawCoordinatesCtr++];
+            cur.q.x = rawCoordinates[rawCoordinatesCtr++];
+            cur.q.y = rawCoordinates[rawCoordinatesCtr++];
+            cur.expected.x = rawCoordinates[rawCoordinatesCtr++];
+            cur.expected.y = rawCoordinates[rawCoordinatesCtr++];
         }
-        if (pointE.x == got.x) {
-            console2.log("pointE == got");
-            return;
+
+        // Execute test cases.
+        VectorTestCase memory curTestCase;
+        LibSecp256k1.JacobianPoint memory jacPoint;
+        LibSecp256k1.Point memory result;
+        for (uint i; i < testCases.length; i++) {
+            curTestCase = testCases[i];
+
+            jacPoint = curTestCase.p.toJacobian();
+            jacPoint.addAffinePoint(curTestCase.q);
+
+            result = jacPoint.toAffine();
+
+            if (curTestCase.p.x == curTestCase.q.x) {
+                console2.log(
+                    string.concat(
+                        "Note: Test case #",
+                        vm.toString(i),
+                        " has same x coordinates:"
+                    ),
+                    "Expecting zero point as result"
+                );
+
+                assertTrue(result.isZeroPoint());
+            } else {
+                assertEq(result.x, curTestCase.expected.x);
+                assertEq(result.y, curTestCase.expected.y);
+            }
         }
-        console2.log("NOPE");
-
-        //assertEq(want.x, got.x);
-        //assertEq(want.y, got.y);
-    }
-    */
-
-    // -- toAddress --
-
-    function testDifferentialFuzz_toAddress(uint privKey) public {
-        // Bound privKey to secp256k1's order, i.e. privKey ∊ [1, Q).
-        privKey = bound(privKey, 1, LibSecp256k1.Q() - 1);
-
-        address want = vm.addr(privKey);
-        address got = LibDissig.toPoint(privKey).toAddress();
-
-        assertEq(want, got);
-    }
-
-    // -- toAffine --
-
-    function test_toAffine_DoesNotRevert(
-        LibSecp256k1.JacobianPoint memory jacPoint
-    ) public {
-        jacPoint.toAffine();
-    }
-
-    function testDifferentialFuzz_toAffine(uint x, uint y, uint z) public {
-        console2.log("NOT IMPLEMENTED");
-        return;
-
-        LibSecp256k1.JacobianPoint memory jac;
-        jac = LibSecp256k1.JacobianPoint(x, y, z);
-
-        //LibSecp256k1.Point memory got jac.toAffine();
-    }
-
-    function test_toJacobian_toAffine(uint privKey) public {
-        // Bound privKey to secp256k1's order, i.e. privKey ∊ [1, Q).
-        privKey = bound(privKey, 1, LibSecp256k1.Q() - 1);
-
-        LibSecp256k1.Point memory want = privKey.derivePublicKey();
-        LibSecp256k1.Point memory got = want.toJacobian().toAffine();
-
-        assertEq(want.x, got.x);
-        assertEq(want.y, got.y);
     }
 }

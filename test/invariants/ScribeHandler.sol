@@ -14,6 +14,17 @@ contract ScribeHandler is CommonBase, StdUtils {
     using LibFeed for LibFeed.Feed;
     using LibFeed for LibFeed.Feed[];
 
+    struct State {
+        IScribe.PokeData _pokeData;
+        LibSecp256k1.Point[] _pubKeys;
+        mapping(address => uint) _feeds;
+        uint8 bar;
+    }
+
+    struct Transaction {
+        bytes4 selector;
+    }
+
     uint public constant MAX_BAR = 10;
 
     bytes32 public WAT;

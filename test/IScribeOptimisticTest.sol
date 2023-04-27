@@ -31,7 +31,9 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         IScribe.SchnorrData schnorrData,
         IScribe.PokeData pokeData
     );
-    event OpPokeChallengedSuccessfully(address indexed caller, bytes schnorrErr);
+    event OpPokeChallengedSuccessfully(
+        address indexed caller, bytes schnorrErr
+    );
     event OpPokeChallengedUnsuccessfully(address indexed caller);
     event OpChallengeRewardPaid(address indexed challenger, uint reward);
     event OpPokeDataDropped(address indexed caller, IScribe.PokeData pokeData);
@@ -75,17 +77,30 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         IScribe.PokeData[] memory pokeDatas,
         uint[] memory feedIndexSeeds
     ) public {
-        vm.assume(pokeDatas.length == feedIndexSeeds.length);
-        // Keep low to not run out-of-gas.
-        vm.assume(pokeDatas.length < 50);
+        // vm.assume(pokeData.length < 50)
+        if (pokeDatas.length > 50) {
+            assembly ("memory-safe") {
+                mstore(pokeDatas, 50)
+            }
+        }
+        // vm.assume(pokeDatas.length == feedIndexSeeds.length);
+        uint pokeDatasLen = pokeDatas.length;
+        uint feedIndexSeedsLen = feedIndexSeeds.length;
+        if (pokeDatasLen > feedIndexSeedsLen) {
+            assembly ("memory-safe") {
+                mstore(pokeDatas, feedIndexSeedsLen)
+            }
+        } else {
+            assembly ("memory-safe") {
+                mstore(feedIndexSeeds, pokeDatasLen)
+            }
+        }
 
         LibFeed.Feed[] memory feeds = _createAndLiftFeeds(opScribe.bar());
 
         IScribe.SchnorrData memory schnorrData;
         IScribe.ECDSAData memory ecdsaData;
         uint feedIndex;
-        bool ok;
-        uint val;
         for (uint i; i < pokeDatas.length; i++) {
             // Select random feed signing opPoke.
             feedIndex = bound(feedIndexSeeds[i], 0, feeds.length - 1);
@@ -534,7 +549,9 @@ abstract contract IScribeOptimisticTest is IScribeTest {
     //--------------------------------------------------------------------------
     // Private Helpers
 
-    function _setUpFeedsAndOpPokeOnce(IScribe.PokeData memory pokeData) private {
+    function _setUpFeedsAndOpPokeOnce(IScribe.PokeData memory pokeData)
+        private
+    {
         LibFeed.Feed[] memory feeds = _createAndLiftFeeds(opScribe.bar());
 
         IScribe.SchnorrData memory schnorrData;
