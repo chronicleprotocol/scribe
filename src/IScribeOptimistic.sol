@@ -34,7 +34,9 @@ interface IScribeOptimistic is IScribe {
     /// @param caller The caller's address.
     /// @param schnorrErr The abi-encoded custom error returned from the failed
     ///                   Schnorr signature verification.
-    event OpPokeChallengedSuccessfully(address indexed caller, bytes schnorrErr);
+    event OpPokeChallengedSuccessfully(
+        address indexed caller, bytes schnorrErr
+    );
 
     /// @notice Emitted when unsuccessfully challenged an opPoke.
     /// @param caller The caller's address.
@@ -82,10 +84,6 @@ interface IScribeOptimistic is IScribe {
     ///      `schnorrData`.
     /// @dev If the `schnorrData` is proven to be invalid via the opChallenge
     ///      function, the `ecdsaData` signing feed will be dropped.
-    /// @dev Note that the function is payable for gas optimization.
-    ///      As the contract is able to receive ETH and pays ETH as bounty for
-    ///      invalidating opPokes, there is no risk of ETH being stuck in the
-    ///      contract.
     /// @param pokeData The PokeData being poked.
     /// @param schnorrData The SchnorrData optimistically assumed to be
     ///                    proving the `pokeData`'s integrity.
@@ -95,7 +93,7 @@ interface IScribeOptimistic is IScribe {
         PokeData calldata pokeData,
         SchnorrData calldata schnorrData,
         ECDSAData calldata ecdsaData
-    ) external payable;
+    ) external;
 
     /// @notice Challenges the current challengeable opPoke.
     /// @dev If opPoke is determined to be invalid, the caller receives an ETH
@@ -103,16 +101,11 @@ interface IScribeOptimistic is IScribe {
     ///      function.
     /// @dev If opPoke is determined to be invalid, the corresponding feed is
     ///      dropped.
-    /// @dev Note that the function is payable for gas optimization.
-    ///      As the contract is able to receive ETH and pays ETH as bounty for
-    ///      invalidating opPokes, there is no risk of ETH being stuck in the
-    ///      contract.
     /// @param schnorrData The SchnorrData initially provided via
     ///                    opPoke.
     /// @return True if opPoke declared invalid, false otherwise.
     function opChallenge(SchnorrData calldata schnorrData)
         external
-        payable
         returns (bool);
 
     /// @notice Returns the message expected to be signed via ECDSA for calling
@@ -155,10 +148,4 @@ interface IScribeOptimistic is IScribe {
     /// @dev Only callable by auth'ed address.
     /// @param maxChallengeReward The value to update maxChallengeReward to.
     function setMaxChallengeReward(uint maxChallengeReward) external;
-
-    /// @notice Withdraws `amount` ETH to `receiver`.
-    /// @dev Only callable by auth'ed address.
-    /// @param receiver The address to withdraw the ETH to.
-    /// @param amount The amount of ETH to withdraw.
-    function withdrawETH(address payable receiver, uint amount) external;
 }

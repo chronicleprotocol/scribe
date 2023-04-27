@@ -8,8 +8,6 @@ import {Scribe} from "./Scribe.sol";
 import {LibSchnorr} from "./libs/LibSchnorr.sol";
 import {LibSecp256k1} from "./libs/LibSecp256k1.sol";
 
-// @todo Invariant: A values age is the age the contract _first_ received the value.
-
 /**
  * @title ScribeOptimistic
  *
@@ -17,8 +15,6 @@ import {LibSecp256k1} from "./libs/LibSecp256k1.sol";
  *         Thats what the scribe yawps
  *         Can you tame them
  *         By challenging a poke?
- *
- * @dev
  */
 contract ScribeOptimistic is IScribeOptimistic, Scribe {
     using LibSchnorr for LibSecp256k1.Point;
@@ -39,8 +35,8 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
     uint160 private _schnorrDataCommitment;
 
     /// @dev The age of the pokeData provided in last opPoke.
-    ///      Ensures Schnorr signature can be verified after setting
-    ///      pokeData's age to block.timestamp during opPoke.
+    ///      Ensures Schnorr signature can be verified after setting pokeData's
+    ///      age to block.timestamp during opPoke.
     uint32 private _originalOpPokeDataAge;
 
     //--------------------------------------------------------------------------
@@ -69,7 +65,26 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         PokeData calldata pokeData,
         SchnorrData calldata schnorrData,
         ECDSAData calldata ecdsaData
+    ) external {
+        _opPoke(pokeData, schnorrData, ecdsaData);
+    }
+
+    /// @dev Optimized function selector: 0x00000000.
+    ///      Note that this function is _not_ defined via the IScribe interface
+    ///      and one should _not_ depend on it.
+    function opPoke_optimized_397084999(
+        PokeData calldata pokeData,
+        SchnorrData calldata schnorrData,
+        ECDSAData calldata ecdsaData
     ) external payable {
+        _opPoke(pokeData, schnorrData, ecdsaData);
+    }
+
+    function _opPoke(
+        PokeData calldata pokeData,
+        SchnorrData calldata schnorrData,
+        ECDSAData calldata ecdsaData
+    ) private {
         // Load _opPokeData from storage.
         PokeData memory opPokeData = _opPokeData;
 
@@ -142,7 +157,6 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
     /// @inheritdoc IScribeOptimistic
     function opChallenge(SchnorrData calldata schnorrData)
         external
-        payable
         returns (bool)
     {
         // Load _opPokeData from storage.
@@ -226,7 +240,7 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
     function _constructOpPokeMessage(
         PokeData calldata pokeData,
         SchnorrData calldata schnorrData
-    ) internal view returns (bytes32) {
+    ) private view returns (bytes32) {
         return keccak256(
             abi.encodePacked(
                 "\x19Ethereum Signed Message:\n32",
@@ -384,12 +398,6 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
             );
             maxChallengeReward = maxChallengeReward_;
         }
-    }
-
-    /// @inheritdoc IScribeOptimistic
-    function withdrawETH(address payable receiver, uint amount) external auth {
-        bool ok = _sendETH(receiver, amount);
-        require(ok);
     }
 
     function _sendETH(address payable receiver, uint reward)

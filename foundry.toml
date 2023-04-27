@@ -2,7 +2,7 @@
 src = 'src'
 out = 'out'
 libs = ['lib']
-ffi = true # Enabled to support differential fuzz testing
+ffi = true
 
 # Compilation
 solc_version = "0.8.16"
@@ -12,8 +12,8 @@ via_ir = false  # @todo Off during dev. Enable for production.
 extra_output_files = ["metadata", "irOptimized"]
 
 # Testing
+fuzz = { runs = 50 }
 block_timestamp = 1_680_220_800 # March 31, 2023 at 00:00 GMT
-fuzz = { runs = 10 }
 
 [rpc_endpoints]
 mainnet = "https://rpc.ankr.com/eth"

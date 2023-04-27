@@ -16,8 +16,6 @@ import {LibSchnorrData} from "./libs/LibSchnorrData.sol";
  *         Aggregated, strong and true
  *         Delivering the truth
  *         Just for you
- *
- * @dev
  */
 contract Scribe is IScribe, Auth, Toll {
     using LibSchnorr for LibSecp256k1.Point;
@@ -138,6 +136,22 @@ contract Scribe is IScribe, Auth, Toll {
     /// @inheritdoc IScribe
     function poke(PokeData calldata pokeData, SchnorrData calldata schnorrData)
         external
+    {
+        _poke(pokeData, schnorrData);
+    }
+
+    /// @dev Optimized function selector: 0x00000082.
+    ///      Note that this function is _not_ defined via the IScribe interface
+    ///      and one should _not_ depend on it.
+    function poke_optimized_7136211(
+        PokeData calldata pokeData,
+        SchnorrData calldata schnorrData
+    ) external {
+        _poke(pokeData, schnorrData);
+    }
+
+    function _poke(PokeData calldata pokeData, SchnorrData calldata schnorrData)
+        private
     {
         // Revert if pokeData is stale.
         if (pokeData.age <= _pokeData.age) {
@@ -275,6 +289,9 @@ contract Scribe is IScribe, Auth, Toll {
     //--------------------------------------------------------------------------
     // Read Functionality
 
+    // @todo Chainlink interface
+    // see https://github.com/smartcontractkit/chainlink/blob/develop/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol.
+
     /// @dev Only callable by toll'ed address.
     function read() external view virtual toll returns (uint) {
         uint val = _pokeData.val;
@@ -310,6 +327,7 @@ contract Scribe is IScribe, Auth, Toll {
             return (false, address(0));
         }
 
+        // @todo Untested
         LibSecp256k1.Point memory pubKey = _pubKeys[index];
         if (pubKey.isZeroPoint()) {
             return (false, address(0));
@@ -321,7 +339,7 @@ contract Scribe is IScribe, Auth, Toll {
     /// @inheritdoc IScribe
     /// @custom:invariant Result arrays do not contain duplicates.
     ///                     (addrs, indexes) = feeds()
-    ///                         → ∀x ∊ Address: count(x in addrs) <= 1
+    ///                         →   ∀x ∊ Address: count(x in addrs) <= 1
     ///                           ⋀ ∀y ∊ uint: count(y in indexes) <= 1
     function feeds() external view returns (address[] memory, uint[] memory) {
         // Initiate arrays with upper limit length.
