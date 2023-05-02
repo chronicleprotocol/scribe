@@ -267,24 +267,20 @@ abstract contract IScribeTest is Test {
     // Test: Poke
 
     function testFuzz_poke(IScribe.PokeData[] memory pokeDatas) public {
+        vm.assume(pokeDatas.length < 50);
+
         LibFeed.Feed[] memory feeds = _createAndLiftFeeds(scribe.bar());
 
-        // @todo Need bigger fix.
-
-        // Ensure pokeDatas' val is never zero and pokeData's age is greater
-        // than block.timestamp. Note that block.timestamp is not increased
-        // in this test, so it is sufficient to ensure each age is newer than
-        // the last one. Note that Scribe sets a pokeData's age to
-        // block.timestamp.
-        for (uint i; i < pokeDatas.length; i++) {
-            vm.assume(pokeDatas[i].val != 0);
-            vm.assume(pokeDatas[i].age > uint32(block.timestamp));
-        }
-
+        uint32 lastPokeTimestamp = 0;
         IScribe.SchnorrData memory schnorrData;
         bool ok;
         uint val;
         for (uint i; i < pokeDatas.length; i++) {
+            pokeDatas[i].val = uint128(bound(pokeDatas[i].val, 1, type(uint128).max));
+            pokeDatas[i].age = uint32(
+                bound(pokeDatas[i].age, lastPokeTimestamp + 1, block.timestamp)
+            );
+
             schnorrData =
                 feeds.signSchnorr(scribe.constructPokeMessage(pokeDatas[i]));
 
@@ -302,6 +298,9 @@ abstract contract IScribeTest is Test {
             (val, ok) = scribe.peek();
             assertEq(val, pokeDatas[i].val);
             assertTrue(ok);
+
+            lastPokeTimestamp = uint32(block.timestamp);
+            vm.warp(block.timestamp + 10 minutes);
         }
     }
 

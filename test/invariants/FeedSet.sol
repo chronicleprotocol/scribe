@@ -9,7 +9,9 @@ struct FeedSet {
     mapping(address => bool) lifted;
 }
 
-/// @author Inspired by horsefacts.eth's [article](https://mirror.xyz/horsefacts.eth/Jex2YVaO65dda6zEyfM_-DXlXhOWCAoSpOx5PLocYgw).
+/**
+ * @author Inspired by horsefacts.eth's [article](https://mirror.xyz/horsefacts.eth/Jex2YVaO65dda6zEyfM_-DXlXhOWCAoSpOx5PLocYgw).
+ */
 library LibFeedSet {
     using LibSecp256k1 for LibSecp256k1.Point;
 

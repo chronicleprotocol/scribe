@@ -30,6 +30,12 @@ interface IScribe {
     /// @param currentAge The oracle's current value's age.
     error StaleMessage(uint32 givenAge, uint32 currentAge);
 
+    /// @notice Thrown if a poked value's age is greater than the current
+    ///         time.
+    /// @param givenAge The poked value's age.
+    /// @param currentTimestamp The current time.
+    error FutureMessage(uint32 givenAge, uint32 currentTimestamp);
+
     /// @notice Thrown if Schnorr signature not signed by exactly bar many
     ///         signers.
     /// @param numberSigners The number of signers for given Schnorr signature.
@@ -81,6 +87,8 @@ interface IScribe {
     function watMessage() external view returns (bytes32 watMessage);
 
     /// @notice The maximum number of feed lifts supported.
+    /// @dev Note that the constraint comes from feed's indexes being encoded as
+    ///      uint8 in SchnorrData.signersBlob.
     /// @return maxFeeds The maximum number of feed lifts supported.
     function maxFeeds() external view returns (uint maxFeeds);
 
@@ -171,6 +179,7 @@ interface IScribe {
     ///      `watMessage()(bytes32)` function.
     /// @param pubKey The public key of the feed.
     /// @param ecdsaData ECDSA signed message by the feed's public key.
+    /// @return The feed index of the newly lifted feed.
     function lift(LibSecp256k1.Point memory pubKey, ECDSAData memory ecdsaData)
         external
         returns (uint);
@@ -181,6 +190,7 @@ interface IScribe {
     ///      `watMessage()(bytes32)` function.
     /// @param pubKeys The public keys of the feeds.
     /// @param ecdsaDatas ECDSA signed message by the feeds' public keys.
+    /// @return List of feed indexes of the newly lifted feeds.
     function lift(
         LibSecp256k1.Point[] memory pubKeys,
         ECDSAData[] memory ecdsaDatas
