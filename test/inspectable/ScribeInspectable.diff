@@ -10,6 +10,10 @@
 > import {LibSchnorr} from "src/libs/LibSchnorr.sol";
 > import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
 > import {LibSchnorrData} from "src/libs/LibSchnorrData.sol";
+17c17
+< contract Scribe is IScribe, Auth, Toll {
+---
+> contract ScribeInspectable is IScribe, Auth, Toll {
 496a497,523
 > 
 >     //--------------------------------------------------------------------------

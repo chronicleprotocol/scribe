@@ -76,12 +76,20 @@ contract ScribeHandler is CommonBase, StdUtils {
     // -- Target Functions --
 
     function warp(uint seed) external {
-        uint amount = bound(seed, 0, 1 hours);
+        uint amount = bound(seed, 1, 1 hours);
         vm.warp(block.timestamp + amount);
     }
 
     function poke(uint valSeed, uint ageSeed) external cacheScribeState {
         _ensureBarFeedsLifted();
+
+        // Wait some time if executed in same timestamp as last poke.
+        if (_scribe_lastPokeData.age + 1 >= block.timestamp) {
+            vm.warp(
+                block.timestamp
+                    + ((_scribe_lastPokeData.age + 1) - block.timestamp) + 1
+            );
+        }
 
         // Get set of bar many feeds from feedSet.
         LibFeed.Feed[] memory feeds = feedSet.liftedFeeds(scribe.bar());
@@ -100,10 +108,7 @@ contract ScribeHandler is CommonBase, StdUtils {
         (bool ok,) = scribe.verifySchnorrSignature(pokeMessage, schnorrData);
         if (ok) {
             // Execute poke.
-            scribe.poke(
-                pokeData,
-                feeds.signSchnorr(scribe.constructPokeMessage(pokeData))
-            );
+            scribe.poke(pokeData, feeds.signSchnorr(pokeMessage));
         } else {
             console2.log(
                 StdStyle.yellow(
@@ -173,7 +178,7 @@ contract ScribeHandler is CommonBase, StdUtils {
     }
 
     function _randPokeDataAge(uint seed) internal view returns (uint32) {
-        uint age = bound(seed, _scribe_lastPokeData.age + 1, type(uint32).max);
+        uint age = bound(seed, _scribe_lastPokeData.age + 1, block.timestamp);
         return uint32(age);
     }
 }

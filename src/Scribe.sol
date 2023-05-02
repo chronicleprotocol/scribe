@@ -158,7 +158,6 @@ contract Scribe is IScribe, Auth, Toll {
         bytes32 message,
         SchnorrData calldata schnorrData
     ) internal view returns (bool, bytes memory) {
-        // ---- Declarations ----
         // Let signerIndex be the current signer's index read from schnorrData.
         uint signerIndex;
         // Let signerPubKey be the public key stored for signerIndex.
@@ -170,7 +169,6 @@ contract Scribe is IScribe, Auth, Toll {
         // Let aggPubKey be the sum of processed signers' public keys.
         // Note that Jacobian coordinates are used.
         LibSecp256k1.JacobianPoint memory aggPubKey;
-        // ----------------------
 
         // Fail if bar not reached.
         uint numberSigners = schnorrData.getSignerIndexLength();

@@ -8,7 +8,7 @@ import {Scribe} from "src/Scribe.sol";
 
 import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
 
-//import {LibHelpers} from "test/utils/LibHelpers.sol";
+import {LibFeed} from "script/libs/LibFeed.sol";
 
 /**
  * @notice Scribe Benchmark Script
@@ -28,10 +28,26 @@ import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
  *
  *      Note to poke more than once to get realistic gas costs.
  *      During the first execution the storage slots are empty.
+ *
+ * @dev Results:
+ *      - Deployment:
+ *          2,567,590
+ *
+ *      - Lift feeds:
+ *          181,762
+ *
+ *      - Poke 1. time:
+ *          90,684
+ *
+ *      - Poke 2. time:
+ *          73,584
+ *
+ *      - Poke 3. time:
+ *          73,584
  */
 contract ScribeBenchmark is Script {
-/* @todo Refactor to using scripts/libs.
-    using LibHelpers for LibHelpers.Feed[];
+    using LibFeed for LibFeed.Feed;
+    using LibFeed for LibFeed.Feed[];
 
     /// @dev Anvil's default mnemonic.
     string internal constant ANVIL_MNEMONIC =
@@ -43,29 +59,22 @@ contract ScribeBenchmark is Script {
         uint deployer = vm.deriveKey(ANVIL_MNEMONIC, uint32(0));
 
         vm.broadcast(deployer);
-        scribe = new Scribe();
+        scribe = new Scribe("ETH/USD");
     }
 
     function liftFeeds() public {
         uint deployer = vm.deriveKey(ANVIL_MNEMONIC, uint32(0));
 
         // Create bar many feeds.
-        LibHelpers.Feed[] memory feeds = LibHelpers.makeFeeds(1, scribe.bar());
+        LibFeed.Feed[] memory feeds = _createFeeds(scribe.bar());
 
-        // Create list of feeds' public keys.
+        // Create list of feeds' public keys and ECDSA signatures.
         LibSecp256k1.Point[] memory pubKeys =
             new LibSecp256k1.Point[](feeds.length);
+        IScribe.ECDSAData[] memory sigs = new IScribe.ECDSAData[](feeds.length);
         for (uint i; i < feeds.length; i++) {
             pubKeys[i] = feeds[i].pubKey;
-        }
-
-        // Create feeds' ECDSA signatures in order to lift them.
-        IScribe.ECDSASignatureData[] memory sigs =
-            new IScribe.ECDSASignatureData[](feeds.length);
-        for (uint i; i < feeds.length; i++) {
-            sigs[i] = LibHelpers.makeECDSASignature(
-                feeds[i], scribe.feedLiftMessage()
-            );
+            sigs[i] = feeds[i].signECDSA(scribe.watMessage());
         }
 
         // Lift feeds.
@@ -77,8 +86,7 @@ contract ScribeBenchmark is Script {
         uint relayer = vm.deriveKey(ANVIL_MNEMONIC, uint32(1));
 
         // Create bar many feeds.
-        // Note to create same set of feeds as lifted.
-        LibHelpers.Feed[] memory feeds = LibHelpers.makeFeeds(1, scribe.bar());
+        LibFeed.Feed[] memory feeds = _createFeeds(scribe.bar());
 
         // Create list of feeds' public keys.
         LibSecp256k1.Point[] memory pubKeys =
@@ -87,19 +95,35 @@ contract ScribeBenchmark is Script {
             pubKeys[i] = feeds[i].pubKey;
         }
 
-        // Create PokeData.
-        // Note to use max value for val and age to have highest possible gas
-        // costs.
+        // Create pokeData.
+        // Note to use max value for val to have highest possible gas costs.
         IScribe.PokeData memory pokeData =
-            IScribe.PokeData({val: type(uint128).max, age: type(uint32).max});
+            IScribe.PokeData({val: type(uint128).max, age: uint32(block.timestamp)});
 
-        // Create SchnorrSignatureData.
-        IScribe.SchnorrSignatureData memory schnorrData;
-        schnorrData = feeds.signSchnorrMessage(scribe, pokeData);
+        // Create schnorrData.
+        IScribe.SchnorrData memory schnorrData;
+        schnorrData = feeds.signSchnorr(scribe.constructPokeMessage(pokeData));
 
-        // Poke.
+        // Execute poke.
         vm.broadcast(relayer);
         scribe.poke(pokeData, schnorrData);
     }
-    */
+
+    function _createFeeds(uint amount)
+        internal
+        pure
+        returns (LibFeed.Feed[] memory)
+    {
+        uint startPrivKey = 2;
+
+        LibFeed.Feed[] memory feeds = new LibFeed.Feed[](amount);
+        for (uint i; i < amount; i++) {
+            feeds[i] = LibFeed.newFeed({
+                privKey: startPrivKey + i,
+                index: uint8(i + 1)
+            });
+        }
+
+        return feeds;
+    }
 }

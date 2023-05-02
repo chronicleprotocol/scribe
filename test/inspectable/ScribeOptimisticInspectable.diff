@@ -2,19 +2,26 @@
 < import {IScribeOptimistic} from "./IScribeOptimistic.sol";
 ---
 > import {IScribeOptimistic} from "src/IScribeOptimistic.sol";
-5,6c5,6
+5,6c5
 < import {IScribe} from "./IScribe.sol";
 < import {Scribe} from "./Scribe.sol";
 ---
 > import {IScribe} from "src/IScribe.sol";
-> import {Scribe} from "src/Scribe.sol";
-8,9c8,9
+8,9c7,8
 < import {LibSchnorr} from "./libs/LibSchnorr.sol";
 < import {LibSecp256k1} from "./libs/LibSecp256k1.sol";
 ---
+> // Note to inherit from ScribeInspectable.
+> import {ScribeInspectable as Scribe} from "./ScribeInspectable.sol";
+10a10,12
 > import {LibSchnorr} from "src/libs/LibSchnorr.sol";
 > import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
-400a401,419
+> 
+17c19
+< contract ScribeOptimistic is IScribeOptimistic, Scribe {
+---
+> contract ScribeOptimisticInspectable is IScribeOptimistic, Scribe {
+400a403,421
 >     }
 > 
 >     //--------------------------------------------------------------------------

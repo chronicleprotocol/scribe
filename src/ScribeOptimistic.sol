@@ -392,10 +392,7 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         }
     }
 
-    function _sendETH(address payable to, uint amount)
-        private
-        returns (bool)
-    {
+    function _sendETH(address payable to, uint amount) private returns (bool) {
         (bool ok,) = to.call{value: amount}("");
         return ok;
     }

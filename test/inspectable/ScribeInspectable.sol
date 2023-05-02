@@ -14,7 +14,7 @@ import {LibSchnorrData} from "src/libs/LibSchnorrData.sol";
  *
  * @notice Schnorr multi-signature based Oracle
  */
-contract Scribe is IScribe, Auth, Toll {
+contract ScribeInspectable is IScribe, Auth, Toll {
     using LibSchnorr for LibSecp256k1.Point;
     using LibSecp256k1 for LibSecp256k1.Point;
     using LibSecp256k1 for LibSecp256k1.JacobianPoint;

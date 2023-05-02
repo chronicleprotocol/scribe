@@ -368,7 +368,9 @@ abstract contract IScribeTest is Test {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                IScribe.FutureMessage.selector, pokeData.age, uint32(block.timestamp)
+                IScribe.FutureMessage.selector,
+                pokeData.age,
+                uint32(block.timestamp)
             )
         );
         scribe.poke(pokeData, schnorrData);

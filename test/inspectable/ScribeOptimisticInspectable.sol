@@ -3,7 +3,9 @@ pragma solidity ^0.8.16;
 import {IScribeOptimistic} from "src/IScribeOptimistic.sol";
 
 import {IScribe} from "src/IScribe.sol";
-import {Scribe} from "src/Scribe.sol";
+
+// Note to inherit from ScribeInspectable.
+import {ScribeInspectable as Scribe} from "./ScribeInspectable.sol";
 
 import {LibSchnorr} from "src/libs/LibSchnorr.sol";
 import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
@@ -14,7 +16,7 @@ import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
  * @notice Schnorr multi-signature based optimistic Oracle providing onchain
  *         fault resolution
  */
-contract ScribeOptimistic is IScribeOptimistic, Scribe {
+contract ScribeOptimisticInspectable is IScribeOptimistic, Scribe {
     using LibSchnorr for LibSecp256k1.Point;
     using LibSecp256k1 for LibSecp256k1.Point;
     using LibSecp256k1 for LibSecp256k1.Point[];
@@ -392,10 +394,7 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         }
     }
 
-    function _sendETH(address payable to, uint amount)
-        private
-        returns (bool)
-    {
+    function _sendETH(address payable to, uint amount) private returns (bool) {
         (bool ok,) = to.call{value: amount}("");
         return ok;
     }
