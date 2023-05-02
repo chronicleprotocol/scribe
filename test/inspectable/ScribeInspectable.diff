@@ -10,24 +10,7 @@
 > import {LibSchnorr} from "src/libs/LibSchnorr.sol";
 > import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
 > import {LibSchnorrData} from "src/libs/LibSchnorrData.sol";
-13,22c13
-<  * @title Scribe
-<  * @custom:version 1.0.0
-<  *
-<  * @notice Schnorr Signatures
-<  *         Aggregated, strong and true
-<  *         Delivering the truth
-<  *         Just for you
-<  *
-<  * @author merkleplant
-<  * @custom:coauthor jar-o
----
->  * @dev Scribe version providing functions to inspect internal state.
-24c15
-< contract Scribe is IScribe, Auth, Toll {
----
-> contract ScribeInspectable is IScribe, Auth, Toll {
-568a560,578
+496a497,523
 > 
 >     //--------------------------------------------------------------------------
 >     // Inspectable
@@ -42,6 +25,14 @@
 >         returns (LibSecp256k1.Point[] memory)
 >     {
 >         return _pubKeys;
+>     }
+> 
+>     function inspectable_pubKeys(uint index)
+>         public
+>         view
+>         returns (LibSecp256k1.Point memory)
+>     {
+>         return _unsafeLoadPubKeyAt(index);
 >     }
 > 
 >     function inspectable_feeds(address addr) public view returns (uint) {

@@ -10,24 +10,18 @@ import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
 import {LibSchnorrData} from "src/libs/LibSchnorrData.sol";
 
 /**
- * @dev Scribe version providing functions to inspect internal state.
+ * @title Scribe
+ *
+ * @notice Schnorr multi-signature based Oracle
  */
-contract ScribeInspectable is IScribe, Auth, Toll {
+contract Scribe is IScribe, Auth, Toll {
     using LibSchnorr for LibSecp256k1.Point;
     using LibSecp256k1 for LibSecp256k1.Point;
     using LibSecp256k1 for LibSecp256k1.JacobianPoint;
     using LibSchnorrData for SchnorrData;
 
-    //--------------------------------------------------------------------------
-    // Constants
-
-    /// @dev The maximum number of feed lifts supported.
-    ///      Note that this constraint is due to feed's indexes being encoded as
-    ///      uint8 in SchnorrData.signersBlob.
+    /// @inheritdoc IScribe
     uint public constant maxFeeds = type(uint8).max - 1;
-
-    //--------------------------------------------------------------------------
-    // Immutables
 
     /// @dev The storage slot of _pubKeys[0].
     uint private immutable SLOT_pubKeys;
@@ -38,69 +32,24 @@ contract ScribeInspectable is IScribe, Auth, Toll {
     /// @inheritdoc IScribe
     bytes32 public immutable watMessage;
 
-    //--------------------------------------------------------------------------
-    // PokeData Storage
+    // -- Storage --
 
-    /// @custom:invariant Only function `poke` may mutate the struct's state.
-    ///                     preTx(_pokeData) != postTx(_pokeData)
-    ///                         → msg.sig == "poke"
-    /// @custom:invariant Field `age` is strictly monotonically increasing.
-    ///                     preTx(_pokeDat.age) != postTx(_pokeData.age)
-    ///                         → preTx(_pokeData.age) < postTx(_pokeData.age)
-    /// @custom:invariant Field `age` may only be mutated to block.timestamp.
-    ///                     preTx(_pokeData.age) != postTx(_pokeData.age)
-    ///                         → postTx(_pokeData.age) == block.timestamp
-    /// @custom:invariant Field `val` can only be read by toll'ed caller.
+    /// @dev Scribe's current value and corresponding age.
     PokeData internal _pokeData;
 
-    //--------------------------------------------------------------------------
-    // Feeds Storage
-
     /// @dev List of feeds' public keys.
-    /// @custom:invariant Index 0 is zero point.
-    ///                     _pubKeys[0].isZeroPoint()
-    /// @custom:invariant A non-zero public key exists at most once.
-    ///                     ∀x ∊ PublicKeys: x.isZeroPoint() ∨ count(x in _pubKeys) <= 1
-    /// @custom:invariant Length is strictly monotonically increasing.
-    ///                     preTx(_pubKeys.length) <= posTx(_pubKeys.length)
-    /// @custom:invariant Existing public key may only be deleted, never mutated.
-    ///                     ∀x ∊ uint: preTx(_pubKeys[x]) != postTx(_pubKeys[x])
-    ///                         → postTx(_pubKeys[x].isZeroPoint())
-    /// @custom:invariant Newly added public key is non-zero.
-    ///                     preTx(_pubKeys.length) != postTx(_pubKeys.length)
-    ///                         → postTx(!_pubKeys[_pubKeys.length-1].isZeroPoint())
-    /// @custom:invariant Only functions `lift` and `drop` may mutate the array's state.
-    ///                     ∀x ∊ uint: preTx(_pubKeys[x]) != postTx(_pubKeys[x])
-    ///                         → (msg.sig == "lift" ∨ msg.sig == "drop")
-    /// @custom:invariant Array's state may only be mutated by auth'ed caller.
-    ///                     ∀x ∊ uint: preTx(_pubKeys[x]) != postTx(_pubKeys[x])
-    ///                         → authed(msg.sender)
     LibSecp256k1.Point[] internal _pubKeys;
 
-    /// @dev Mapping of feeds' address to its public key index in _pubKeys.
-    /// @custom:invariant Image of mapping is [0, _pubKeys.length).
-    ///                     ∀x ∊ Address: _feeds[x] ∊ [0, _pubKeys.length)
-    /// @custom:invariant Image of mapping links to feed's public key in _pubKeys.
-    ///                     ∀x ∊ Address: _feeds[x] == y and y != 0
-    ///                         → _pubKeys[y].toAddress() == x
-    /// @custom:invariant Only functions `lift` and `drop` may mutate the mapping's state.
-    ///                     ∀x ∊ Address: preTx(_feeds[x]) != postTx(_feeds[x])
-    ///                         → (msg.sig == "lift" ∨ msg.sig == "drop")
-    /// @custom:invariant Mapping's state may only be mutated by auth'ed caller.
-    ///                     ∀x ∊ Address: preTx(_feeds[x]) != postTx(_feeds[x])
-    ///                         → authed(msg.sender)
+    /// @dev Mapping of feeds' addresses to their public key indexes in
+    ///      _pubKeys.
     mapping(address => uint) internal _feeds;
-
-    //--------------------------------------------------------------------------
-    // Security Parameters Storage
 
     /// @inheritdoc IScribe
     /// @dev Note to have as last in storage to enable downstream contracts to
     ///      pack the slot.
     uint8 public bar;
 
-    //--------------------------------------------------------------------------
-    // Constructor
+    // -- Constructor --
 
     constructor(bytes32 wat_) {
         require(wat_ != 0);
@@ -125,8 +74,7 @@ contract ScribeInspectable is IScribe, Auth, Toll {
         SLOT_pubKeys = pubKeysSlot;
     }
 
-    //--------------------------------------------------------------------------
-    // Poke Functionality
+    // -- Poke Functionality --
 
     /// @inheritdoc IScribe
     function poke(PokeData calldata pokeData, SchnorrData calldata schnorrData)
@@ -151,6 +99,10 @@ contract ScribeInspectable is IScribe, Auth, Toll {
         // Revert if pokeData is stale.
         if (pokeData.age <= _pokeData.age) {
             revert StaleMessage(pokeData.age, _pokeData.age);
+        }
+        // Revert if pokeData is from the future.
+        if (pokeData.age > uint32(block.timestamp)) {
+            revert FutureMessage(pokeData.age, uint32(block.timestamp));
         }
 
         // Revert if schnorrData does not prove integrity of pokeData.
@@ -190,8 +142,7 @@ contract ScribeInspectable is IScribe, Auth, Toll {
         );
     }
 
-    //--------------------------------------------------------------------------
-    // Schnorr Signature Verification
+    // -- Schnorr Signature Verification --
 
     /// @inheritdoc IScribe
     function verifySchnorrSignature(
@@ -207,50 +158,48 @@ contract ScribeInspectable is IScribe, Auth, Toll {
         bytes32 message,
         SchnorrData calldata schnorrData
     ) internal view returns (bool, bytes memory) {
+        // ---- Declarations ----
+        // Let signerIndex be the current signer's index read from schnorrData.
+        uint signerIndex;
+        // Let signerPubKey be the public key stored for signerIndex.
+        LibSecp256k1.Point memory signerPubKey;
+        // Let signer be the address of signerPubKey.
+        address signer;
+        // Let lastSigner be the previous processed signer.
+        address lastSigner;
+        // Let aggPubKey be the sum of processed signers' public keys.
+        // Note that Jacobian coordinates are used.
+        LibSecp256k1.JacobianPoint memory aggPubKey;
+        // ----------------------
+
         // Fail if bar not reached.
         uint numberSigners = schnorrData.getSignerIndexLength();
         if (numberSigners != bar) {
             return (false, _errorBarNotReached(uint8(numberSigners), bar));
         }
 
-        // Load first signerIndex from schnorrData.
-        uint signerIndex = schnorrData.getSignerIndex(0);
-
-        // Let signerPubKey be the currently processed signer's public key.
-        LibSecp256k1.Point memory signerPubKey;
+        // Initiate signer variables with schnorrData's 0's signer index.
+        signerIndex = schnorrData.getSignerIndex(0);
         signerPubKey = _unsafeLoadPubKeyAt(signerIndex);
+        signer = signerPubKey.toAddress();
 
-        // Let signer be the address of the current signerPubKey.
-        address signer = signerPubKey.toAddress();
-
-        // Fail if signer's pubKey is zero point.
+        // Fail if signer not feed.
         if (signerPubKey.isZeroPoint()) {
             return (false, _errorSignerNotFeed(signer));
         }
 
-        // Let aggPubKey be the sum of already processed signers' public keys.
-        // Note that aggPubKey is in Jacobian coordinates.
-        LibSecp256k1.JacobianPoint memory aggPubKey;
+        // Initiate aggPubKey with being the signerPubKey.
         aggPubKey = signerPubKey.toJacobian();
 
-        // Iterate over encoded signers. Check each signer's integrity and
-        // uniqueness. If signer is valid, aggregate their public key to
-        // aggPubKey.
-        address lastSigner;
+        // Aggregate remaining encoded signers.
         for (uint i = 1; i < bar; i++) {
-            // Cache last processed signer.
+            // Update Signer Variables.
             lastSigner = signer;
-
-            // Load next signerIndex from schnorrData.
             signerIndex = schnorrData.getSignerIndex(i);
-
-            // Load next signerPubKey from storage.
             signerPubKey = _unsafeLoadPubKeyAt(signerIndex);
-
-            // Update signer variable.
             signer = signerPubKey.toAddress();
 
-            // Fail if signer's pubKey is zero point.
+            // Fail if signer not feed.
             if (signerPubKey.isZeroPoint()) {
                 return (false, _errorSignerNotFeed(signer));
             }
@@ -261,11 +210,9 @@ contract ScribeInspectable is IScribe, Auth, Toll {
                 return (false, _errorSignersNotOrdered());
             }
 
-            // Having same x coordinates means either double-signing/rogue-key
-            // attack or result is Point at Infinity.
-            assert(aggPubKey.x != signerPubKey.x);
+            assert(aggPubKey.x != signerPubKey.x); // Indicates rogue-key attack
 
-            // Aggregate signerPubKey by adding it to aggPubKey.
+            // Update aggPubKey.
             aggPubKey.addAffinePoint(signerPubKey);
         }
 
@@ -281,8 +228,7 @@ contract ScribeInspectable is IScribe, Auth, Toll {
         return (true, new bytes(0));
     }
 
-    //--------------------------------------------------------------------------
-    // Read Functionality
+    // -- Toll'ed Read Functionality --
 
     // @todo Chainlink interface
     // see https://github.com/smartcontractkit/chainlink/blob/develop/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol.
@@ -306,8 +252,7 @@ contract ScribeInspectable is IScribe, Auth, Toll {
         return (val, val != 0);
     }
 
-    //--------------------------------------------------------------------------
-    // Public View Functions
+    // -- Public Read Functionality --
 
     /// @inheritdoc IScribe
     function feeds(address who) external view returns (bool, uint) {
@@ -322,7 +267,6 @@ contract ScribeInspectable is IScribe, Auth, Toll {
             return (false, address(0));
         }
 
-        // @todo Untested
         LibSecp256k1.Point memory pubKey = _pubKeys[index];
         if (pubKey.isZeroPoint()) {
             return (false, address(0));
@@ -332,10 +276,6 @@ contract ScribeInspectable is IScribe, Auth, Toll {
     }
 
     /// @inheritdoc IScribe
-    /// @custom:invariant Result arrays do not contain duplicates.
-    ///                     (addrs, indexes) = feeds()
-    ///                         →   ∀x ∊ Address: count(x in addrs) <= 1
-    ///                           ⋀ ∀y ∊ uint: count(y in indexes) <= 1
     function feeds() external view returns (address[] memory, uint[] memory) {
         // Initiate arrays with upper limit length.
         uint upperLimitLength = _pubKeys.length;
@@ -374,8 +314,7 @@ contract ScribeInspectable is IScribe, Auth, Toll {
         return (feedsList, feedsIndexesList);
     }
 
-    //--------------------------------------------------------------------------
-    // Auth'ed Functionality
+    // -- Auth'ed Functionality --
 
     /// @inheritdoc IScribe
     function lift(LibSecp256k1.Point memory pubKey, ECDSAData memory ecdsaData)
@@ -473,8 +412,7 @@ contract ScribeInspectable is IScribe, Auth, Toll {
         }
     }
 
-    //--------------------------------------------------------------------------
-    // Internal Helpers
+    // -- Internal Helpers --
 
     /// @dev Halts execution by reverting with `err`.
     function _revert(bytes memory err) internal pure {
@@ -487,8 +425,8 @@ contract ScribeInspectable is IScribe, Auth, Toll {
         }
     }
 
-    /// @dev Returns the public key at _pubKeys[index], or zero point if index
-    ///      out of bounds.
+    /// @dev Returns the public key at `_pubKeys[index]`, or zero point if
+    ///      `index` out of bounds.
     function _unsafeLoadPubKeyAt(uint index)
         private
         view
@@ -552,10 +490,9 @@ contract ScribeInspectable is IScribe, Auth, Toll {
         return abi.encodeWithSelector(IScribe.SchnorrSignatureInvalid.selector);
     }
 
-    //--------------------------------------------------------------------------
-    // Overridden Toll Functions
+    // -- Overridden Toll Functions --
 
-    /// @dev Defines the authorization for IToll's authenticated functions.
+    /// @dev Defines authorization for IToll's authenticated functions.
     function toll_auth() internal override(Toll) auth {}
 
     //--------------------------------------------------------------------------
