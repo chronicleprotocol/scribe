@@ -11,18 +11,15 @@ import {LibSecp256k1} from "./libs/LibSecp256k1.sol";
 /**
  * @title ScribeOptimistic
  *
- * @notice Optimistic!
- *         Thats what the scribe yawps
- *         Can you tame them
- *         By challenging a poke?
+ * @notice Schnorr multi-signature based optimistic Oracle providing onchain
+ *         fault resolution
  */
 contract ScribeOptimistic is IScribeOptimistic, Scribe {
     using LibSchnorr for LibSecp256k1.Point;
     using LibSecp256k1 for LibSecp256k1.Point;
     using LibSecp256k1 for LibSecp256k1.Point[];
 
-    //--------------------------------------------------------------------------
-    // Hot Slot Storage
+    // -- Storage --
 
     /// @inheritdoc IScribeOptimistic
     uint16 public opChallengePeriod;
@@ -39,16 +36,13 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
     ///      age to block.timestamp during opPoke.
     uint32 private _originalOpPokeDataAge;
 
-    //--------------------------------------------------------------------------
-    // opPokeData Storage
-
+    /// @dev opScribe's last opPoke'd value and corresponding age.
     PokeData private _opPokeData;
 
     /// @inheritdoc IScribeOptimistic
     uint public maxChallengeReward;
 
-    //--------------------------------------------------------------------------
-    // Constructor and Receive Function
+    // -- Constructor and Receive Functionality --
 
     constructor(bytes32 wat_) Scribe(wat_) {
         // Note to have a non-zero challenge period.
@@ -57,8 +51,7 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
 
     receive() external payable {}
 
-    //--------------------------------------------------------------------------
-    // Optimistic Poke Functionality
+    // -- opPoke Functionality --
 
     /// @inheritdoc IScribeOptimistic
     function opPoke(
@@ -102,28 +95,30 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
             ? opPokeData.age
             : _pokeData.age;
 
-        // Revert if pokeData's age is not fresher than current age.
+        // Revert if pokeData is stale.
         if (pokeData.age <= age) {
             revert StaleMessage(pokeData.age, age);
         }
 
-        // Construct opPokeMessage.
-        bytes32 opPokeMessage = _constructOpPokeMessage(pokeData, schnorrData);
-
         // Recover ECDSA signer.
-        address signer =
-            ecrecover(opPokeMessage, ecdsaData.v, ecdsaData.r, ecdsaData.s);
+        address signer = ecrecover(
+            _constructOpPokeMessage(pokeData, schnorrData),
+            ecdsaData.v,
+            ecdsaData.r,
+            ecdsaData.s
+        );
 
-        // Load signer's feedIndex.
-        uint feedIndex = _feeds[signer];
+        // Load signer's index.
+        uint signerIndex = _feeds[signer];
 
         // Revert if signer is not feed.
-        if (feedIndex == 0) {
+        if (signerIndex == 0) {
             revert SignerNotFeed(signer);
         }
 
-        // Store the signer and bind them to their provided schnorrData.
-        opFeedIndex = uint8(feedIndex);
+        // Store the signerIndex as opFeedIndex and bind them to their provided
+        // schnorrData.
+        opFeedIndex = uint8(signerIndex);
         _schnorrDataCommitment = uint160(
             uint(
                 keccak256(
@@ -148,7 +143,7 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         _opPokeData.val = pokeData.val;
         _opPokeData.age = uint32(block.timestamp);
 
-        // Store pokeData's age to be able to recreate original pokeMessage.
+        // Store pokeData's age to allow recreating original pokeMessage.
         _originalOpPokeDataAge = pokeData.age;
 
         emit OpPoked(msg.sender, signer, schnorrData, pokeData);
@@ -259,8 +254,7 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         );
     }
 
-    //--------------------------------------------------------------------------
-    // Read Functionality
+    // -- Toll'ed Read Functionality --
 
     /// @inheritdoc IScribe
     function read()
@@ -317,8 +311,7 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         return val;
     }
 
-    //--------------------------------------------------------------------------
-    // Auth'ed Functionality
+    // -- Auth'ed Functionality --
 
     /// @inheritdoc IScribeOptimistic
     function setOpChallengePeriod(uint16 opChallengePeriod_) external auth {
@@ -353,7 +346,7 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
     /// @dev Ensures an auth'ed configuration update does not enable
     ///      successfully challenging a prior to the update valid opPoke.
     function _afterAuthedAction() private {
-        // Do nothing if contract is being deployed.
+        // Do nothing during deployment.
         if (address(this).code.length == 0) return;
 
         // Decide whether _opPokeData is finalized.
@@ -381,8 +374,7 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         }
     }
 
-    //--------------------------------------------------------------------------
-    // Searcher Incentivization Logic
+    // -- Searcher Incentivization Logic --
 
     /// @inheritdoc IScribeOptimistic
     function challengeReward() public view returns (uint) {
@@ -400,11 +392,11 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         }
     }
 
-    function _sendETH(address payable receiver, uint reward)
+    function _sendETH(address payable to, uint amount)
         private
         returns (bool)
     {
-        (bool ok,) = receiver.call{value: reward}("");
+        (bool ok,) = to.call{value: amount}("");
         return ok;
     }
 }

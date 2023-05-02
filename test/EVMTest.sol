@@ -46,7 +46,7 @@ abstract contract EVMTest is Test {
     }
 
     /// @dev Tests that:
-    ///         ecrecover(_, _, 0, _) → address(0)
+    ///         ecrecover(_, _, 0, _) = address(0)
     function test_ecrecover_ReturnsZeroAddress_If_R_IsZero(uint privKeySeed)
         public
     {

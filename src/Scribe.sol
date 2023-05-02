@@ -12,10 +12,7 @@ import {LibSchnorrData} from "./libs/LibSchnorrData.sol";
 /**
  * @title Scribe
  *
- * @notice Schnorr Signatures
- *         Aggregated, strong and true
- *         Delivering the truth
- *         Just for you
+ * @notice Schnorr multi-signature based Oracle
  */
 contract Scribe is IScribe, Auth, Toll {
     using LibSchnorr for LibSecp256k1.Point;
@@ -37,7 +34,7 @@ contract Scribe is IScribe, Auth, Toll {
 
     // -- Storage --
 
-    /// @dev Scribe's current value and its age.
+    /// @dev Scribe's current value and corresponding age.
     PokeData internal _pokeData;
 
     /// @dev List of feeds' public keys.
@@ -105,7 +102,6 @@ contract Scribe is IScribe, Auth, Toll {
         }
         // Revert if pokeData is from the future.
         if (pokeData.age > uint32(block.timestamp)) {
-            // @todo Untested.
             revert FutureMessage(pokeData.age, uint32(block.timestamp));
         }
 
@@ -271,7 +267,6 @@ contract Scribe is IScribe, Auth, Toll {
             return (false, address(0));
         }
 
-        // @todo Untested
         LibSecp256k1.Point memory pubKey = _pubKeys[index];
         if (pubKey.isZeroPoint()) {
             return (false, address(0));

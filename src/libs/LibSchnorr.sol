@@ -91,42 +91,4 @@ library LibSchnorr {
         // Verification succeeds iff ([s]G - [e]P)ₑ = Rₑ.
         return commitment == recovered;
     }
-
-    // -- BIP-340 --
-    //
-    // @todo Remove
-
-    function verifySignatureBIP340(
-        LibSecp256k1.Point memory pubKey,
-        LibSecp256k1.Point memory commitment,
-        bytes32 message,
-        bytes32 signature
-    ) internal pure returns (bool) {
-        // sha256("BIP0340/challenge");
-        bytes32 tag = sha256("BIP0340/challenge");
-
-        bytes32 challenge = bytes32(
-            uint(
-                sha256(
-                    abi.encodePacked(tag, tag, commitment.x, pubKey.x, message)
-                )
-            ) % LibSecp256k1.Q()
-        );
-
-        bytes32 msgHash = bytes32(
-            LibSecp256k1.Q()
-                - mulmod(uint(signature), pubKey.x, LibSecp256k1.Q())
-        );
-
-        bytes32 s = bytes32(
-            LibSecp256k1.Q()
-                - mulmod(uint(challenge), pubKey.x, LibSecp256k1.Q())
-        );
-
-        address recovered = ecrecover(
-            msgHash, uint8(pubKey.yParity() + 27), bytes32(pubKey.x), s
-        );
-
-        return recovered == commitment.toAddress();
-    }
 }

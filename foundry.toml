@@ -18,15 +18,15 @@ block_timestamp = 1_680_220_800 # March 31, 2023 at 00:00 GMT
 [invariant]
 fail_on_revert = true
 
-[rpc_endpoints]
-mainnet = "https://rpc.ankr.com/eth"
-optimism = "https://rpc.ankr.com/optimism"
-
 [fmt]
 line_length = 80
 int_types = "short"
 number_underscore = "preserve"
 ignore = []
+
+[rpc_endpoints]
+mainnet = "https://rpc.ankr.com/eth"
+optimism = "https://rpc.ankr.com/optimism"
 
 # Profile for intense testing
 # Run via `FOUNDRY_PROFILE=intense forge t`
@@ -35,5 +35,15 @@ ignore = []
 runs = 10_000
 [profile.intense.invariant]
 runs = 10_000
+
+# Profile for CI testing
+# Run via `FOUNDRY_PROFILE=ci forge t`
+# TODO: Use intense profile once testsuite more performant.
+#       See https://github.com/foundry-rs/foundry/issues/4790
+[profile.ci]
+[profile.ci.fuzz]
+runs = 100
+[profile.ci.invariant]
+runs = 100
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config

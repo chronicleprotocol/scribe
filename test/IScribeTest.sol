@@ -276,7 +276,8 @@ abstract contract IScribeTest is Test {
         bool ok;
         uint val;
         for (uint i; i < pokeDatas.length; i++) {
-            pokeDatas[i].val = uint128(bound(pokeDatas[i].val, 1, type(uint128).max));
+            pokeDatas[i].val =
+                uint128(bound(pokeDatas[i].val, 1, type(uint128).max));
             pokeDatas[i].age = uint32(
                 bound(pokeDatas[i].age, lastPokeTimestamp + 1, block.timestamp)
             );
@@ -365,7 +366,11 @@ abstract contract IScribeTest is Test {
         IScribe.SchnorrData memory schnorrData;
         schnorrData = feeds.signSchnorr(scribe.constructPokeMessage(pokeData));
 
-        vm.expectRevert();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IScribe.FutureMessage.selector, pokeData.age, uint32(block.timestamp)
+            )
+        );
         scribe.poke(pokeData, schnorrData);
     }
 
@@ -384,11 +389,17 @@ abstract contract IScribeTest is Test {
         uint index = scribe.lift(feed.pubKey, feed.signECDSA(WAT_MESSAGE));
         assertEq(index, 1);
 
-        // Check via feeds(address)(bool).
+        // Check via feeds(address)(bool,uint).
         bool ok;
         (ok, index) = scribe.feeds(feed.pubKey.toAddress());
         assertTrue(ok);
         assertEq(index, 1);
+
+        // Check via feeds(uint)(bool,address).
+        address feedAddr;
+        (ok, feedAddr) = scribe.feeds(1);
+        assertTrue(ok);
+        assertEq(feedAddr, feed.pubKey.toAddress());
 
         // Check via feeds()(address[],uint[]).
         address[] memory feeds_;
@@ -470,15 +481,19 @@ abstract contract IScribeTest is Test {
             assertTrue(indexes[i] != 0 && indexes[i] < pubKeys.length + 1);
         }
 
-        // Check via feeds(address)(bool,uint).
+        // Check via feeds(address)(bool,uint) and feeds(uint)(bool,address).
         bool ok;
         uint index;
+        address feedAddr;
         for (uint i; i < pubKeys.length; i++) {
             (ok, index) = scribe.feeds(pubKeys[i].toAddress());
             assertTrue(ok);
-
             // Note that the indexes are orders based on pubKeys' addresses.
             assertTrue(index != 0);
+
+            (ok, feedAddr) = scribe.feeds(index);
+            assertTrue(ok);
+            assertEq(pubKeys[i].toAddress(), feedAddr);
         }
 
         // Check via feeds()(address[],uint[]).
@@ -565,6 +580,12 @@ abstract contract IScribeTest is Test {
         (ok, index) = scribe.feeds(feed.pubKey.toAddress());
         assertFalse(ok);
         assertEq(index, 0);
+
+        // Check via feeds(uint)(bool,address).
+        address feedAddr;
+        (ok, feedAddr) = scribe.feeds(1);
+        assertFalse(ok);
+        assertFalse(feedAddr == feed.pubKey.toAddress());
 
         // Check via feeds()(address[],uint[]).
         address[] memory feeds_;

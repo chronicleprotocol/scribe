@@ -1,0 +1,27 @@
+name: Solc Version Tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+
+      - name: Run Forge tests for each supported solc version
+        run: >
+            FOUNDRY_PROFILE=ci
+            forge test --use 0.8.16 &&
+            forge test --use 0.8.17 &&
+            forge test --use 0.8.18

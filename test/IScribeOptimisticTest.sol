@@ -483,7 +483,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
     }
 
     // @todo isAfterAuthedActionProtected needs following tests:
-    //          - delete opPOkeData if not finalized
+    //          - delete opPokeData if not finalized
     //          - not deletes opPokeData if finalized
     //          - sets age of current val to block.timestamp
     //              -> check via expect(isStale)

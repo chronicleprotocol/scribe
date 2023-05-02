@@ -67,9 +67,9 @@ library LibSchnorrData {
             // Calldata index for schnorrData.signersBlob[0] is schnorrData's
             // offset plus 4 words, i.e. 0x80.
             let start := add(schnorrData, 0x80)
-            // Note that reading non existing calldata returns zero.
-            // Note that overflow is of non-concern because index upper limit
-            // is bounded by bar, which is of type uint8.
+            // Note that reading non-existing calldata returns zero.
+            // Note that overflow is no concern because index upper limit is
+            // bounded by bar, which is of type uint8.
             word := calldataload(add(start, wordIndex))
         }
 
