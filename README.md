@@ -4,6 +4,8 @@
 
 Scribe is an efficient Schnorr multi-signature based Oracle.
 
+The Schnorr signature scheme is specified in [here](./spec/Schnorr.md).
+
 ## Installation
 
 Install module via Foundry:
@@ -23,8 +25,6 @@ $ forge install
 $ yarn install # Installs dependencies for vector-based tests
 ```
 
-The projects uses chronicleprotocol's `dissig` tool for differential fuzzing. For compilation instructions, see `dissig`'s [README](https://github.com/chronicleprotocol/dissig). After compilation, copy the binary to the `bin/` directory.
-
 Run tests:
 ```bash
 $ forge test
@@ -39,5 +39,5 @@ $ forge fmt [--check]
 
 Update gas snapshots:
 ```bash
-$ forge snapshot [--check]
+$ forge snapshot --nmt "Fuzz" [--check]
 ```
