@@ -16,6 +16,9 @@ docs/
 # Coverage file
 lcov.info
 
+# JS dependencies
+node_modules/
+
 # Binaries
 bin/*
 

@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "@noble/curves": "^0.8.2",
+    "bcrypto": "^5.4.0",
+    "viem": "^0.1.16"
+  }
+}

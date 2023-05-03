@@ -8,7 +8,6 @@
 # $ script/dev/generate-abis.sh
 # ```
 
-# Delete and recreate abis/ directory
 rm -rf abis/
 mkdir abis
 

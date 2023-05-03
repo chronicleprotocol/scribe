@@ -1,7 +1,8 @@
 <img align="right" width="200" height="250" top="100" src="./assets/logo.jpeg">
 
-# Scribe •
+# Scribe • [![Unit Tests](https://github.com/chronicleprotocol/scribe/actions/workflows/unit-tests.yml/badge.svg)](https://github.com/chronicleprotocol/scribe/actions/workflows/unit-tests.yml)
 
+Scribe is an efficient Schnorr multi-signature based Oracle.
 
 ## Installation
 
@@ -19,13 +20,10 @@ Setup:
 $ git clone https://github.com/chronicleprotocol/scribe
 $ cd scribe/
 $ forge install
+$ yarn install # Installs dependencies for vector-based tests
 ```
 
-TODO: Switched to dissig.
-
-This repo includes a cli tool - `scribe-ecc-ref` - to differential fuzz test the secp256k1 and schnorr signature code against. For compilation instructions, see the [README](./scribe-ecc-ref/README.md).
-
-After compilation, copy the binary to the `bin/` directory.
+The projects uses chronicleprotocol's `dissig` tool for differential fuzzing. For compilation instructions, see `dissig`'s [README](https://github.com/chronicleprotocol/dissig). After compilation, copy the binary to the `bin/` directory.
 
 Run tests:
 ```bash
