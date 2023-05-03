@@ -33,7 +33,7 @@ import {LibFeed} from "script/libs/LibFeed.sol";
  *      - Deployment:
  *          2,567,590
  *
- *      - Lift feeds:
+ *      - Lift 2 feeds:
  *          181,762
  *
  *      - Poke 1. time:
@@ -97,8 +97,10 @@ contract ScribeBenchmark is Script {
 
         // Create pokeData.
         // Note to use max value for val to have highest possible gas costs.
-        IScribe.PokeData memory pokeData =
-            IScribe.PokeData({val: type(uint128).max, age: uint32(block.timestamp)});
+        IScribe.PokeData memory pokeData = IScribe.PokeData({
+            val: type(uint128).max,
+            age: uint32(block.timestamp)
+        });
 
         // Create schnorrData.
         IScribe.SchnorrData memory schnorrData;

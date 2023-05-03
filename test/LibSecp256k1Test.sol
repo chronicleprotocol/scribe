@@ -6,7 +6,6 @@ import {console2} from "forge-std/console2.sol";
 import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
 
 import {LibSecp256k1Extended} from "script/libs/LibSecp256k1Extended.sol";
-import {LibDissig} from "script/libs/LibDissig.sol";
 
 abstract contract LibSecp256k1Test is Test {
     using LibSecp256k1 for LibSecp256k1.Point;
@@ -20,7 +19,7 @@ abstract contract LibSecp256k1Test is Test {
         privKey = bound(privKey, 1, LibSecp256k1.Q() - 1);
 
         address want = vm.addr(privKey);
-        address got = LibDissig.toPoint(privKey).toAddress();
+        address got = privKey.derivePublicKey().toAddress();
 
         assertEq(want, got);
     }
@@ -76,6 +75,15 @@ abstract contract LibSecp256k1Test is Test {
     }
 
     function testVectors_addAffinePoint() public {
+        // Do not run if in CI mode.
+        string memory mode = vm.envOr("FOUNDRY_PROFILE", string(""));
+        if (keccak256(bytes(mode)) == keccak256(bytes(string("ci")))) {
+            console2.log(
+                "LibSecp256k1Test::testVectors_addAffinePoint: Skipping due to being in CI mode"
+            );
+            return;
+        }
+
         string[] memory inputs = new string[](2);
         inputs[0] = "node";
         inputs[1] = "test/vectors/points.js";

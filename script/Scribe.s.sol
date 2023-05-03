@@ -25,8 +25,4 @@ contract ScribeScript is Script {
 
         return scribe;
     }
-
-    function setBar() public {}
-
-    // ...
 }

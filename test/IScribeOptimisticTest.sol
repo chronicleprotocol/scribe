@@ -116,6 +116,14 @@ abstract contract IScribeOptimisticTest is IScribeTest {
                 opScribe.constructOpPokeMessage(pokeDatas[i], schnorrData)
             );
 
+            vm.expectEmit();
+            emit OpPoked(
+                address(this),
+                feeds[feedIndex].pubKey.toAddress(),
+                schnorrData,
+                pokeDatas[i]
+            );
+
             // Execute opPoke.
             opScribe.opPoke(pokeDatas[i], schnorrData, ecdsaData);
 
@@ -288,6 +296,9 @@ abstract contract IScribeOptimisticTest is IScribeTest {
 
         uint balanceBefore = address(this).balance;
 
+        vm.expectEmit();
+        emit OpPokeChallengedUnsuccessfully(address(this));
+
         // Challenge opPoke.
         bool opPokeInvalid = opScribe.opChallenge(schnorrData);
 
@@ -335,6 +346,9 @@ abstract contract IScribeOptimisticTest is IScribeTest {
             pokeDataNew,
             feeds.signSchnorr(opScribe.constructPokeMessage(pokeDataNew))
         );
+
+        vm.expectEmit();
+        emit OpPokeChallengedUnsuccessfully(address(this));
 
         // Challenge opPoke.
         bool opPokeInvalid = opScribe.opChallenge(schnorrData);
@@ -394,6 +408,19 @@ abstract contract IScribeOptimisticTest is IScribeTest {
 
         uint balanceBefore = address(this).balance;
 
+        {
+            // Expect events.
+            (, bytes memory err) = opScribe.verifySchnorrSignature(
+                opScribe.constructPokeMessage(pokeData), schnorrData
+            );
+
+            vm.expectEmit();
+            emit OpPokeChallengedSuccessfully(address(this), err);
+
+            vm.expectEmit();
+            emit OpChallengeRewardPaid(address(this), 1 ether);
+        }
+
         // Challenge opPoke.
         bool opPokeInvalid = opScribe.opChallenge(schnorrData);
 
@@ -447,6 +474,20 @@ abstract contract IScribeOptimisticTest is IScribeTest {
     }
 
     //--------------------------------------------------------------------------
+    // Test: Public View Functions
+
+    function testFuzz_challengeReward(uint maxChallengeReward, uint balance)
+        public
+    {
+        opScribe.setMaxChallengeReward(maxChallengeReward);
+        vm.deal(address(opScribe), balance);
+
+        uint want = balance > maxChallengeReward ? maxChallengeReward : balance;
+        uint got = opScribe.challengeReward();
+        assertEq(got, want);
+    }
+
+    //--------------------------------------------------------------------------
     // Test: Auth Protected Functions
 
     function testFuzz_setOpChallengePeriod(uint16 opChallengePeriod) public {
@@ -482,12 +523,6 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         opScribe.setOpChallengePeriod(0);
     }
 
-    // @todo isAfterAuthedActionProtected needs following tests:
-    //          - delete opPokeData if not finalized
-    //          - not deletes opPokeData if finalized
-    //          - sets age of current val to block.timestamp
-    //              -> check via expect(isStale)
-
     function test_setOpChallengePeriod_IsAfterAuthedActionProtected() public {
         IScribe.PokeData memory pokeData;
         pokeData.val = 1;
@@ -499,6 +534,30 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         emit OpPokeDataDropped(address(this), pokeData);
 
         opScribe.setOpChallengePeriod(1);
+    }
+
+    function testFuzz_setMaxChallengeReward(uint maxChallengeReward) public {
+        // Only expect event if maxChallengeReward actually changes.
+        if (maxChallengeReward != opScribe.maxChallengeReward()) {
+            vm.expectEmit();
+            emit MaxChallengeRewardUpdated(
+                address(this), opScribe.maxChallengeReward(), maxChallengeReward
+            );
+        }
+
+        opScribe.setMaxChallengeReward(maxChallengeReward);
+
+        assertEq(opScribe.maxChallengeReward(), maxChallengeReward);
+    }
+
+    function test_setMaxChallengeReward_IsAuthProtected() public {
+        vm.prank(address(0xbeef));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAuth.NotAuthorized.selector, address(0xbeef)
+            )
+        );
+        opScribe.setMaxChallengeReward(0);
     }
 
     function test_drop_Single_IsAfterAuthedActionProtected() public {

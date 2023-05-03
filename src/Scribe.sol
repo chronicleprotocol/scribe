@@ -231,6 +231,7 @@ contract Scribe is IScribe, Auth, Toll {
     // @todo Chainlink interface
     // see https://github.com/smartcontractkit/chainlink/blob/develop/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol.
 
+    /// @inheritdoc IScribe
     /// @dev Only callable by toll'ed address.
     function read() external view virtual toll returns (uint) {
         uint val = _pokeData.val;
@@ -238,12 +239,14 @@ contract Scribe is IScribe, Auth, Toll {
         return val;
     }
 
+    /// @inheritdoc IScribe
     /// @dev Only callable by toll'ed address.
     function tryRead() external view virtual toll returns (bool, uint) {
         uint val = _pokeData.val;
         return (val != 0, val);
     }
 
+    /// @inheritdoc IScribe
     /// @dev Only callable by toll'ed address.
     function peek() external view virtual toll returns (uint, bool) {
         uint val = _pokeData.val;

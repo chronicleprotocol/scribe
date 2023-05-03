@@ -257,6 +257,7 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
     // -- Toll'ed Read Functionality --
 
     /// @inheritdoc IScribe
+    /// @dev Only callable by toll'ed address.
     function read()
         external
         view
@@ -270,6 +271,7 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
     }
 
     /// @inheritdoc IScribe
+    /// @dev Only callable by toll'ed address.
     function tryRead()
         external
         view
@@ -283,6 +285,7 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
     }
 
     /// @inheritdoc IScribe
+    /// @dev Only callable by toll'ed address.
     function peek()
         external
         view
