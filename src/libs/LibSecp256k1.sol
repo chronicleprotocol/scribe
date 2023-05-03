@@ -16,8 +16,7 @@ library LibSecp256k1 {
     using LibSecp256k1 for LibSecp256k1.Point;
     using LibSecp256k1 for LibSecp256k1.JacobianPoint;
 
-    //--------------------------------------------------------------------------
-    // Constants
+    // -- Constants --
     //
     // Taken from https://www.secg.org/sec2-v2.pdf.
     // See section 2.4.1 "Recommended Parameters secp256k1".
@@ -47,8 +46,7 @@ library LibSecp256k1 {
         return Point({x: 0, y: 0});
     }
 
-    //--------------------------------------------------------------------------
-    // (Affine) Point
+    // -- (Affine) Point --
 
     /// @dev Point encapsulates a secp256k1 point in Affine coordinates.
     struct Point {
@@ -89,8 +87,7 @@ library LibSecp256k1 {
         return self.y % 2;
     }
 
-    //--------------------------------------------------------------------------
-    // Jacobian Point
+    // -- Jacobian Point --
 
     /// @dev JacobianPoint encapsulates a secp256k1 point in Jacobian
     ///      coordinates.
@@ -279,8 +276,7 @@ library LibSecp256k1 {
         }
     }
 
-    //--------------------------------------------------------------------------
-    // Private Helpers
+    // -- Private Helpers --
 
     /// @dev Returns the modular inverse of `x` for modulo `_P`.
     ///

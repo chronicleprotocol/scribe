@@ -46,18 +46,24 @@ abstract contract LibSecp256k1Test is Test {
     // -- addAffinePoint --
 
     function test_addAffinePoint_UsesConstantAmountOfGas(
-        LibSecp256k1.JacobianPoint memory jacPoint,
-        LibSecp256k1.Point memory p
+        LibSecp256k1.JacobianPoint memory jacPoint1,
+        LibSecp256k1.Point memory p1,
+        LibSecp256k1.JacobianPoint memory jacPoint2,
+        LibSecp256k1.Point memory p2
     ) public {
-        // Note that the exact gas usage is not that important.
-        uint gasUsageWant = 890;
-
+        // Benchmark jacPoint1 + p1.
         uint gasBefore = gasleft();
-        jacPoint.addAffinePoint(p);
+        jacPoint1.addAffinePoint(p1);
         uint gasAfter = gasleft();
+        uint first = gasBefore - gasAfter;
 
-        uint gasUsageGot = gasBefore - gasAfter;
-        assertEq(gasUsageGot, gasUsageWant);
+        // Benchmark jacPoint2 + p2.
+        gasBefore = gasleft();
+        jacPoint2.addAffinePoint(p2);
+        gasAfter = gasleft();
+        uint second = gasBefore - gasAfter;
+
+        assertEq(first, second);
     }
 
     function test_addAffinePoint_DoesNotRevert(
@@ -75,15 +81,6 @@ abstract contract LibSecp256k1Test is Test {
     }
 
     function testVectors_addAffinePoint() public {
-        // Do not run if in CI mode.
-        string memory mode = vm.envOr("FOUNDRY_PROFILE", string(""));
-        if (keccak256(bytes(mode)) == keccak256(bytes(string("ci")))) {
-            console2.log(
-                "LibSecp256k1Test::testVectors_addAffinePoint: Skipping due to being in CI mode"
-            );
-            return;
-        }
-
         string[] memory inputs = new string[](2);
         inputs[0] = "node";
         inputs[1] = "test/vectors/points.js";

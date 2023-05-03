@@ -1,10 +1,8 @@
-<img align="right" width="200" height="250" top="100" src="./assets/logo.jpeg">
+<img align="right" width="200" height="200" top="200" src="./assets/logo.png">
 
 # Scribe • [![Unit Tests](https://github.com/chronicleprotocol/scribe/actions/workflows/unit-tests.yml/badge.svg)](https://github.com/chronicleprotocol/scribe/actions/workflows/unit-tests.yml)
 
 Scribe is an efficient Schnorr multi-signature based Oracle.
-
-The Schnorr signature scheme is specified in [here](./spec/Schnorr.md).
 
 ## Installation
 

@@ -36,7 +36,7 @@ library LibSchnorr {
 
         // Note to enforce signature is less than Q to prevent signature
         // malleability. However, this check is disabled because the Scribe
-        // contracts only accept messages with strictly monotonically
+        // contracts only accepts messages with strictly monotonically
         // increasing timestamps, circumventing replay attack vectors and
         // therefore also signature malleability issues at a higher level.
         //

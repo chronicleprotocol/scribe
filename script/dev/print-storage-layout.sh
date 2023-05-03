@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Script to print the storage layout of Scribe and ScribeOptimistic
+# Script to print the storage layout of Scribe and ScribeOptimistic.
 #
 # Run via:
 # ```bash

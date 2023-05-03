@@ -8,7 +8,7 @@ ffi = true
 solc_version = "0.8.16"
 optimizer = true
 optimizer_runs = 10_000
-via_ir = false  # @todo Off during dev. Enable for production.
+via_ir = true
 extra_output_files = ["metadata", "irOptimized"]
 
 # Testing
@@ -24,10 +24,6 @@ int_types = "short"
 number_underscore = "preserve"
 ignore = []
 
-[rpc_endpoints]
-mainnet = "https://rpc.ankr.com/eth"
-optimism = "https://rpc.ankr.com/optimism"
-
 # Profile for intense testing
 # Run via `FOUNDRY_PROFILE=intense forge t`
 [profile.intense]
@@ -42,8 +38,8 @@ runs = 10_000
 #       See https://github.com/foundry-rs/foundry/issues/4790
 [profile.ci]
 [profile.ci.fuzz]
-runs = 100
+runs = 1_000
 [profile.ci.invariant]
-runs = 100
+runs = 1_000
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config
