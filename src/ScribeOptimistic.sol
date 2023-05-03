@@ -99,6 +99,10 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         if (pokeData.age <= age) {
             revert StaleMessage(pokeData.age, age);
         }
+        // Revert if pokeData is from the future.
+        if (pokeData.age > uint32(block.timestamp)) {
+            revert FutureMessage(pokeData.age, uint32(block.timestamp));
+        }
 
         // Recover ECDSA signer.
         address signer = ecrecover(

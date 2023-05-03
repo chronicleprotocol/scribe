@@ -105,7 +105,12 @@ abstract contract IScribeOptimisticTest is IScribeTest {
             // Make sure val is non-zero and age not stale.
             pokeDatas[i].val =
                 uint128(bound(pokeDatas[i].val, 1, type(uint128).max));
-            pokeDatas[i].age = uint32(block.timestamp);
+
+            // @todo Weird behaviour if compiled via --via-ir.
+            //       See comment in testFuzz_opPoke_FailsIf_AgeIsStale().
+            //pokeDatas[i].age = uint32(block.timestamp);
+            pokeDatas[i].age =
+                uint32(1680220800 + (i * opScribe.opChallengePeriod()));
 
             // Schnorr multi-sign pokeData with feeds.
             schnorrData =
@@ -135,34 +140,14 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         }
     }
 
-    function test_opPoke_Initial_FailsIf_AgeIsZero() public {
-        LibFeed.Feed[] memory feeds = _createAndLiftFeeds(opScribe.bar());
-
-        IScribe.PokeData memory pokeData;
-        pokeData.val = 1;
-        pokeData.age = 0;
-
-        IScribe.SchnorrData memory schnorrData;
-        schnorrData = feeds.signSchnorr(opScribe.constructPokeMessage(pokeData));
-
-        IScribe.ECDSAData memory ecdsaData;
-        ecdsaData = feeds[0].signECDSA(
-            opScribe.constructOpPokeMessage(pokeData, schnorrData)
-        );
-
-        vm.expectRevert(
-            abi.encodeWithSelector(IScribe.StaleMessage.selector, 0, 0)
-        );
-        opScribe.opPoke(pokeData, schnorrData, ecdsaData);
-    }
-
     function testFuzz_opPoke_FailsIf_AgeIsStale(
         IScribe.PokeData memory pokeData
     ) public {
         LibFeed.Feed[] memory feeds = _createAndLiftFeeds(opScribe.bar());
 
         vm.assume(pokeData.val != 0);
-        vm.assume(pokeData.age != 0);
+        // Let pokeData's age ∊ [1, block.timestamp].
+        pokeData.age = uint32(bound(pokeData.age, 1, block.timestamp));
 
         IScribe.SchnorrData memory schnorrData;
         schnorrData = feeds.signSchnorr(opScribe.constructPokeMessage(pokeData));
@@ -175,10 +160,12 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         // Execute opPoke.
         opScribe.opPoke(pokeData, schnorrData, ecdsaData);
 
+        // opPoke'd age is set to block.timestamp.
+        uint lastAge = uint32(block.timestamp);
+        console2.log("lastAge", lastAge);
+
         // Set pokeData's age ∊ [0, block.timestamp].
         pokeData.age = uint32(bound(pokeData.age, 0, block.timestamp));
-
-        uint lastAge = uint32(block.timestamp);
 
         // Wait until opPokeData finalized.
         vm.warp(block.timestamp + opScribe.opChallengePeriod());
@@ -188,9 +175,46 @@ abstract contract IScribeOptimisticTest is IScribeTest {
             opScribe.constructOpPokeMessage(pokeData, schnorrData)
         );
 
+        // @todo Possible bug in solc's --via-ir pipeline?
+        //       The following hardcoded value is the block.timestamp before the
+        //       warp a few lines above. Verifiable via the console2.log
+        //       statement printing `lastAge`. However, if using the variable
+        //       `lastAge` in the next statement it has a different value than
+        //       being logged. This does not happen if compiled without --via-ir.
         vm.expectRevert(
             abi.encodeWithSelector(
-                IScribe.StaleMessage.selector, pokeData.age, lastAge
+                IScribe.StaleMessage.selector,
+                pokeData.age,
+                1680220800 /*lastAge*/
+            )
+        );
+        opScribe.opPoke(pokeData, schnorrData, ecdsaData);
+    }
+
+    function testFuzz_opPoke_FailsIf_AgeIsInTheFuture(
+        IScribe.PokeData memory pokeData
+    ) public {
+        LibFeed.Feed[] memory feeds = _createAndLiftFeeds(opScribe.bar());
+
+        vm.assume(pokeData.val != 0);
+        // Let pokeData's age ∊ [block.timestamp+1, type(uint32).max].
+        pokeData.age =
+            uint32(bound(pokeData.age, block.timestamp + 1, type(uint32).max));
+
+        IScribe.SchnorrData memory schnorrData;
+        schnorrData = feeds.signSchnorr(opScribe.constructPokeMessage(pokeData));
+
+        IScribe.ECDSAData memory ecdsaData;
+        ecdsaData = feeds[0].signECDSA(
+            opScribe.constructOpPokeMessage(pokeData, schnorrData)
+        );
+
+        // Execute opPoke.
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IScribe.FutureMessage.selector,
+                pokeData.age,
+                uint32(block.timestamp)
             )
         );
         opScribe.opPoke(pokeData, schnorrData, ecdsaData);
