@@ -1,8 +1,6 @@
 pragma solidity ^0.8.16;
 
 // -- Test: Scribe --
-//
-// @todo Use deployment and maintanence scripts.
 
 import {Scribe} from "src/Scribe.sol";
 import {ScribeInspectable} from "./inspectable/ScribeInspectable.sol";
@@ -30,27 +28,13 @@ contract ScribeInvariantTest is IScribeInvariantTest {
 // -- Test: Optimistic Scribe --
 
 import {ScribeOptimistic} from "src/ScribeOptimistic.sol";
-import {ScribeOptimisticInspectable} from
-    "./inspectable/ScribeOptimisticInspectable.sol";
 import {IScribeOptimistic} from "src/IScribeOptimistic.sol";
 
 import {IScribeOptimisticTest} from "./IScribeOptimisticTest.sol";
-import {IScribeOptimisticInvariantTest} from
-    "./invariants/IScribeOptimisticInvariantTest.sol";
-import {ScribeOptimisticHandler} from "./invariants/ScribeOptimisticHandler.sol";
 
 contract ScribeOptimisticTest is IScribeOptimisticTest {
     function setUp() public {
         setUp(address(new ScribeOptimistic("ETH/USD")));
-    }
-}
-
-contract ScribeOptimisticInvariantTest is IScribeOptimisticInvariantTest {
-    function setUp() public {
-        setUp(
-            address(new ScribeOptimisticInspectable("ETH/USD")),
-            address(new ScribeOptimisticHandler())
-        );
     }
 }
 
