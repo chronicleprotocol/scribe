@@ -48,8 +48,11 @@ abstract contract IScribeOptimisticInvariantTest is IScribeInvariantTest {
         return selectors;
     }
 
-    //--------------------------------------------------------------------------
-    // Invariants: opChallenge Period
+    // -- opPoke --
+
+    // -- opChallenge --
+
+    // -- opChallenge Period --
 
     function invariant_opChallengePeriod_IsNeverZero() public {
         assertTrue(opScribe.opChallengePeriod() != 0);

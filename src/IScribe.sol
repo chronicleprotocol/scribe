@@ -106,6 +106,25 @@ interface IScribe {
     /// @return value The oracle's current value if it exists, zero otherwise.
     function tryRead() external view returns (bool isValid, uint value);
 
+    /// @notice Returns the oracle's latest value.
+    /// @dev Provides partial compatibility to Chainlink's
+    ///      IAggregatorV3Interface.
+    /// @return roundId 0.
+    /// @return answer The oracle's latest value.
+    /// @return startedAt 0.
+    /// @return updatedAt The timestamp of oracle's latest update.
+    /// @return answeredInRound 0.
+    function latestRoundData()
+        external
+        view
+        returns (
+            uint80 roundId,
+            int answer,
+            uint startedAt,
+            uint updatedAt,
+            uint80 answeredInRound
+        );
+
     /// @notice Pokes the oracle.
     /// @dev Expects `pokeData`'s age to be greater than the timestamp of the
     ///      last successful poke.

@@ -228,9 +228,6 @@ contract Scribe is IScribe, Auth, Toll {
 
     // -- Toll'ed Read Functionality --
 
-    // @todo Chainlink interface
-    // see https://github.com/smartcontractkit/chainlink/blob/develop/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol.
-
     /// @inheritdoc IScribe
     /// @dev Only callable by toll'ed address.
     function read() external view virtual toll returns (uint) {
@@ -251,6 +248,34 @@ contract Scribe is IScribe, Auth, Toll {
     function peek() external view virtual toll returns (uint, bool) {
         uint val = _pokeData.val;
         return (val, val != 0);
+    }
+
+    // - Chainlink Compatibility
+
+    /// @inheritdoc IScribe
+    /// @dev Only callable by toll'ed address.
+    function latestRoundData()
+        external
+        view
+        toll
+        returns (
+            uint80 roundId,
+            int answer,
+            uint startedAt,
+            uint updatedAt,
+            uint80 answeredInRound
+        )
+    {
+        uint val = _pokeData.val;
+        assembly ("memory-safe") {
+            answer := val
+        }
+        updatedAt = _pokeData.age;
+
+        // Set explicitly to zero to silence solc warnings.
+        roundId = 0;
+        startedAt = 0;
+        answeredInRound = 0;
     }
 
     // -- Public Read Functionality --

@@ -300,6 +300,10 @@ abstract contract IScribeTest is Test {
             assertEq(val, pokeDatas[i].val);
             assertTrue(ok);
 
+            (, int answer,, uint updatedAt,) = scribe.latestRoundData();
+            assertEq(uint(answer), pokeDatas[i].val);
+            assertEq(updatedAt, block.timestamp);
+
             lastPokeTimestamp = uint32(block.timestamp);
             vm.warp(block.timestamp + 10 minutes);
         }

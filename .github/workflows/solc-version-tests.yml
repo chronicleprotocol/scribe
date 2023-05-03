@@ -20,7 +20,7 @@ jobs:
           version: nightly
 
       - name: Run Forge tests for each supported solc version
-        run: >
+        run: |
             FOUNDRY_PROFILE=ci
             forge test --use 0.8.16 &&
             forge test --use 0.8.17 &&

@@ -158,7 +158,6 @@ contract ScribeInspectable is IScribe, Auth, Toll {
         bytes32 message,
         SchnorrData calldata schnorrData
     ) internal view returns (bool, bytes memory) {
-        // ---- Declarations ----
         // Let signerIndex be the current signer's index read from schnorrData.
         uint signerIndex;
         // Let signerPubKey be the public key stored for signerIndex.
@@ -170,7 +169,6 @@ contract ScribeInspectable is IScribe, Auth, Toll {
         // Let aggPubKey be the sum of processed signers' public keys.
         // Note that Jacobian coordinates are used.
         LibSecp256k1.JacobianPoint memory aggPubKey;
-        // ----------------------
 
         // Fail if bar not reached.
         uint numberSigners = schnorrData.getSignerIndexLength();
@@ -233,6 +231,7 @@ contract ScribeInspectable is IScribe, Auth, Toll {
     // @todo Chainlink interface
     // see https://github.com/smartcontractkit/chainlink/blob/develop/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol.
 
+    /// @inheritdoc IScribe
     /// @dev Only callable by toll'ed address.
     function read() external view virtual toll returns (uint) {
         uint val = _pokeData.val;
@@ -240,16 +239,44 @@ contract ScribeInspectable is IScribe, Auth, Toll {
         return val;
     }
 
+    /// @inheritdoc IScribe
     /// @dev Only callable by toll'ed address.
     function tryRead() external view virtual toll returns (bool, uint) {
         uint val = _pokeData.val;
         return (val != 0, val);
     }
 
+    /// @inheritdoc IScribe
     /// @dev Only callable by toll'ed address.
     function peek() external view virtual toll returns (uint, bool) {
         uint val = _pokeData.val;
         return (val, val != 0);
+    }
+
+    // - Chainlink Compatibility
+
+    function latestRoundData()
+        external
+        view
+        toll
+        returns (
+            uint80 roundId,
+            int answer,
+            uint startedAt,
+            uint updatedAt,
+            uint80 answeredInRound
+        )
+    {
+        uint val = _pokeData.val;
+        assembly ("memory-safe") {
+            answer := val
+        }
+        updatedAt = _pokeData.age;
+
+        // Set explicitly to zero to silence solc warnings.
+        roundId = 0;
+        startedAt = 0;
+        answeredInRound = 0;
     }
 
     // -- Public Read Functionality --

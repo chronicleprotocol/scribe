@@ -39,6 +39,14 @@ contract ScribeOptimisticHandler is ScribeHandler {
     {
         _ensureBarFeedsLifted();
 
+        // Wait some time if executed in same timestamp as last poke.
+        if (_scribe_lastPokeData.age + 1 >= block.timestamp) {
+            vm.warp(
+                block.timestamp
+                    + ((_scribe_lastPokeData.age + 1) - block.timestamp) + 1
+            );
+        }
+
         // Get set of bar many feeds from feedSet.
         LibFeed.Feed[] memory feeds = feedSet.liftedFeeds(scribe.bar());
 

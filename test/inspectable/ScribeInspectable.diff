@@ -14,7 +14,7 @@
 < contract Scribe is IScribe, Auth, Toll {
 ---
 > contract ScribeInspectable is IScribe, Auth, Toll {
-496a497,523
+523a524,550
 > 
 >     //--------------------------------------------------------------------------
 >     // Inspectable

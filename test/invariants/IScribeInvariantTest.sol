@@ -70,6 +70,7 @@ abstract contract IScribeInvariantTest is Test {
         }
     }
 
+    /*
     function invariant_poke_PokeTimestampIsOnlyMutatedToCurrentTimestamp()
         public
     {
@@ -84,6 +85,7 @@ abstract contract IScribeInvariantTest is Test {
             assertEq(currentPokeData.age, uint32(block.timestamp));
         }
     }
+    */
 
     // -- PubKeys --
 

@@ -26,5 +26,6 @@ jobs:
 
       - name: Run Forge test in CI mode
         run: |
-          FOUNDRY_PROFILE=ci forge test -vvv
+          FOUNDRY_PROFILE=ci
+          forge test -vvv
         id: test

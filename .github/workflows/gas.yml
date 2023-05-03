@@ -20,4 +20,6 @@ jobs:
           version: nightly
 
       - name: Check gas snapshots
-        run: forge snapshot --check
+        run: |
+          FOUNDRY_PROFILE=ci
+          forge snapshot --check
