@@ -22,5 +22,4 @@ jobs:
 
       - name: Check gas snapshots
         run: |
-          FOUNDRY_PROFILE=ci
           forge snapshot --nmt "Fuzz" --check
