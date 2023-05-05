@@ -111,6 +111,20 @@ abstract contract IScribeTest is Test {
         (val, ok) = scribe.peek();
         assertEq(val, 0);
         assertFalse(ok);
+
+        // latestRound()(uint80,int,uint,uint,uint80) returns zero.
+        uint80 roundId;
+        int answer;
+        uint startedAt;
+        uint updatedAt;
+        uint80 answeredInRound;
+        (roundId, answer, startedAt, updatedAt, answeredInRound) =
+            scribe.latestRoundData();
+        assertEq(roundId, 0);
+        assertEq(answer, 0);
+        assertEq(startedAt, 0);
+        assertEq(updatedAt, 0);
+        assertEq(answeredInRound, 0);
     }
 
     //--------------------------------------------------------------------------

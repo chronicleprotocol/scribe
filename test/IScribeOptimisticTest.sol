@@ -98,6 +98,8 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         IScribe.SchnorrData memory schnorrData;
         IScribe.ECDSAData memory ecdsaData;
         uint feedIndex;
+        bool ok;
+        uint val;
         for (uint i; i < pokeDatas.length; i++) {
             // Select random feed signing opPoke.
             feedIndex = bound(feedIndexSeeds[i], 0, feeds.length - 1);
@@ -132,11 +134,29 @@ abstract contract IScribeOptimisticTest is IScribeTest {
             // Execute opPoke.
             opScribe.opPoke(pokeDatas[i], schnorrData, ecdsaData);
 
+            uint wantUpdatedAt = block.timestamp;
+            // Note to use variable before warp as --via-ir optimization may
+            // optimize it away. solc doesn't know about vm.warp().
+            wantUpdatedAt++;
+            wantUpdatedAt--;
+
             // Wait until challenge period over and opPokeData finalizes.
             vm.warp(block.timestamp + opScribe.opChallengePeriod());
 
             // Check that value can be read.
             assertEq(opScribe.read(), pokeDatas[i].val);
+
+            (ok, val) = opScribe.tryRead();
+            assertEq(val, pokeDatas[i].val);
+            assertTrue(ok);
+
+            (val, ok) = opScribe.peek();
+            assertEq(val, pokeDatas[i].val);
+            assertTrue(ok);
+
+            (, int answer,, uint updatedAt,) = opScribe.latestRoundData();
+            assertEq(uint(answer), pokeDatas[i].val);
+            assertEq(updatedAt, wantUpdatedAt);
         }
     }
 

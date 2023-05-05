@@ -268,7 +268,7 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         toll
         returns (uint)
     {
-        uint val = _currentVal();
+        uint val = _currentPokeData().val;
         require(val != 0);
         return val;
     }
@@ -283,7 +283,7 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         toll
         returns (bool, uint)
     {
-        uint val = _currentVal();
+        uint val = _currentPokeData().val;
         return (val != 0, val);
     }
 
@@ -296,11 +296,40 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         toll
         returns (uint, bool)
     {
-        uint val = _currentVal();
+        uint val = _currentPokeData().val;
         return (val, val != 0);
     }
 
-    function _currentVal() private view returns (uint128) {
+    /// @inheritdoc IScribe
+    /// @dev Only callable by toll'ed address.
+    function latestRoundData()
+        external
+        view
+        override(IScribe, Scribe)
+        toll
+        returns (
+            uint80 roundId,
+            int answer,
+            uint startedAt,
+            uint updatedAt,
+            uint80 answeredInRound
+        )
+    {
+        PokeData memory pokeData = _currentPokeData();
+
+        uint val = pokeData.val;
+        assembly ("memory-safe") {
+            answer := val
+        }
+        updatedAt = pokeData.age;
+
+        // Set explicitly to zero to silence solc warnings.
+        roundId = 0;
+        startedAt = 0;
+        answeredInRound = 0;
+    }
+
+    function _currentPokeData() private view returns (PokeData memory) {
         // Load pokeData slots from storage.
         PokeData memory pokeData = _pokeData;
         PokeData memory opPokeData = _opPokeData;
@@ -309,12 +338,12 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         bool opPokeDataFinalized =
             opPokeData.age + opChallengePeriod <= uint32(block.timestamp);
 
-        // Decide current val.
-        uint128 val = opPokeDataFinalized && opPokeData.age > pokeData.age
-            ? opPokeData.val
-            : pokeData.val;
-
-        return val;
+        // Decide and return current pokeData.
+        if (opPokeDataFinalized && opPokeData.age > pokeData.age) {
+            return opPokeData;
+        } else {
+            return pokeData;
+        }
     }
 
     // -- Auth'ed Functionality --

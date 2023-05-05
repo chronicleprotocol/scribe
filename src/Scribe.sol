@@ -258,6 +258,7 @@ contract Scribe is IScribe, Auth, Toll {
     function latestRoundData()
         external
         view
+        virtual
         toll
         returns (
             uint80 roundId,
