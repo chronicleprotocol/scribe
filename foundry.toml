@@ -32,14 +32,4 @@ runs = 10_000
 [profile.intense.invariant]
 runs = 10_000
 
-# Profile for CI testing
-# Run via `FOUNDRY_PROFILE=ci forge t`
-# TODO: Use intense profile once testsuite more performant.
-#       See https://github.com/foundry-rs/foundry/issues/4790
-[profile.ci]
-[profile.ci.fuzz]
-runs = 1_000
-[profile.ci.invariant]
-runs = 1_000
-
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config

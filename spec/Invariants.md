@@ -42,7 +42,8 @@ Storage: `LibSecp256k1.Point[] _pubKeys`
 
 * Length is strictly monotonically increasing:
     ```
-    preTx(_pubKeys.length) <= posTx(_pubKeys.length)
+    preTx(_pubKeys.length) != postTx(_pubKeys.length)
+        → preTx(_pubKeys.length) < posTx(_pubKeys.length)
     ```
 
 * Existing public key may only be deleted, never mutated:
