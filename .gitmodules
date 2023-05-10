@@ -1,9 +1,8 @@
 [submodule "lib/forge-std"]
 	path = lib/forge-std
 	url = https://github.com/foundry-rs/forge-std
+	branch = v1.5.5
 [submodule "lib/chronicle-std"]
 	path = lib/chronicle-std
 	url = https://github.com/chronicleprotocol/chronicle-std
-[submodule "lib/solidity-generators"]
-	path = lib/solidity-generators
-	url = https://github.com/mds1/solidity-generators
+	branch = v1

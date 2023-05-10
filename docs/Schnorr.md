@@ -1,11 +1,9 @@
-Schnorr Signature Scheme Specification
-======================================
+# Schnorr Signature Scheme Specification
 
 This document specifies a custom Schnorr-based signature scheme on the secp256k1
 elliptic curve. The scheme is used by Chronicle Protocol's `Scribe` oracle contract.
 
-Terminology
------------
+## Terminology
 
 * `H()` - Keccak256 hash function
 * `‖`   - Concatenation operator
@@ -22,8 +20,7 @@ Terminology
 * `k` - Nonce as type `uint256`
 
 
-Signing
--------
+## Signing
 
 1. Select a _cryptographically secure_ `k ∊ [1, Q)`
 
@@ -49,8 +46,7 @@ Signing
    message `m`
 
 
-Verification
-------------
+## Verification
 
 - Input : `(P, m, s, Rₑ)`
 - Output: `True` if signature verification succeeds, `false` otherwise
@@ -71,8 +67,7 @@ Verification
 3. Verification succeeds iff `([s]G - [e]P)ₑ = Rₑ`
 
 
-Key Aggregation for Multisignatures
------------------------------------
+## Key Aggregation for Multisignatures
 
 In order to efficiently aggregate public keys onchain, the key aggregation
 mechanism for aggregated signatures is specified as the sum of the public
@@ -94,8 +89,7 @@ In order to prevent such attacks, it **MUST** be verified that participating
 public keys own the corresponding private key.
 
 
-Other Security Considerations
------------------------------
+## Other Security Considerations
 
 Note that the signing scheme deviates slightly from the classical Schnorr
 signature scheme.
@@ -112,8 +106,7 @@ Note that `√Q ~ 3.4e38 > 127 bit`.
 Therefore, this signing scheme does not weaken the overall security.
 
 
-Implementation Optimizations
-----------------------------
+## Implementation Optimizations
 
 This implementation uses the ecrecover precompile to perform the necessary
 elliptic curve multiplication in secp256k1 for the verification process.
@@ -168,8 +161,7 @@ N  = Qr * Pₓ⁻¹                                                    | Qr = [(
 ```
 
 
-Resources
----------
+## Resources
 
 - [github.com/sipa/secp256k1](https://github.com/sipa/secp256k1/blob/968e2f415a5e764d159ee03e95815ea11460854e/src/modules/schnorr/schnorr.md)
 - [BIP-340](https://github.com/bitcoin/bips/blob/master/bip-0340.mediawiki)

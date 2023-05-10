@@ -12,7 +12,7 @@ import {LibBytes} from "./LibBytes.sol";
 library LibSchnorrData {
     using LibBytes for uint;
 
-    /// @dev Size of a word is 32 bytes, i.e. 245 bits.
+    /// @dev Size of a word is 32 bytes, i.e. 256 bits.
     uint private constant WORD_SIZE = 32;
 
     /// @dev Returns the signer index from schnorrData.signersBlob with index
@@ -67,8 +67,9 @@ library LibSchnorrData {
             // Calldata index for schnorrData.signersBlob[0] is schnorrData's
             // offset plus 4 words, i.e. 0x80.
             let start := add(schnorrData, 0x80)
+
             // Note that reading non-existing calldata returns zero.
-            // Note that overflow is no concern because index upper limit is
+            // Note that overflow is no concern because index's upper limit is
             // bounded by bar, which is of type uint8.
             word := calldataload(add(start, wordIndex))
         }

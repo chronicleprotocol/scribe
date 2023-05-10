@@ -25,7 +25,6 @@ jobs:
           forge build
         id: build
 
-      - name: Run Forge test in intense mode
-        run: |
-          FOUNDRY_PROFILE=intense forge test -vvv
+      - name: Run Forge test
+        run: forge test -vvv
         id: test

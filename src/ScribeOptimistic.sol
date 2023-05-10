@@ -1,5 +1,7 @@
 pragma solidity ^0.8.16;
 
+import {IChronicle} from "chronicle-std/IChronicle.sol";
+
 import {IScribeOptimistic} from "./IScribeOptimistic.sol";
 
 import {IScribe} from "./IScribe.sol";
@@ -28,15 +30,15 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
 
     /// @dev The truncated hash of the schnorrData provided in last opPoke.
     ///      Binds the opFeed to their schnorrData.
-    uint160 private _schnorrDataCommitment;
+    uint160 internal _schnorrDataCommitment;
 
     /// @dev The age of the pokeData provided in last opPoke.
     ///      Ensures Schnorr signature can be verified after setting pokeData's
     ///      age to block.timestamp during opPoke.
-    uint32 private _originalOpPokeDataAge;
+    uint32 internal _originalOpPokeDataAge;
 
     /// @dev opScribe's last opPoke'd value and corresponding age.
-    PokeData private _opPokeData;
+    PokeData internal _opPokeData;
 
     /// @inheritdoc IScribeOptimistic
     uint public maxChallengeReward;
@@ -52,15 +54,6 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
 
     // -- opPoke Functionality --
 
-    /// @inheritdoc IScribeOptimistic
-    function opPoke(
-        PokeData calldata pokeData,
-        SchnorrData calldata schnorrData,
-        ECDSAData calldata ecdsaData
-    ) external {
-        _opPoke(pokeData, schnorrData, ecdsaData);
-    }
-
     /// @dev Optimized function selector: 0x00000000.
     ///      Note that this function is _not_ defined via the IScribe interface
     ///      and one should _not_ depend on it.
@@ -72,19 +65,28 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         _opPoke(pokeData, schnorrData, ecdsaData);
     }
 
+    /// @inheritdoc IScribeOptimistic
+    function opPoke(
+        PokeData calldata pokeData,
+        SchnorrData calldata schnorrData,
+        ECDSAData calldata ecdsaData
+    ) external {
+        _opPoke(pokeData, schnorrData, ecdsaData);
+    }
+
     function _opPoke(
         PokeData calldata pokeData,
         SchnorrData calldata schnorrData,
         ECDSAData calldata ecdsaData
-    ) private {
+    ) internal {
         // Load _opPokeData from storage.
         PokeData memory opPokeData = _opPokeData;
 
-        // Decide whether _opPokeData is finalized.
+        // Decide whether _opPokeData finalized.
         bool opPokeDataFinalized =
             opPokeData.age + opChallengePeriod <= uint32(block.timestamp);
 
-        // Revert if _opPokeData is not finalized, i.e. still challengeable.
+        // Revert if _opPokeData not finalized, i.e. still challengeable.
         if (!opPokeDataFinalized) {
             revert InChallengePeriod();
         }
@@ -94,11 +96,11 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
             ? opPokeData.age
             : _pokeData.age;
 
-        // Revert if pokeData is stale.
+        // Revert if pokeData stale.
         if (pokeData.age <= age) {
             revert StaleMessage(pokeData.age, age);
         }
-        // Revert if pokeData is from the future.
+        // Revert if pokeData from the future.
         if (pokeData.age > uint32(block.timestamp)) {
             revert FutureMessage(pokeData.age, uint32(block.timestamp));
         }
@@ -114,7 +116,7 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         // Load signer's index.
         uint signerIndex = _feeds[signer];
 
-        // Revert if signer is not feed.
+        // Revert if signer not feed.
         if (signerIndex == 0) {
             revert SignerNotFeed(signer);
         }
@@ -135,9 +137,8 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         );
 
         // If _opPokeData provides the current val, move it to the _pokeData
-        // storage to free the _opPokeData slot. If the current val is provided
-        // by _pokeData, the _opPokeData slot can be overwritten with the new
-        // pokeData.
+        // storage to free _opPokeData storage. If the current val is provided
+        // by _pokeData, _opPokeData can be overwritten.
         if (opPokeData.age == age) {
             _pokeData = opPokeData;
         }
@@ -198,29 +199,29 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         );
 
         if (ok) {
-            emit OpPokeChallengedUnsuccessfully(msg.sender);
-
             // Decide whether _opPokeData stale already.
             bool opPokeDataStale = opPokeData.age <= _pokeData.age;
 
-            // If _opPokeData is not stale, finalize it by moving it to the
-            // _pokeData slot.
+            // If _opPokeData not stale, finalize it by moving it to the
+            // _pokeData storage.
             if (!opPokeDataStale) {
                 _pokeData = _opPokeData;
             }
-        } else {
-            emit OpPokeChallengedSuccessfully(msg.sender, err);
 
+            emit OpPokeChallengedUnsuccessfully(msg.sender);
+        } else {
             // Drop opFeed and delete invalid _opPokeData.
-            // Use address(this) as caller to indicate self-governed drop of
-            // feed.
+            // Note to use address(this) as caller to indicate self-governed
+            // drop of feed.
             _drop(address(this), opFeedIndex);
 
-            // Pay reward to challenger.
+            // Pay ETH reward to challenger.
             uint reward = challengeReward();
             if (_sendETH(payable(msg.sender), reward)) {
                 emit OpChallengeRewardPaid(msg.sender, reward);
             }
+
+            emit OpPokeChallengedSuccessfully(msg.sender, err);
         }
 
         // Return whether challenging was successful.
@@ -238,7 +239,7 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
     function _constructOpPokeMessage(
         PokeData calldata pokeData,
         SchnorrData calldata schnorrData
-    ) private view returns (bytes32) {
+    ) internal view returns (bytes32) {
         return keccak256(
             abi.encodePacked(
                 "\x19Ethereum Signed Message:\n32",
@@ -259,12 +260,14 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
 
     // -- Toll'ed Read Functionality --
 
-    /// @inheritdoc IScribe
+    // - IChronicle Functions
+
+    /// @inheritdoc IChronicle
     /// @dev Only callable by toll'ed address.
     function read()
         external
         view
-        override(IScribe, Scribe)
+        override(IChronicle, Scribe)
         toll
         returns (uint)
     {
@@ -273,19 +276,21 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         return val;
     }
 
-    /// @inheritdoc IScribe
+    /// @inheritdoc IChronicle
     /// @dev Only callable by toll'ed address.
     function tryRead()
         external
         view
         virtual
-        override(IScribe, Scribe)
+        override(IChronicle, Scribe)
         toll
         returns (bool, uint)
     {
         uint val = _currentPokeData().val;
         return (val != 0, val);
     }
+
+    // - MakerDAO Compatibility
 
     /// @inheritdoc IScribe
     /// @dev Only callable by toll'ed address.
@@ -299,6 +304,8 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         uint val = _currentPokeData().val;
         return (val, val != 0);
     }
+
+    // - Chainlink Compatibility
 
     /// @inheritdoc IScribe
     /// @dev Only callable by toll'ed address.
@@ -329,7 +336,7 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         answeredInRound = 0;
     }
 
-    function _currentPokeData() private view returns (PokeData memory) {
+    function _currentPokeData() internal view returns (PokeData memory) {
         // Load pokeData slots from storage.
         PokeData memory pokeData = _pokeData;
         PokeData memory opPokeData = _opPokeData;
@@ -353,7 +360,7 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         _setOpChallengePeriod(opChallengePeriod_);
     }
 
-    function _setOpChallengePeriod(uint16 opChallengePeriod_) private {
+    function _setOpChallengePeriod(uint16 opChallengePeriod_) internal {
         require(opChallengePeriod_ != 0);
 
         if (opChallengePeriod != opChallengePeriod_) {
@@ -380,7 +387,7 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
 
     /// @dev Ensures an auth'ed configuration update does not enable
     ///      successfully challenging a prior to the update valid opPoke.
-    function _afterAuthedAction() private {
+    function _afterAuthedAction() internal {
         // Do nothing during deployment.
         if (address(this).code.length == 0) return;
 
@@ -427,7 +434,10 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         }
     }
 
-    function _sendETH(address payable to, uint amount) private returns (bool) {
+    function _sendETH(address payable to, uint amount)
+        internal
+        returns (bool)
+    {
         (bool ok,) = to.call{value: amount}("");
         return ok;
     }

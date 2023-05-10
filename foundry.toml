@@ -24,6 +24,9 @@ int_types = "short"
 number_underscore = "preserve"
 ignore = []
 
+[doc]
+out = "docs_generated" # Note to not overwrite own docs
+
 # Profile for intense testing
 # Run via `FOUNDRY_PROFILE=intense forge t`
 [profile.intense]

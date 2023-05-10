@@ -1,10 +1,9 @@
-Invariants
-==========
+# Invariants
+
 
 This document specifies invariants of the Scribe oracle contracts.
 
-Storage: `IScribe.PokeData _pokeData`
--------------------------------------
+## `IScribe`'s `PokeData _pokeData`
 
 * Only `poke` function may mutate the struct's state:
     ```
@@ -14,7 +13,7 @@ Storage: `IScribe.PokeData _pokeData`
 
 * `pokeData.age` is strictly monotonically increasing:
     ```
-    preTx(_pokeDat.age) != postTx(_pokeData.age)
+    preTx(_pokeData.age) != postTx(_pokeData.age)
         → preTx(_pokeData.age) < postTx(_pokeData.age)
     ```
 
@@ -26,9 +25,7 @@ Storage: `IScribe.PokeData _pokeData`
 
 * `pokeData.val` can only be read by _toll'ed_ caller.
 
-
-Storage: `LibSecp256k1.Point[] _pubKeys`
-----------------------------------------
+## `IScribe`'s `LibSecp256k1.Point[] _pubKeys`
 
 * `_pubKeys[0]` is the zero point:
     ```
@@ -71,8 +68,7 @@ Storage: `LibSecp256k1.Point[] _pubKeys`
     ```
 
 
-Storage: `mapping(address => uint) _feeds`
-------------------------------------------
+## `IScribe`'s `mapping(address => uint) _feeds`
 
 * Image of mapping is `[0, _pubKeys.length)`:
     ```

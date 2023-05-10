@@ -7,9 +7,6 @@ import {LibSecp256k1} from "./LibSecp256k1.sol";
  *
  * @notice Custom-purpose library for Schnorr signature verification on the
  *         secp256k1 curve
- *
- * @dev References to the Ethereum Yellow Paper are based on the following
- *      version: "BERLIN VERSION beacfbd – 2022-10-24".
  */
 library LibSchnorr {
     using LibSecp256k1 for LibSecp256k1.Point;
@@ -36,7 +33,7 @@ library LibSchnorr {
 
         // Note to enforce signature is less than Q to prevent signature
         // malleability. However, this check is disabled because the Scribe
-        // contracts only accepts messages with strictly monotonically
+        // contract only accepts messages with strictly monotonically
         // increasing timestamps, circumventing replay attack vectors and
         // therefore also signature malleability issues at a higher level.
         //

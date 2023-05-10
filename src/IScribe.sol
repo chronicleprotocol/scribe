@@ -1,8 +1,10 @@
 pragma solidity ^0.8.16;
 
+import {IChronicle} from "chronicle-std/IChronicle.sol";
+
 import {LibSecp256k1} from "./libs/LibSecp256k1.sol";
 
-interface IScribe {
+interface IScribe is IChronicle {
     /// @dev PokeData encapsulates a value and its age.
     struct PokeData {
         uint128 val;
@@ -77,10 +79,6 @@ interface IScribe {
     /// @param newBar The new bar's value.
     event BarUpdated(address indexed caller, uint8 oldBar, uint8 newBar);
 
-    /// @notice Returns the oracle's identifier.
-    /// @return wat The oracle's identifier.
-    function wat() external view returns (bytes32 wat);
-
     /// @notice Returns the oracle's identifier message.
     /// @dev This message must be signed by a feed in order to be lifted.
     /// @return watMessage The oracle's identifier message.
@@ -96,18 +94,8 @@ interface IScribe {
     // @return bar The bar security parameter.
     function bar() external view returns (uint8 bar);
 
-    /// @notice Returns the oracle's current value.
-    /// @dev Reverts if no value set.
-    /// @return value The oracle's current value.
-    function read() external view returns (uint value);
-
-    /// @notice Returns the oracle's current value.
-    /// @return isValid True if value exists, false otherwise.
-    /// @return value The oracle's current value if it exists, zero otherwise.
-    function tryRead() external view returns (bool isValid, uint value);
-
     /// @notice Returns the oracle's latest value.
-    /// @dev Provides partial compatibility to Chainlink's
+    /// @dev Provides partial compatibility with Chainlink's
     ///      IAggregatorV3Interface.
     /// @return roundId 0.
     /// @return answer The oracle's latest value.

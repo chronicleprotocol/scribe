@@ -1,5 +1,6 @@
 pragma solidity ^0.8.16;
 
+import {IChronicle} from "chronicle-std/IChronicle.sol";
 import {Auth} from "chronicle-std/auth/Auth.sol";
 import {Toll} from "chronicle-std/toll/Toll.sol";
 
@@ -25,9 +26,9 @@ contract Scribe is IScribe, Auth, Toll {
     uint public constant maxFeeds = type(uint8).max - 1;
 
     /// @dev The storage slot of _pubKeys[0].
-    uint private immutable SLOT_pubKeys;
+    uint internal immutable SLOT_pubKeys;
 
-    /// @inheritdoc IScribe
+    /// @inheritdoc IChronicle
     bytes32 public immutable wat;
 
     /// @inheritdoc IScribe
@@ -77,13 +78,6 @@ contract Scribe is IScribe, Auth, Toll {
 
     // -- Poke Functionality --
 
-    /// @inheritdoc IScribe
-    function poke(PokeData calldata pokeData, SchnorrData calldata schnorrData)
-        external
-    {
-        _poke(pokeData, schnorrData);
-    }
-
     /// @dev Optimized function selector: 0x00000082.
     ///      Note that this function is _not_ defined via the IScribe interface
     ///      and one should _not_ depend on it.
@@ -94,14 +88,21 @@ contract Scribe is IScribe, Auth, Toll {
         _poke(pokeData, schnorrData);
     }
 
-    function _poke(PokeData calldata pokeData, SchnorrData calldata schnorrData)
-        private
+    /// @inheritdoc IScribe
+    function poke(PokeData calldata pokeData, SchnorrData calldata schnorrData)
+        external
     {
-        // Revert if pokeData is stale.
+        _poke(pokeData, schnorrData);
+    }
+
+    function _poke(PokeData calldata pokeData, SchnorrData calldata schnorrData)
+        internal
+    {
+        // Revert if pokeData stale.
         if (pokeData.age <= _pokeData.age) {
             revert StaleMessage(pokeData.age, _pokeData.age);
         }
-        // Revert if pokeData is from the future.
+        // Revert if pokeData from the future.
         if (pokeData.age > uint32(block.timestamp)) {
             revert FutureMessage(pokeData.age, uint32(block.timestamp));
         }
@@ -187,7 +188,7 @@ contract Scribe is IScribe, Auth, Toll {
             return (false, _errorSignerNotFeed(signer));
         }
 
-        // Initiate aggPubKey with being the signerPubKey.
+        // Initiate aggPubKey with value of first signerPubKey.
         aggPubKey = signerPubKey.toJacobian();
 
         // Aggregate remaining encoded signers.
@@ -229,7 +230,9 @@ contract Scribe is IScribe, Auth, Toll {
 
     // -- Toll'ed Read Functionality --
 
-    /// @inheritdoc IScribe
+    // - IChronicle Functions
+
+    /// @inheritdoc IChronicle
     /// @dev Only callable by toll'ed address.
     function read() external view virtual toll returns (uint) {
         uint val = _pokeData.val;
@@ -237,12 +240,37 @@ contract Scribe is IScribe, Auth, Toll {
         return val;
     }
 
-    /// @inheritdoc IScribe
+    /// @inheritdoc IChronicle
     /// @dev Only callable by toll'ed address.
     function tryRead() external view virtual toll returns (bool, uint) {
         uint val = _pokeData.val;
         return (val != 0, val);
     }
+
+    /// @inheritdoc IChronicle
+    /// @dev Only callable by toll'ed address.
+    function readWithAge() external view virtual toll returns (uint, uint) {
+        uint val = _pokeData.val;
+        uint age = _pokeData.age;
+        require(val != 0);
+        return (val, age);
+    }
+
+    /// @inheritdoc IChronicle
+    /// @dev Only callable by toll'ed address.
+    function tryReadWithAge()
+        external
+        view
+        virtual
+        toll
+        returns (bool, uint, uint)
+    {
+        uint val = _pokeData.val;
+        uint age = _pokeData.age;
+        return (val != 0, val, age);
+    }
+
+    // - MakerDAO Compatibility
 
     /// @inheritdoc IScribe
     /// @dev Only callable by toll'ed address.
@@ -370,7 +398,7 @@ contract Scribe is IScribe, Auth, Toll {
     }
 
     function _lift(LibSecp256k1.Point memory pubKey, ECDSAData memory ecdsaData)
-        private
+        internal
         returns (uint)
     {
         address feed = pubKey.toAddress();
@@ -410,8 +438,6 @@ contract Scribe is IScribe, Auth, Toll {
         }
     }
 
-    /// @dev Implemented as virtual internal to allow downstream contracts to
-    ///      overwrite the function.
     function _drop(address caller, uint feedIndex) internal virtual {
         require(feedIndex < _pubKeys.length);
         address feed = _pubKeys[feedIndex].toAddress();
@@ -429,8 +455,6 @@ contract Scribe is IScribe, Auth, Toll {
         _setBar(bar_);
     }
 
-    /// @dev Implemented as virtual internal to allow downstream contracts to
-    ///      overwrite the function.
     function _setBar(uint8 bar_) internal virtual {
         require(bar_ != 0);
 
@@ -456,7 +480,7 @@ contract Scribe is IScribe, Auth, Toll {
     /// @dev Returns the public key at `_pubKeys[index]`, or zero point if
     ///      `index` out of bounds.
     function _unsafeLoadPubKeyAt(uint index)
-        private
+        internal
         view
         returns (LibSecp256k1.Point memory)
     {
@@ -487,7 +511,7 @@ contract Scribe is IScribe, Auth, Toll {
     }
 
     function _errorBarNotReached(uint8 got, uint8 want)
-        private
+        internal
         pure
         returns (bytes memory)
     {
@@ -497,7 +521,7 @@ contract Scribe is IScribe, Auth, Toll {
     }
 
     function _errorSignerNotFeed(address signer)
-        private
+        internal
         view // @todo View due to assert.
         returns (bytes memory)
     {
@@ -506,12 +530,12 @@ contract Scribe is IScribe, Auth, Toll {
         return abi.encodeWithSelector(IScribe.SignerNotFeed.selector, signer);
     }
 
-    function _errorSignersNotOrdered() private pure returns (bytes memory) {
+    function _errorSignersNotOrdered() internal pure returns (bytes memory) {
         return abi.encodeWithSelector(IScribe.SignersNotOrdered.selector);
     }
 
     function _errorSchnorrSignatureInvalid()
-        private
+        internal
         pure
         returns (bytes memory)
     {

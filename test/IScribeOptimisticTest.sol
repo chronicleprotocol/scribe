@@ -459,10 +459,10 @@ abstract contract IScribeOptimisticTest is IScribeTest {
             );
 
             vm.expectEmit();
-            emit OpPokeChallengedSuccessfully(address(this), err);
+            emit OpChallengeRewardPaid(address(this), 1 ether);
 
             vm.expectEmit();
-            emit OpChallengeRewardPaid(address(this), 1 ether);
+            emit OpPokeChallengedSuccessfully(address(this), err);
         }
 
         // Challenge opPoke.

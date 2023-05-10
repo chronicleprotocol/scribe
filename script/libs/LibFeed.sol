@@ -23,7 +23,7 @@ library LibFeed {
     using LibFeed for Feed;
     using LibFeed for Feed[];
 
-    Vm private constant vm =
+    Vm internal constant vm =
         Vm(address(uint160(uint(keccak256("hevm cheat code")))));
 
     /// @dev Feed encapsulates a private key, derived public key, and the
