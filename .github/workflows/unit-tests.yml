@@ -21,10 +21,9 @@ jobs:
           version: nightly
 
       - name: Run Forge build
-        run: |
-          forge build
+        run: forge build
         id: build
 
       - name: Run Forge test
-        run: forge test -vvv
+        run: FOUNDRY_PROFILE=ci forge test -vvv
         id: test
