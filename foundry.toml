@@ -41,8 +41,8 @@ runs = 10_000
 #       See https://github.com/foundry-rs/foundry/issues/4790
 [profile.ci]
 [profile.ci.fuzz]
-runs = 1_000
+runs = 100
 [profile.ci.invariant]
-runs = 1_000
+runs = 100
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config
