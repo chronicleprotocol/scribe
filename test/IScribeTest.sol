@@ -75,8 +75,7 @@ abstract contract IScribeTest is Test {
         return feeds;
     }
 
-    //--------------------------------------------------------------------------
-    // Test: Deployment
+    // -- Test: Deployment --
 
     function test_Deployment() public virtual {
         // Deployer is auth'ed.
@@ -120,15 +119,14 @@ abstract contract IScribeTest is Test {
         uint80 answeredInRound;
         (roundId, answer, startedAt, updatedAt, answeredInRound) =
             scribe.latestRoundData();
-        assertEq(roundId, 0);
+        assertEq(roundId, 1);
         assertEq(answer, 0);
         assertEq(startedAt, 0);
         assertEq(updatedAt, 0);
-        assertEq(answeredInRound, 0);
+        assertEq(answeredInRound, 1);
     }
 
-    //--------------------------------------------------------------------------
-    // Test: Schnorr Verification
+    // -- Test: Schnorr Verification --
 
     function testFuzz_verifySignature(uint barSeed) public {
         // Let bar ∊ [1, scribe.maxFeeds()].
@@ -277,8 +275,7 @@ abstract contract IScribeTest is Test {
         );
     }
 
-    //--------------------------------------------------------------------------
-    // Test: Poke
+    // -- Test: Poke --
 
     function testFuzz_poke(IScribe.PokeData[] memory pokeDatas) public {
         vm.assume(pokeDatas.length < 50);
@@ -394,8 +391,7 @@ abstract contract IScribeTest is Test {
         scribe.poke(pokeData, schnorrData);
     }
 
-    //--------------------------------------------------------------------------
-    // Test: Auth Protected Functions
+    // -- Test: Auth Protected Functions --
 
     function testFuzz_lift_Single(uint privKey) public {
         // Bound private key to secp256k1's order, i.e. scalar ∊ [1, Q).
@@ -812,8 +808,7 @@ abstract contract IScribeTest is Test {
         scribe.setBar(0);
     }
 
-    //--------------------------------------------------------------------------
-    // Test: Toll Protected Functions
+    // -- Test: Toll Protected Functions --
 
     function test_read_isTollProtected() public {
         vm.prank(address(0xbeef));

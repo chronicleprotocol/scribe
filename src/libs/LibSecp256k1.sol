@@ -16,7 +16,10 @@ library LibSecp256k1 {
     using LibSecp256k1 for LibSecp256k1.Point;
     using LibSecp256k1 for LibSecp256k1.JacobianPoint;
 
-    // -- Constants --
+    uint private constant ADDRESS_MASK =
+        0x000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
+
+    // -- Secp256k1 Constants --
     //
     // Taken from https://www.secg.org/sec2-v2.pdf.
     // See section 2.4.1 "Recommended Parameters secp256k1".
@@ -26,7 +29,7 @@ library LibSecp256k1 {
     uint private constant _P =
         0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F;
 
-    /// @dev Returns the order of the group created by generator G.
+    /// @dev Returns the order of the group.
     function Q() internal pure returns (uint) {
         return
             0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141;
@@ -61,7 +64,13 @@ library LibSecp256k1 {
     ///      coordinates of the corresponding ECDSA public key.
     ///      See "Appendix F: Signing Transactions" §134 in the Yellow Paper.
     function toAddress(Point memory self) internal pure returns (address) {
-        return address(uint160(uint(keccak256(abi.encode(self.x, self.y)))));
+        address addr;
+        // Functionally equivalent Solidity code:
+        // addr = address(uint160(uint(keccak256(abi.encode(self.x, self.y)))));
+        assembly ("memory-safe") {
+            addr := and(keccak256(self, 0x40), ADDRESS_MASK)
+        }
+        return addr;
     }
 
     /// @dev Returns Affine point `self` in Jacobian coordinates.

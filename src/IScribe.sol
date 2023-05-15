@@ -91,8 +91,14 @@ interface IScribe is IChronicle {
     function maxFeeds() external view returns (uint maxFeeds);
 
     /// @notice Returns the bar security parameter.
-    // @return bar The bar security parameter.
+    /// @return bar The bar security parameter.
     function bar() external view returns (uint8 bar);
+
+    /// @notice Returns the number of decimals of the oracle's value.
+    /// @dev Provides partial compatibility with Chainlink's
+    ///      IAggregatorV3Interface.
+    /// @return decimals The oracle value's number of decimals.
+    function decimals() external view returns (uint8 decimals);
 
     /// @notice Returns the oracle's latest value.
     /// @dev Provides partial compatibility with Chainlink's

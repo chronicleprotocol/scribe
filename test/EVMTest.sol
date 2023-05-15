@@ -10,9 +10,9 @@ abstract contract EVMTest is Test {
     ///      index returns 0.
     ///      Note that ScribeOptimistic::opChallenge() requires such an
     ///      expression to _not revert_.
-    function test_calldataload_ReadingNonExistingCalldataReturnsZero(uint index)
-        public
-    {
+    function testFuzz_calldataload_ReadingNonExistingCalldataReturnsZero(
+        uint index
+    ) public {
         uint minIndex;
         assembly ("memory-safe") {
             minIndex := calldatasize()
@@ -28,7 +28,7 @@ abstract contract EVMTest is Test {
 
     /// @dev Tests that:
     ///         s ∊ [Q, type(uint).max] → ecrecover(_, _, _, s) = address(0)
-    function test_ecrecover_ReturnsZeroAddress_If_S_IsGreaterThanOrEqualToQ(
+    function testFuzz_ecrecover_ReturnsZeroAddress_If_S_IsGreaterThanOrEqualToQ(
         uint privKeySeed,
         uint sSeed
     ) public {
@@ -47,7 +47,7 @@ abstract contract EVMTest is Test {
 
     /// @dev Tests that:
     ///         ecrecover(_, _, 0, _) = address(0)
-    function test_ecrecover_ReturnsZeroAddress_If_R_IsZero(uint privKeySeed)
+    function testFuzz_ecrecover_ReturnsZeroAddress_If_R_IsZero(uint privKeySeed)
         public
     {
         // Let privKey ∊ [1, Q).

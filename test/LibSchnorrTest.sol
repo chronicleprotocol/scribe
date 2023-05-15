@@ -14,7 +14,7 @@ abstract contract LibSchnorrTest is Test {
     using LibSchnorrExtended for LibSecp256k1.Point[];
     using LibSecp256k1Extended for uint;
 
-    // @todo Implement Differential Testing with Dissig
+    // @todo Implement Differential Testing with `dissig`.
 
     function testFuzz_verifySignature_SingleSigner(
         uint privKeySeed,

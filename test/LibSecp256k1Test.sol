@@ -26,13 +26,13 @@ abstract contract LibSecp256k1Test is Test {
 
     // -- toAffine --
 
-    function test_toAffine_DoesNotRevert(
+    function testFuzz_toAffine_DoesNotRevert(
         LibSecp256k1.JacobianPoint memory jacPoint
     ) public pure {
         jacPoint.toAffine();
     }
 
-    function test_toJacobian_toAffine(uint privKey) public {
+    function testFuzz_toJacobian_toAffine(uint privKey) public {
         // Bound privKey to secp256k1's order, i.e. privKey ∊ [1, Q).
         privKey = bound(privKey, 1, LibSecp256k1.Q() - 1);
 
@@ -45,7 +45,7 @@ abstract contract LibSecp256k1Test is Test {
 
     // -- addAffinePoint --
 
-    function test_addAffinePoint_UsesConstantAmountOfGas(
+    function testFuzz_addAffinePoint_UsesConstantAmountOfGas(
         LibSecp256k1.JacobianPoint memory jacPoint1,
         LibSecp256k1.Point memory p1,
         LibSecp256k1.JacobianPoint memory jacPoint2,
@@ -67,7 +67,7 @@ abstract contract LibSecp256k1Test is Test {
         assertApproxEqAbs(first, second, 3);
     }
 
-    function test_addAffinePoint_DoesNotRevert(
+    function testFuzz_addAffinePoint_DoesNotRevert(
         LibSecp256k1.JacobianPoint memory jacPoint,
         LibSecp256k1.Point memory p
     ) public pure {

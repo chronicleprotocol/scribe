@@ -12,8 +12,7 @@ library LibSecp256k1Extended {
     using LibSecp256k1 for LibSecp256k1.JacobianPoint;
     using LibSecp256k1Extended for LibSecp256k1.JacobianPoint;
 
-    //--------------------------------------------------------------------------
-    // Constants
+    // -- Secp256k1 Constants --
     //
     // Taken from https://www.secg.org/sec2-v2.pdf.
     // See section 2.4.1 "Recommended Parameters secp256k1".
@@ -23,8 +22,7 @@ library LibSecp256k1Extended {
     uint internal constant P =
         0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F;
 
-    //--------------------------------------------------------------------------
-    // API Functions
+    // -- API Functions --
 
     function derivePublicKey(uint privKey)
         internal
@@ -140,8 +138,7 @@ library LibSecp256k1Extended {
         return t;
     }
 
-    //--------------------------------------------------------------------------
-    // Private Helpers
+    // -- Private Helpers --
 
     function _add(uint x1, uint z1, uint x2, uint z2)
         private

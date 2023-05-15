@@ -54,8 +54,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
     // Necessary to receive opChallenge rewards.
     receive() external payable {}
 
-    //--------------------------------------------------------------------------
-    // Test: Deployment
+    // -- Test: Deployment --
 
     function test_Deployment() public override(IScribeTest) {
         super.test_Deployment();
@@ -67,8 +66,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         assertEq(opScribe.opChallengePeriod(), 1 hours);
     }
 
-    //--------------------------------------------------------------------------
-    // Test: opPoke
+    // -- Test: opPoke --
 
     function testFuzz_opPoke(
         IScribe.PokeData[] memory pokeDatas,
@@ -309,8 +307,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         opScribe.opPoke(pokeData, schnorrData, ecdsaData);
     }
 
-    //--------------------------------------------------------------------------
-    // Test: opChallenge
+    // -- Test: opChallenge --
 
     function testFuzz_opChallenge_opPokeDataValidAndNotStale(uint warpSeed)
         public
@@ -517,8 +514,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         opScribe.opChallenge(schnorrData);
     }
 
-    //--------------------------------------------------------------------------
-    // Test: Public View Functions
+    // -- Test: Public View Functions --
 
     function testFuzz_challengeReward(uint maxChallengeReward, uint balance)
         public
@@ -531,8 +527,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         assertEq(got, want);
     }
 
-    //--------------------------------------------------------------------------
-    // Test: Auth Protected Functions
+    // -- Test: Auth Protected Functions --
 
     function testFuzz_setOpChallengePeriod(uint16 opChallengePeriod) public {
         vm.assume(opChallengePeriod != 0);
@@ -646,8 +641,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         opScribe.setBar(1);
     }
 
-    //--------------------------------------------------------------------------
-    // Private Helpers
+    // -- Private Helpers --
 
     function _setUpFeedsAndOpPokeOnce(IScribe.PokeData memory pokeData)
         private

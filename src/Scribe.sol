@@ -25,6 +25,9 @@ contract Scribe is IScribe, Auth, Toll {
     /// @inheritdoc IScribe
     uint public constant maxFeeds = type(uint8).max - 1;
 
+    /// @inheritdoc IScribe
+    uint8 public constant decimals = 18;
+
     /// @dev The storage slot of _pubKeys[0].
     uint internal immutable SLOT_pubKeys;
 
@@ -210,9 +213,9 @@ contract Scribe is IScribe, Auth, Toll {
                 return (false, _errorSignersNotOrdered());
             }
 
-            assert(aggPubKey.x != signerPubKey.x); // Indicates rogue-key attack
+            // assert(aggPubKey.x != signerPubKey.x); // Indicates rogue-key attack
 
-            // Update aggPubKey.
+            // Add signerPubKey to already aggregated public keys.
             aggPubKey.addAffinePoint(signerPubKey);
         }
 
@@ -296,16 +299,12 @@ contract Scribe is IScribe, Auth, Toll {
             uint80 answeredInRound
         )
     {
-        uint val = _pokeData.val;
-        assembly ("memory-safe") {
-            answer := val
-        }
-        updatedAt = _pokeData.age;
-
-        // Set explicitly to zero to silence solc warnings.
-        roundId = 0;
+        roundId = 1;
+        answer = int(uint(_pokeData.val));
+        // assert(uint(answer) == uint(_pokeData.val));
         startedAt = 0;
-        answeredInRound = 0;
+        updatedAt = _pokeData.age;
+        answeredInRound = roundId;
     }
 
     // -- Public Read Functionality --
@@ -313,7 +312,7 @@ contract Scribe is IScribe, Auth, Toll {
     /// @inheritdoc IScribe
     function feeds(address who) external view returns (bool, uint) {
         uint index = _feeds[who];
-        assert(index != 0 ? !_pubKeys[index].isZeroPoint() : true);
+        // assert(index != 0 ? !_pubKeys[index].isZeroPoint() : true);
         return (index != 0, index);
     }
 
@@ -349,10 +348,10 @@ contract Scribe is IScribe, Auth, Toll {
 
             if (!pubKey.isZeroPoint()) {
                 feed = pubKey.toAddress();
-                assert(feed != address(0));
+                // assert(feed != address(0));
 
                 feedIndex = _feeds[feed];
-                assert(feedIndex != 0);
+                // assert(feedIndex != 0);
 
                 feedsList[ctr] = feed;
                 feedsIndexesList[ctr] = feedIndex;
@@ -402,7 +401,7 @@ contract Scribe is IScribe, Auth, Toll {
         returns (uint)
     {
         address feed = pubKey.toAddress();
-        assert(feed != address(0));
+        // assert(feed != address(0));
 
         // forgefmt: disable-next-item
         address recovered = ecrecover(
@@ -468,7 +467,7 @@ contract Scribe is IScribe, Auth, Toll {
 
     /// @dev Halts execution by reverting with `err`.
     function _revert(bytes memory err) internal pure {
-        assert(err.length != 0);
+        // assert(err.length != 0);
 
         assembly ("memory-safe") {
             let size := mload(err)
@@ -504,7 +503,7 @@ contract Scribe is IScribe, Auth, Toll {
             mstore(add(pubKey, 0x20), y)
         }
 
-        assert(index < _pubKeys.length || pubKey.isZeroPoint());
+        // assert(index < _pubKeys.length || pubKey.isZeroPoint());
 
         // Note that pubKey is zero if index out of bounds.
         return pubKey;
@@ -515,17 +514,17 @@ contract Scribe is IScribe, Auth, Toll {
         pure
         returns (bytes memory)
     {
-        assert(got != want);
+        // assert(got != want);
 
         return abi.encodeWithSelector(IScribe.BarNotReached.selector, got, want);
     }
 
     function _errorSignerNotFeed(address signer)
         internal
-        view // @todo View due to assert.
+        pure
         returns (bytes memory)
     {
-        assert(_feeds[signer] == 0);
+        // assert(_feeds[signer] == 0);
 
         return abi.encodeWithSelector(IScribe.SignerNotFeed.selector, signer);
     }

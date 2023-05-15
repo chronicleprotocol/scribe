@@ -324,16 +324,12 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
     {
         PokeData memory pokeData = _currentPokeData();
 
-        uint val = pokeData.val;
-        assembly ("memory-safe") {
-            answer := val
-        }
-        updatedAt = pokeData.age;
-
-        // Set explicitly to zero to silence solc warnings.
-        roundId = 0;
+        roundId = 1;
+        answer = int(uint(pokeData.val));
+        // assert(uint(answer) == uint(pokeData.val));
         startedAt = 0;
-        answeredInRound = 0;
+        updatedAt = pokeData.age;
+        answeredInRound = roundId;
     }
 
     function _currentPokeData() internal view returns (PokeData memory) {

@@ -167,8 +167,7 @@ library LibSchnorrExtended {
         return commitment == recovered;
     }
 
-    //--------------------------------------------------------------------------
-    // Low-Level Functions
+    // -- Low-Level Functions --
 
     function deriveNonce(uint privKey, bytes32 message)
         internal

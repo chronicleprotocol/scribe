@@ -37,24 +37,24 @@ import {LibFeed} from "script/libs/LibFeed.sol";
  *      Note to (op)Poke more than once to get realistic gas costs.
  *      During the first execution the storage slots are empty.
  *
- * @dev Results:
+ * @dev Results using solc_version = "0.8.16" and via_ir = true:
  *      - Deployment:
- *          3,545,416
+ *          2,919,984
  *
  *      - Lift 2 feeds:
- *          181,882
+ *          181,619
  *
  *      - Set opChallengePeriod:
- *          55,770
+ *          55,903
  *
  *      - opPoke 1. time:
- *          68,381
+ *          67,341
  *
  *      - opPoke 2. time:
- *          54,252
+ *          53,440
  *
  *      - opPoke 3. time:
- *          54,252
+ *          53,440
  */
 contract ScribeOptimisticBenchmark is Script {
     using LibFeed for LibFeed.Feed;

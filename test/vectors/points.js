@@ -4,7 +4,7 @@
  *
  * Usage:
  * ```bash
- * node test/vectors/points.js
+ * $ node test/vectors/points.js
  * ```
  *
  * Outputs:
