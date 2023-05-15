@@ -1,4 +1,4 @@
-<img align="right" width="200" height="200" top="200" src="./assets/logo.png">
+<img align="right" width="200" height="150" top="150" src="./assets/logo.png">
 
 # Scribe • [![Unit Tests](https://github.com/chronicleprotocol/scribe/actions/workflows/unit-tests.yml/badge.svg)](https://github.com/chronicleprotocol/scribe/actions/workflows/unit-tests.yml)
 
