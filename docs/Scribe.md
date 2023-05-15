@@ -3,83 +3,132 @@
 This document provides technical documentation for Chronicle Protocol's Scribe oracle system.
 
 
-## Background
+## Table of Contents
 
-The Scribe oracle system is the successor of MakerDAO's [`median`](https://github.com/makerdao/median/blob/master/src/median.sol) contract.
+- [Scribe](#scribe)
+  - [Table of Contents](#table-of-contents)
+  - [Overview](#overview)
+  - [Schnorr Signature Scheme](#schnorr-signature-scheme)
+  - [Elliptic Curve Computations](#elliptic-curve-computations)
+  - [Encoding of Participating Public Keys](#encoding-of-participating-public-keys)
+  - [Lifting Feeds](#lifting-feeds)
+  - [Chainlink Compatibility](#chainlink-compatibility)
+  - [Optimistic-Flavored Scribe](#optimistic-flavored-scribe)
+    - [Verifying Optimistic Pokes](#verifying-optimistic-pokes)
+  - [Benchmarks](#benchmarks)
 
-The `median` contract provides a public callable `poke()` function receiving a
-set of ECDSA signed `(value, age)` tuples. After a successfull `poke()`, the
-`median`'s oracle value is the median of the provided values.
+## Overview
 
-Each `(value, age)` tuple's ECDSA signature's signer needs to be recovered and
-checked to be a whitelisted feed. This ensures only whitelisted feeds are able
-to participate in setting the oracle's value.
+`Scribe` is an efficient Schnorr multi-signature based oracle allowing a subset of feeds to multi-sign a `(value, age)` tuple via a custom Schnorr scheme.
 
-Furthermore, the `poke()` function expects exactly `bar` many `(value, age)` tuples.
-This ensures only a specified number of feeds together are able to advance the oracle
-to a new value.
+`Scribe` advances to a new `(value, age)` tuple - via the public callable `poke()` function - if the given tuple is signed by exactly `IScribe::bar()` many feeds.
 
+The `Scribe` contract also allows the creation of an _optimistic-flavored_ oracle instance with onchain fault resolution called `ScribeOptimistic`.
 
-## Problems with `median`
+`Scribe` implements Chronicle Protocol's [`IChronicle`](https://github.com/chronicleprotocol/chronicle-std/blob/v1/src/IChronicle.sol) interface for reading the oracle's value.
 
-The `median`'s `poke()` function's gas cost is linear dependent to `bar`.
-Furthermore, the `poke()` function needs to execute `bar` many `ecrecover` calls
-to verify each tuple's ECDSA signature.
-
-The goal of developing Scribe was to lower the gas costs of the `poke()` function.
-
-
-## Scribe Overview
-
-In order to reduce the amount of signature verification onchain, Scribe uses
-aggregated (or multi) signatures. This reduces the number of onchain signature
-verifications from `O(bar)` to `O(1)`. Furthermore, feeds can now already compute
-the median offchain, and multisign only the result.
-This also reduces the calldata from `O(bar)` to `O(1)` as only a single
-`(value, age)` tuple is needed.
+To protect authorized functions, `Scribe` uses `chronicle-std`'s [`Auth`](https://github.com/chronicleprotocol/chronicle-std/blob/v1/src/auth/Auth.sol) module. Functions to read the oracle's value are protected via `chronicle-std`'s [`Toll`](https://github.com/chronicleprotocol/chronicle-std/blob/v1/src/toll/Toll.sol) module.
 
 
-### Scribe's Signature Scheme
+## Schnorr Signature Scheme
 
-We benchmarked two different signature algorithms, BLS and Schnorr.
+`Scribe` uses a custom Schnorr signature scheme. The scheme is specified [docs/Schnorr.md](./Schnorr.md).
 
-The BLS PoC, using the *alt_bn_128* curve, showed an increase in runtime cost
-of more than 200% for a `bar` value of 15. Note that *alt_bn_128*'s usage is
-discouraged and the Ethereum community is generally switching to the *BLS12-381*
-curve. However, there are no precompiles for that curve yet, see [EIP-2537](https://eips.ethereum.org/EIPS/eip-2537).
-
-Verifying a Schnorr signature on the other side is possible via a single elliptic
-curve multiplication. The Schnorr scheme used by Scribe allows using `ecrecover`
-to perform the elliptic curve multiplication.
-
-However, the verification is only the last part. Before that the participating
-public keys need to be aggregated - onchain. Note that the aggregated keys cannot
-just be pushed onchain due to a combinatoric explosion of possible keys, i.e. if
-`bar` is 15 and there are 20 whitelisted feeds, the number of possible aggregated
-public key combinations is `choose 15 from 20 ~= 15,000`.
-
-For Scribe's Schnorr scheme, the public keys are aggregated by adding the them
-together. Therefore, Scribe needs to perform elliptic curve point additions.
-For more info about the Schnorr scheme, see [here](./Schnorr.md).
+The verification logic is implemented in [`src/libs/LibSchnorr.sol`](../src/libs/LibSchnorr.sol). A Solidity library to (multi-) sign data is provided via [`script/libs/LibSchnorrExtended.sol`](../script/libs/LibSchnorrExtended.sol).
 
 
-### Scribe's `LibSecp256k1` Library
+## Elliptic Curve Computations
 
-Scribe uses the secp256k1 elliptic curve. In order to optimize the addition of
-public keys, i.e. elliptic curve points, the library uses an addition formula
-that allows adding a point in Jacobian coordinates to a point in Affine coordinates.
+`Scribe` needs to perform elliptic curve computations on the secp256k1 curve to verify aggregated/multi signatures.
 
-Note that elliptic curve addition in Jacobian coordinates is a lot cheaper.
-However, converting a point from Jacobian coordinates back to Affine coordinates
-involves computing a modular inverse, which is very expensive.
+The [`LibSecp256k1.sol`](../src/libs/LibSecp256k1.sol) library provides the necessary addition and point conversion (Affine coordinates <-> Jacobian coordinates) functions.
 
-Converting Affine coordinates to Jacobian coordinates on the other side is trivial -
-just add a `z` variable with value 1. The formula addition expects one of the two points
-to a have a `z` coordinate of 1, effectively allowing us to add the next public key's point
-in Affine coordinates to the current sum in Jacobian coordinates.
+In order to save computation-heavy conversions from Jacobian coordinates - which are used for point addition - back to Affine coordinates - which are used to store public keys -, `LibSecp256k1` uses an addition formula expecting one point's `z` coordinate to be 1. Effectively allowing to add an point in Affine coordinates to a point in Jacobian coordinates.
 
-After adding all points together, we once convert from Jacobian back to Affine coordinates.
-For more info see [`LibSecp256k1::addAffinePoint()`](../src/libs/LibSecp256k1.sol).
+This optimization allows `Scribe` to aggregate public keys, i.e. compute the sum of secp256k1 points, in an efficient manner by only having to convert the end result from Jacobian coordinates to Affine coordinates.
+
+For more info, see [`LibSecp256k1::addToAffine()`](../src/libs/LibSecp256k1.sol).
 
 
-###
+## Encoding of Participating Public Keys
+
+The `poke()` function has to receive the set of feeds, i.e. public keys, that participated in the Schnorr multi-signature.
+
+To reduce the calldata load, `Scribe` does not use type `address`, which uses 20 bytes per feed, but encodes the unique feeds' identifier's byte-wise into a `bytes` called `signersBlob`.
+
+For more info, see [`LibSchnorrData.sol`](../src/libs/LibSchnorrData.sol).
+
+
+## Lifting Feeds
+
+Feeds _must_ prove the integrity of their public key by proving the ownership of the corresponding private key. The `lift()` function therefore expects an ECDSA signed message derived from `IScribe::wat()`.
+
+If public key's would not be verified, the Schnorr signature verification would be vulnerable to rogue-key attacks. For more info, see [`docs/Schnorr.md#key-aggregation-for-multisignatures`](./Schnorr.md#key-aggregation-for-multisignatures).
+
+Also, the number of state-changing `lift()` executions is limited to `type(uint8).max-1`, i.e. 254. After reaching the limit, no further `lift()` calls can be executed. For more info, see [`IScribe.maxFeeds()`](../src/IScribe.sol).
+
+
+## Chainlink Compatibility
+
+`Scribe` aims to be partially Chainlink compatible by implementing the most widely, and not deprecated, used functions of the `IChainlinkAggregatorV3` interface.
+
+The following `IChainlinkAggregatorV3` functions are provided:
+- `latestRoundData()`
+- `decimals()`
+
+
+## Optimistic-Flavored Scribe
+
+`ScribeOptimistic` is a contract inheriting from `Scribe` and providing an _optimistic-flavored_ `Scribe` version. This version is intended to only be used on Layer 1s with expensive computation.
+
+To circumvent verifying Schnorr signatures onchain, `ScribeOptimistic` provides an additional `opPoke()` function. This function expects the `(value, age)` tuple and corresponding Schnorr signature to be signed via ECDSA by a single feed. A feed is assumed to verify a `(value, age)` tuple and corresponding Schnorr signature before signing it via ECDSA!
+
+The `opPoke()` function binds the feed to the data they signed. A public callable `opChallenge()` function can be called at any time. The function verifies the current optimistically poked data and, if the Schnorr signature verification succeeds, finalizes the data. However, if the Schnorr signature verification fails, the feed bound to the data is automatically `diss`'ed, i.e. removed from the whitelist, and the data deleted.
+
+Monitoring optimistic pokes and, if necessary, challenging them can be incentivized via ETH rewards. For more info, see [`IScribeOptimistic::maxChallengeReward()`](../src/IScribeOptimistic.sol).
+
+
+
+### Verifying Optimistic Pokes
+
+1. Listen to `opPoked` events:
+```solidity
+event OpPoked(
+       address indexed caller,
+       address indexed opFeed,
+       IScribe.SchnorrData schnorrData,
+       IScribe.PokeData pokeData
+);
+```
+
+2. Construct message from `pokeData`:
+```solidity
+function constructPokeMessage(PokeData calldata pokeData)
+       external
+       view
+       returns (bytes32);
+```
+
+3. Verify Schnorr signature:
+```solidity
+function verifySchnorrSignature(
+        bytes32 message,
+        SchnorrData calldata schnorrData
+) external returns (bool ok, bytes memory err);
+```
+
+4. If signature verifications fails:
+```solidity
+function opChallenge(SchnorrData calldata schnorrData)
+        external
+        returns (bool);
+```
+
+5. ETH Challenge reward can be checked beforehand:
+```solidity
+function challengeReward() external view returns (uint);
+```
+
+## Benchmarks
+
+Benchmarks can be found in [`script/benchmarks/`](../script/benchmarks/).

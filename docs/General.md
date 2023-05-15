@@ -1,5 +1,7 @@
 # [WIP] General Docs
 
+NOTE: Going to delete... just not juuuust yet ;)
+
 ## About bounded gas usage
 
 For many functions it is of utmost importance to have bounded gas usage.

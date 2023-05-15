@@ -45,7 +45,7 @@ This document specifies invariants of the Scribe oracle contracts.
 
 * Existing public key may only be deleted, never mutated:
     ```
-    ∀x ∊ uint: preTx(_pubKeys[x]) != postTx(_pubKeys[x])
+    ∀x ∊ uint: x < _pubKeys.length ⋀ preTx(_pubKeys[x]) != postTx(_pubKeys[x])
         → postTx(_pubKeys[x].isZeroPoint())
     ```
 
