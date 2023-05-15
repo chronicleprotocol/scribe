@@ -2,7 +2,7 @@
 
 # Scribe • [![Unit Tests](https://github.com/chronicleprotocol/scribe/actions/workflows/unit-tests.yml/badge.svg)](https://github.com/chronicleprotocol/scribe/actions/workflows/unit-tests.yml)
 
-Scribe is an efficient Schnorr multi-signature based Oracle.
+Scribe is an efficient Schnorr multi-signature based Oracle. For more documentation, see [docs/Scribe.md](./docs/Scribe.md).
 
 ## Installation
 

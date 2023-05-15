@@ -10,7 +10,7 @@ This document provides technical documentation for Chronicle Protocol's Scribe o
   - [Overview](#overview)
   - [Schnorr Signature Scheme](#schnorr-signature-scheme)
   - [Elliptic Curve Computations](#elliptic-curve-computations)
-  - [Encoding of Participating Public Keys](#encoding-of-participating-public-keys)
+  - [Encoding of Participating Public Keys](#encoding-participating-public-keys)
   - [Lifting Feeds](#lifting-feeds)
   - [Chainlink Compatibility](#chainlink-compatibility)
   - [Optimistic-Flavored Scribe](#optimistic-flavored-scribe)
@@ -19,9 +19,7 @@ This document provides technical documentation for Chronicle Protocol's Scribe o
 
 ## Overview
 
-`Scribe` is an efficient Schnorr multi-signature based oracle allowing a subset of feeds to multi-sign a `(value, age)` tuple via a custom Schnorr scheme.
-
-`Scribe` advances to a new `(value, age)` tuple - via the public callable `poke()` function - if the given tuple is signed by exactly `IScribe::bar()` many feeds.
+`Scribe` is an efficient Schnorr multi-signature based oracle allowing a subset of feeds to multi-sign a `(value, age)` tuple via a custom Schnorr scheme. The oracle advances to a new `(value, age)` tuple - via the public callable `poke()` function - if the given tuple is signed by exactly `IScribe::bar()` many feeds.
 
 The `Scribe` contract also allows the creation of an _optimistic-flavored_ oracle instance with onchain fault resolution called `ScribeOptimistic`.
 
@@ -47,10 +45,10 @@ In order to save computation-heavy conversions from Jacobian coordinates - which
 
 This optimization allows `Scribe` to aggregate public keys, i.e. compute the sum of secp256k1 points, in an efficient manner by only having to convert the end result from Jacobian coordinates to Affine coordinates.
 
-For more info, see [`LibSecp256k1::addToAffine()`](../src/libs/LibSecp256k1.sol).
+For more info, see [`LibSecp256k1::addAffinePoint()`](../src/libs/LibSecp256k1.sol).
 
 
-## Encoding of Participating Public Keys
+## Encoding Participating Public Keys
 
 The `poke()` function has to receive the set of feeds, i.e. public keys, that participated in the Schnorr multi-signature.
 

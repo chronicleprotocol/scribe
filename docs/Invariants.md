@@ -1,6 +1,5 @@
 # Invariants
 
-
 This document specifies invariants of the Scribe oracle contracts.
 
 ## `IScribe`'s `PokeData _pokeData`
