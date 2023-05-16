@@ -99,11 +99,23 @@ abstract contract IScribeTest is Test {
 
         bool ok;
         uint val;
+        uint age;
 
         // tryRead()(bool,uint) returns false.
         (ok, val) = scribe.tryRead();
-        assertEq(val, 0);
         assertFalse(ok);
+        assertEq(val, 0);
+
+        // readWithAge()(uint,uint) fails.
+        try scribe.readWithAge() returns (uint, uint) {
+            assertTrue(false);
+        } catch {}
+
+        // tryReadWithAge()(bool,uint,uint) returns false.
+        (ok, val, age) = scribe.tryReadWithAge();
+        assertFalse(ok);
+        assertEq(val, 0);
+        assertEq(age, 0);
 
         // peek()(uint,bool) returns false.
         // Note that peek()(uint,bool) is deprecated.
@@ -286,6 +298,7 @@ abstract contract IScribeTest is Test {
         IScribe.SchnorrData memory schnorrData;
         bool ok;
         uint val;
+        uint age;
         for (uint i; i < pokeDatas.length; i++) {
             pokeDatas[i].val =
                 uint128(bound(pokeDatas[i].val, 1, type(uint128).max));
@@ -304,16 +317,34 @@ abstract contract IScribeTest is Test {
             assertEq(scribe.read(), pokeDatas[i].val);
 
             (ok, val) = scribe.tryRead();
-            assertEq(val, pokeDatas[i].val);
             assertTrue(ok);
+            assertEq(val, pokeDatas[i].val);
+
+            (val, age) = scribe.readWithAge();
+            assertEq(val, pokeDatas[i].val);
+            assertEq(age, block.timestamp);
+
+            (ok, val, age) = scribe.tryReadWithAge();
+            assertTrue(ok);
+            assertEq(val, pokeDatas[i].val);
+            assertEq(age, block.timestamp);
 
             (val, ok) = scribe.peek();
             assertEq(val, pokeDatas[i].val);
             assertTrue(ok);
 
-            (, int answer,, uint updatedAt,) = scribe.latestRoundData();
+            (
+                uint80 roundId,
+                int answer,
+                uint startedAt,
+                uint updatedAt,
+                uint80 answeredInRound
+            ) = scribe.latestRoundData();
+            assertEq(uint(roundId), 1);
             assertEq(uint(answer), pokeDatas[i].val);
+            assertEq(startedAt, 0);
             assertEq(updatedAt, block.timestamp);
+            assertEq(uint(answeredInRound), 1);
 
             lastPokeTimestamp = uint32(block.timestamp);
             vm.warp(block.timestamp + 10 minutes);
@@ -388,6 +419,22 @@ abstract contract IScribeTest is Test {
                 uint32(block.timestamp)
             )
         );
+        scribe.poke(pokeData, schnorrData);
+    }
+
+    function testFuzz_poke_FailsIf_SignatureInvalid(
+        IScribe.PokeData memory pokeData
+    ) public {
+        LibFeed.Feed[] memory feeds = _createAndLiftFeeds(scribe.bar());
+
+        vm.assume(pokeData.val != 0);
+        vm.assume(pokeData.age != 0 && pokeData.age <= uint32(block.timestamp));
+
+        // Create schnorrData signing different message.
+        bytes32 message = keccak256("scribe");
+        IScribe.SchnorrData memory schnorrData = feeds.signSchnorr(message);
+
+        vm.expectRevert(IScribe.SchnorrSignatureInvalid.selector);
         scribe.poke(pokeData, schnorrData);
     }
 
@@ -550,7 +597,7 @@ abstract contract IScribeTest is Test {
         scribe.lift(pubKeys, ecdsaDatas);
     }
 
-    function test_lift_multiple_FailsIf_MaxFeedsReached() public {
+    function test_lift_Multiple_FailsIf_MaxFeedsReached() public {
         uint maxFeeds = scribe.maxFeeds();
 
         // Make feeds.
@@ -572,6 +619,16 @@ abstract contract IScribeTest is Test {
         for (uint i; i < maxFeeds + 1; i++) {
             ecdsaDatas[i] = feeds[i].signECDSA(WAT_MESSAGE);
         }
+
+        vm.expectRevert();
+        scribe.lift(pubKeys, ecdsaDatas);
+    }
+
+    function testFuzz_lift_Multiple_FailsIf_ArrayLengthMismatch(
+        LibSecp256k1.Point[] memory pubKeys,
+        IScribe.ECDSAData[] memory ecdsaDatas
+    ) public {
+        vm.assume(pubKeys.length != ecdsaDatas.length);
 
         vm.expectRevert();
         scribe.lift(pubKeys, ecdsaDatas);
@@ -677,6 +734,22 @@ abstract contract IScribeTest is Test {
     function test_drop_IndexZero() public {
         // Does nothing.
         scribe.drop(0);
+    }
+
+    function testFuzz_drop_Single_FailsIf_IndexOutOfBounds(uint index) public {
+        vm.assume(index != 0);
+
+        vm.expectRevert();
+        scribe.drop(index);
+    }
+
+    function testFuzz_drop_Multiple_FailsIf_IndexOutOfBounds(
+        uint[] memory indexes
+    ) public {
+        indexes[indexes.length - 1] = 1;
+
+        vm.expectRevert();
+        scribe.drop(indexes);
     }
 
     function testFuzz_liftDropLift(uint privKey) public {

@@ -529,6 +529,30 @@ abstract contract IScribeOptimisticTest is IScribeTest {
 
     // -- Test: Auth Protected Functions --
 
+    function testFuzz_setMaxChallengeReward(uint maxChallengeReward) public {
+        // Only expect event if maxChallengeReward actually changes.
+        if (maxChallengeReward != opScribe.maxChallengeReward()) {
+            vm.expectEmit();
+            emit MaxChallengeRewardUpdated(
+                address(this), opScribe.maxChallengeReward(), maxChallengeReward
+            );
+        }
+
+        opScribe.setMaxChallengeReward(maxChallengeReward);
+
+        assertEq(opScribe.maxChallengeReward(), maxChallengeReward);
+    }
+
+    function test_setMaxChallengeReward_IsAuthProtected() public {
+        vm.prank(address(0xbeef));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAuth.NotAuthorized.selector, address(0xbeef)
+            )
+        );
+        opScribe.setMaxChallengeReward(0);
+    }
+
     function testFuzz_setOpChallengePeriod(uint16 opChallengePeriod) public {
         vm.assume(opChallengePeriod != 0);
 
@@ -562,65 +586,59 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         opScribe.setOpChallengePeriod(0);
     }
 
-    function test_setOpChallengePeriod_IsAfterAuthedActionProtected() public {
+    function testFuzz_setOpChallengePeriod_IsAfterAuthedActionProtected(
+        bool opPokeFinalized
+    ) public {
         IScribe.PokeData memory pokeData;
         pokeData.val = 1;
         pokeData.age = uint32(block.timestamp);
 
         _setUpFeedsAndOpPokeOnce(pokeData);
 
-        vm.expectEmit();
-        emit OpPokeDataDropped(address(this), pokeData);
+        if (opPokeFinalized) {
+            vm.warp(block.timestamp + opScribe.opChallengePeriod());
+        } else {
+            vm.expectEmit();
+            emit OpPokeDataDropped(address(this), pokeData);
+        }
 
         opScribe.setOpChallengePeriod(1);
     }
 
-    function testFuzz_setMaxChallengeReward(uint maxChallengeReward) public {
-        // Only expect event if maxChallengeReward actually changes.
-        if (maxChallengeReward != opScribe.maxChallengeReward()) {
-            vm.expectEmit();
-            emit MaxChallengeRewardUpdated(
-                address(this), opScribe.maxChallengeReward(), maxChallengeReward
-            );
-        }
-
-        opScribe.setMaxChallengeReward(maxChallengeReward);
-
-        assertEq(opScribe.maxChallengeReward(), maxChallengeReward);
-    }
-
-    function test_setMaxChallengeReward_IsAuthProtected() public {
-        vm.prank(address(0xbeef));
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IAuth.NotAuthorized.selector, address(0xbeef)
-            )
-        );
-        opScribe.setMaxChallengeReward(0);
-    }
-
-    function test_drop_Single_IsAfterAuthedActionProtected() public {
+    function test_drop_Single_IsAfterAuthedActionProtected(bool opPokeFinalized)
+        public
+    {
         IScribe.PokeData memory pokeData;
         pokeData.val = 1;
         pokeData.age = uint32(block.timestamp);
 
         _setUpFeedsAndOpPokeOnce(pokeData);
 
-        vm.expectEmit();
-        emit OpPokeDataDropped(address(this), pokeData);
+        if (opPokeFinalized) {
+            vm.warp(block.timestamp + opScribe.opChallengePeriod());
+        } else {
+            vm.expectEmit();
+            emit OpPokeDataDropped(address(this), pokeData);
+        }
 
         opScribe.drop(1);
     }
 
-    function test_drop_Multiple_IsAfterAuthedActionProtected() public {
+    function test_drop_Multiple_IsAfterAuthedActionProtected(
+        bool opPokeFinalized
+    ) public {
         IScribe.PokeData memory pokeData;
         pokeData.val = 1;
         pokeData.age = uint32(block.timestamp);
 
         _setUpFeedsAndOpPokeOnce(pokeData);
 
-        vm.expectEmit();
-        emit OpPokeDataDropped(address(this), pokeData);
+        if (opPokeFinalized) {
+            vm.warp(block.timestamp + opScribe.opChallengePeriod());
+        } else {
+            vm.expectEmit();
+            emit OpPokeDataDropped(address(this), pokeData);
+        }
 
         uint[] memory feedIndexes = new uint[](1);
         feedIndexes[0] = 1;
@@ -628,15 +646,21 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         opScribe.drop(feedIndexes);
     }
 
-    function test_setBar_IsAfterAuthedActionProtected() public {
+    function test_setBar_IsAfterAuthedActionProtected(bool opPokeFinalized)
+        public
+    {
         IScribe.PokeData memory pokeData;
         pokeData.val = 1;
         pokeData.age = uint32(block.timestamp);
 
         _setUpFeedsAndOpPokeOnce(pokeData);
 
-        vm.expectEmit();
-        emit OpPokeDataDropped(address(this), pokeData);
+        if (opPokeFinalized) {
+            vm.warp(block.timestamp + opScribe.opChallengePeriod());
+        } else {
+            vm.expectEmit();
+            emit OpPokeDataDropped(address(this), pokeData);
+        }
 
         opScribe.setBar(1);
     }
@@ -651,7 +675,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         IScribe.SchnorrData memory schnorrData;
         schnorrData = feeds.signSchnorr(opScribe.constructPokeMessage(pokeData));
 
-        IScribeOptimistic(address(opScribe)).opPoke(
+        opScribe.opPoke(
             pokeData,
             schnorrData,
             feeds[0].signECDSA(

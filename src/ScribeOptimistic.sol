@@ -281,13 +281,37 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
     function tryRead()
         external
         view
-        virtual
         override(IChronicle, Scribe)
         toll
         returns (bool, uint)
     {
         uint val = _currentPokeData().val;
         return (val != 0, val);
+    }
+
+    /// @inheritdoc IChronicle
+    /// @dev Only callable by toll'ed address.
+    function readWithAge()
+        external
+        view
+        override(IChronicle, Scribe)
+        toll
+        returns (uint, uint)
+    {
+        PokeData memory pokeData = _currentPokeData();
+        require(pokeData.val != 0);
+        return (pokeData.val, pokeData.age);
+    }
+
+    function tryReadWithAge()
+        external
+        view
+        override(IChronicle, Scribe)
+        toll
+        returns (bool, uint, uint)
+    {
+        PokeData memory pokeData = _currentPokeData();
+        return (pokeData.val != 0, pokeData.val, pokeData.age);
     }
 
     // - MakerDAO Compatibility

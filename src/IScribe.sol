@@ -103,11 +103,11 @@ interface IScribe is IChronicle {
     /// @notice Returns the oracle's latest value.
     /// @dev Provides partial compatibility with Chainlink's
     ///      IAggregatorV3Interface.
-    /// @return roundId 0.
+    /// @return roundId 1.
     /// @return answer The oracle's latest value.
     /// @return startedAt 0.
     /// @return updatedAt The timestamp of oracle's latest update.
-    /// @return answeredInRound 0.
+    /// @return answeredInRound 1.
     function latestRoundData()
         external
         view

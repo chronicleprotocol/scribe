@@ -468,7 +468,6 @@ contract Scribe is IScribe, Auth, Toll {
     /// @dev Halts execution by reverting with `err`.
     function _revert(bytes memory err) internal pure {
         // assert(err.length != 0);
-
         assembly ("memory-safe") {
             let size := mload(err)
             let offset := add(err, 0x20)
@@ -502,7 +501,6 @@ contract Scribe is IScribe, Auth, Toll {
             mstore(pubKey, x)
             mstore(add(pubKey, 0x20), y)
         }
-
         // assert(index < _pubKeys.length || pubKey.isZeroPoint());
 
         // Note that pubKey is zero if index out of bounds.
@@ -515,7 +513,6 @@ contract Scribe is IScribe, Auth, Toll {
         returns (bytes memory)
     {
         // assert(got != want);
-
         return abi.encodeWithSelector(IScribe.BarNotReached.selector, got, want);
     }
 
@@ -525,7 +522,6 @@ contract Scribe is IScribe, Auth, Toll {
         returns (bytes memory)
     {
         // assert(_feeds[signer] == 0);
-
         return abi.encodeWithSelector(IScribe.SignerNotFeed.selector, signer);
     }
 
