@@ -746,6 +746,7 @@ abstract contract IScribeTest is Test {
     function testFuzz_drop_Multiple_FailsIf_IndexOutOfBounds(
         uint[] memory indexes
     ) public {
+        vm.assume(indexes.length != 0);
         indexes[indexes.length - 1] = 1;
 
         vm.expectRevert();
