@@ -1,8 +1,8 @@
-<img align="right" width="200" height="150" top="150" src="./assets/logo.png">
+<img src="./assets/logo.png"/>
 
-# Scribe • [![Unit Tests](https://github.com/chronicleprotocol/scribe/actions/workflows/unit-tests.yml/badge.svg)](https://github.com/chronicleprotocol/scribe/actions/workflows/unit-tests.yml)
+[![Unit Tests](https://github.com/chronicleprotocol/scribe/actions/workflows/unit-tests.yml/badge.svg)](https://github.com/chronicleprotocol/scribe/actions/workflows/unit-tests.yml)
 
-Scribe is an efficient Schnorr multi-signature based Oracle. For more documentation, see [docs/Scribe.md](./docs/Scribe.md).
+Scribe is an efficient Schnorr multi-signature based Oracle. For more info, see [docs/Scribe.md](./docs/Scribe.md).
 
 ## Installation
 
