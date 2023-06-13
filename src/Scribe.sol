@@ -100,6 +100,7 @@ contract Scribe is IScribe, Auth, Toll {
 
     function _poke(PokeData calldata pokeData, SchnorrData calldata schnorrData)
         internal
+        virtual
     {
         // Revert if pokeData stale.
         if (pokeData.age <= _pokeData.age) {
