@@ -373,10 +373,10 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         // Execute valid opPoke.
         opScribe.opPoke(pokeData, schnorrData, ecdsaData);
 
-        // Wait for some time less than opChallengePeriod.
+        // Wait for some non-zero time less than opChallengePeriod.
         vm.warp(
             block.timestamp
-                + bound(warpSeed, 0, opScribe.opChallengePeriod() - 1)
+                + bound(warpSeed, 1, opScribe.opChallengePeriod() - 1)
         );
 
         uint balanceBefore = address(this).balance;
