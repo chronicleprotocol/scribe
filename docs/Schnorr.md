@@ -51,7 +51,7 @@ elliptic curve. The scheme is used by Chronicle Protocol's `Scribe` oracle contr
 - Input : `(P, m, s, Rₑ)`
 - Output: `True` if signature verification succeeds, `false` otherwise
 
-1. Compute _challenge_ `e = H(Pₓ ‖ Pₚ ‖ Rₑ ‖ m) mod Q`
+1. Compute _challenge_ `e = H(Pₓ ‖ Pₚ ‖ m ‖ Rₑ) mod Q`
 
 2. Compute _commitment_:
 ```
