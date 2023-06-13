@@ -78,8 +78,14 @@ library LibSchnorr {
         uint r = pubKey.x;
 
         // Compute s = Q - (e * Pₓ) (mod Q)
-        uint s =
-            LibSecp256k1.Q() - mulmod(challenge, pubKey.x, LibSecp256k1.Q());
+        //
+        // Unchecked because the only protected operation performed is the
+        // subtraction from Q where the subtrahend is the result of a (mod Q)
+        // computation, i.e. the subtrahend is guaranteed to be less than Q.
+        uint s;
+        unchecked {
+            s = LibSecp256k1.Q() - mulmod(challenge, pubKey.x, LibSecp256k1.Q());
+        }
 
         // Compute ([s]G - [e]P)ₑ via ecrecover.
         address recovered =
