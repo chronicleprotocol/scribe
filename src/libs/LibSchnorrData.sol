@@ -90,6 +90,12 @@ library LibSchnorrData {
         pure
         returns (uint)
     {
-        return schnorrData.signersBlob.length;
+        uint index;
+        assembly ("memory-safe") {
+            // Calldata index for schnorrData.signersBlob.length is
+            // schnorrData's offset plus 3 words, i.e. 0x60.
+            index := calldataload(add(schnorrData, 0x60))
+        }
+        return index;
     }
 }
