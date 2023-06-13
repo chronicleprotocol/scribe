@@ -395,6 +395,14 @@ abstract contract IScribeOptimisticTest is IScribeTest {
 
         // opPokeData finalized.
         assertEq(opScribe.read(), pokeData.val);
+
+        // Possible to directly opPoke again.
+        pokeData.age = uint32(block.timestamp);
+        schnorrData = feeds.signSchnorr(opScribe.constructPokeMessage(pokeData));
+        ecdsaData = feeds[0].signECDSA(
+            opScribe.constructOpPokeMessage(pokeData, schnorrData)
+        );
+        opScribe.opPoke(pokeData, schnorrData, ecdsaData);
     }
 
     function testFuzz_opChallenge_opPokeDataValidButStale(uint warpSeed)

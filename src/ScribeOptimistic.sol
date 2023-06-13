@@ -240,9 +240,11 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
             bool opPokeDataStale = opPokeData.age <= _pokeData.age;
 
             // If _opPokeData not stale, finalize it by moving it to the
-            // _pokeData storage.
+            // _pokeData storage. Note to also clean the _opPokeData storage to
+            // not block new opPoke's as _opPokeData's challenge period not over.
             if (!opPokeDataStale) {
                 _pokeData = _opPokeData;
+                delete _opPokeData;
             }
 
             emit OpPokeChallengedUnsuccessfully(msg.sender);
