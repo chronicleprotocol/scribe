@@ -141,6 +141,10 @@ interface IScribeOptimistic is IScribe {
     /// @notice Updates the opChallengePeriod security parameter.
     /// @dev Only callable by auth'ed address.
     /// @dev Reverts if opChallengePeriod is zero.
+    /// @dev Note that evaluating whether an opPoke is finalized happens via the
+    ///      _current_ opChallengePeriod.
+    ///      This means a finalized opPoke is dropped if opChallengePeriod is
+    ///      decreased to a value less than opPoke's age.
     /// @param opChallengePeriod The value to update opChallengePeriod to.
     function setOpChallengePeriod(uint16 opChallengePeriod) external;
 

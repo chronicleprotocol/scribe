@@ -620,6 +620,44 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         opScribe.setOpChallengePeriod(0);
     }
 
+    function test_setOpChallengePeriod_DropsFinalizedOpPoke_If_NonFinalizedAfterUpdate(
+    ) public {
+        LibFeed.Feed[] memory feeds = _createAndLiftFeeds(opScribe.bar());
+
+        // Execute opPoke.
+        IScribe.PokeData memory opPokeData;
+        opPokeData.val = uint128(1);
+        opPokeData.age = uint32(block.timestamp);
+        IScribe.SchnorrData memory schnorrData =
+            feeds.signSchnorr(opScribe.constructPokeMessage(opPokeData));
+        IScribe.ECDSAData memory ecdsaData = feeds[0].signECDSA(
+            opScribe.constructOpPokeMessage(opPokeData, schnorrData)
+        );
+        opScribe.opPoke(opPokeData, schnorrData, ecdsaData);
+
+        // Wait till challenge period over and opPoke finalized.
+        vm.warp(block.timestamp + opScribe.opChallengePeriod() + 1);
+
+        // Update opPokeData's age to timestamp set by opScribe.
+        opPokeData.age =
+            uint32(block.timestamp - opScribe.opChallengePeriod() - 1);
+
+        // Verify opScribe's val is opPokeData's val.
+        (uint val, uint age) = opScribe.readWithAge();
+        assertEq(val, 1);
+        assertEq(age, opPokeData.age);
+
+        // Increase opChallengePeriod to un-finalize opPoke again.
+        // Expect opPoke to be dropped.
+        vm.expectEmit();
+        emit OpPokeDataDropped(address(this), opPokeData);
+        opScribe.setOpChallengePeriod(type(uint16).max);
+
+        // Reading opScribe fails as no val set.
+        (bool ok,) = opScribe.tryRead();
+        assertFalse(ok);
+    }
+
     function test_setOpChallengePeriod_IsAuthProtected() public {
         vm.prank(address(0xbeef));
         vm.expectRevert(
