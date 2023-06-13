@@ -196,7 +196,7 @@ contract Scribe is IScribe, Auth, Toll {
         aggPubKey = signerPubKey.toJacobian();
 
         // Aggregate remaining encoded signers.
-        for (uint i = 1; i < bar; i++) {
+        for (uint i = 1; i < bar;) {
             // Update Signer Variables.
             lastSigner = signer;
             signerIndex = schnorrData.getSignerIndex(i);
@@ -218,6 +218,9 @@ contract Scribe is IScribe, Auth, Toll {
 
             // Add signerPubKey to already aggregated public keys.
             aggPubKey.addAffinePoint(signerPubKey);
+
+            // forgefmt: disable-next-item
+            unchecked { ++i; }
         }
 
         // Fail if signature verification fails.
@@ -344,7 +347,7 @@ contract Scribe is IScribe, Auth, Toll {
         LibSecp256k1.Point memory pubKey;
         address feed;
         uint feedIndex;
-        for (uint i; i < upperLimitLength; i++) {
+        for (uint i; i < upperLimitLength;) {
             pubKey = _pubKeys[i];
 
             if (!pubKey.isZeroPoint()) {
@@ -359,6 +362,9 @@ contract Scribe is IScribe, Auth, Toll {
 
                 ctr++;
             }
+
+            // forgefmt: disable-next-item
+            unchecked { ++i; }
         }
 
         // Set length of arrays to number of feeds actually included.
@@ -389,8 +395,11 @@ contract Scribe is IScribe, Auth, Toll {
         require(pubKeys.length == ecdsaDatas.length);
 
         uint[] memory indexes = new uint[](pubKeys.length);
-        for (uint i; i < pubKeys.length; i++) {
+        for (uint i; i < pubKeys.length;) {
             indexes[i] = _lift(pubKeys[i], ecdsaDatas[i]);
+
+            // forgefmt: disable-next-item
+            unchecked { ++i; }
         }
 
         // Note that indexes contains duplicates iff duplicate pubKeys provided.
@@ -433,8 +442,11 @@ contract Scribe is IScribe, Auth, Toll {
 
     /// @inheritdoc IScribe
     function drop(uint[] memory feedIndexes) external auth {
-        for (uint i; i < feedIndexes.length; i++) {
+        for (uint i; i < feedIndexes.length;) {
             _drop(msg.sender, feedIndexes[i]);
+
+            // forgefmt: disable-next-item
+            unchecked { ++i; }
         }
     }
 
