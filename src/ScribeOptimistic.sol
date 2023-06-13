@@ -52,6 +52,43 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
 
     receive() external payable {}
 
+    // -- Poke Functionality --
+
+    function _poke(PokeData calldata pokeData, SchnorrData calldata schnorrData)
+        internal
+        override(Scribe)
+    {
+        // Load current age from storage.
+        uint32 age = _currentPokeData().age;
+
+        // Revert if pokeData stale.
+        if (pokeData.age <= age) {
+            revert StaleMessage(pokeData.age, age);
+        }
+        // Revert if pokeData from the future.
+        if (pokeData.age > uint32(block.timestamp)) {
+            revert FutureMessage(pokeData.age, uint32(block.timestamp));
+        }
+
+        // Revert if schnorrData does not prove integrity of pokeData.
+        bool ok;
+        bytes memory err;
+        // forgefmt: disable-next-item
+        (ok, err) = _verifySchnorrSignature(
+            constructPokeMessage(pokeData),
+            schnorrData
+        );
+        if (!ok) {
+            _revert(err);
+        }
+
+        // Store pokeData's val in _pokeData storage and set its age to now.
+        _pokeData.val = pokeData.val;
+        _pokeData.age = uint32(block.timestamp);
+
+        emit Poked(msg.sender, pokeData.val, pokeData.age);
+    }
+
     // -- opPoke Functionality --
 
     /// @dev Optimized function selector: 0x00000000.

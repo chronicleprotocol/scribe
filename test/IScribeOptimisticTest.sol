@@ -66,6 +66,50 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         assertEq(opScribe.opChallengePeriod(), 1 hours);
     }
 
+    // -- Test: Poke --
+
+    function testFuzz_poke_FailsIf_AgeIsStale_DueTo_FinalizedOpPoke() public {
+        uint val;
+        uint age;
+
+        LibFeed.Feed[] memory feeds = _createAndLiftFeeds(opScribe.bar());
+
+        // Execute opPoke.
+        IScribe.PokeData memory opPokeData;
+        opPokeData.val = uint128(1);
+        opPokeData.age = uint32(block.timestamp);
+        IScribe.SchnorrData memory schnorrData =
+            feeds.signSchnorr(opScribe.constructPokeMessage(opPokeData));
+        IScribe.ECDSAData memory ecdsaData = feeds[0].signECDSA(
+            opScribe.constructOpPokeMessage(opPokeData, schnorrData)
+        );
+        opScribe.opPoke(opPokeData, schnorrData, ecdsaData);
+
+        // Wait till challenge period over and opPoke finalized.
+        vm.warp(block.timestamp + opScribe.opChallengePeriod() + 1);
+
+        // Verify opScribe's val is opPokeData's val.
+        (val, age) = opScribe.readWithAge();
+        assertEq(val, 1);
+        assertEq(age, block.timestamp - opScribe.opChallengePeriod() - 1);
+
+        // Prepare poke with older timestamp.
+        IScribe.PokeData memory pokeData;
+        pokeData.val = uint128(1e18);
+        pokeData.age = uint32(1);
+        schnorrData = feeds.signSchnorr(opScribe.constructPokeMessage(pokeData));
+
+        // Poke fails due to stale message.
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IScribe.StaleMessage.selector,
+                pokeData.age,
+                block.timestamp - opScribe.opChallengePeriod() - 1
+            )
+        );
+        opScribe.poke(pokeData, schnorrData);
+    }
+
     // -- Test: opPoke --
 
     function testFuzz_opPoke(
