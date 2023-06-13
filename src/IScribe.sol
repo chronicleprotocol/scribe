@@ -59,7 +59,9 @@ interface IScribe is IChronicle {
     /// @param caller The caller's address.
     /// @param val The value poked.
     /// @param age The age of the value poked.
-    event Poked(address indexed caller, uint128 val, uint32 age);
+    event Poked(
+        address indexed caller, uint128 indexed val, uint32 indexed age
+    );
 
     /// @notice Emitted when new feed lifted.
     /// @param caller The caller's address.
