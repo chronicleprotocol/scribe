@@ -1,30 +1,77 @@
 # Invariants
 
-This document specifies invariants of the Scribe oracle contracts.
+This document specifies invariants of the Scribe and ScribeOptimistic oracle contracts.
 
-## `IScribe`'s `PokeData _pokeData`
+## `Scribe::_pokeData`
 
-* Only `poke` function may mutate the struct's state:
+* Only `poke` function may mutate the `_pokeData`:
     ```
     preTx(_pokeData) != postTx(_pokeData)
         → msg.sig == "poke"
     ```
 
-* `pokeData.age` is strictly monotonically increasing:
-    ```
-    preTx(_pokeData.age) != postTx(_pokeData.age)
-        → preTx(_pokeData.age) < postTx(_pokeData.age)
-    ```
-
-* `pokeData.age` may only be mutated to `block.timestamp`:
+* `_pokeData.age` may only be mutated to `block.timestamp`:
     ```
     preTx(_pokeData.age) != postTx(_pokeData.age)
         → postTx(_pokeData.age) == block.timestamp
     ```
 
-* `pokeData.val` can only be read by _toll'ed_ caller.
 
-## `IScribe`'s `LibSecp256k1.Point[] _pubKeys`
+## `ScribeOptimistic::_pokeData`
+
+* Only `poke`, `opPoke`, and `opChallenge` functions may mutate `_pokeData`:
+    ```
+    preTx(_pokeData) != postTx(_pokeData)
+        → msg.sig ∊ {"poke", "opPoke", "opChallenge"}
+    ```
+
+* Function `poke` may only mutate `_pokeData.age` to `block.timestamp`:
+    ```
+    preTx(_pokeData) != postTx(_pokeData) ⋀ msg.sig == "poke"
+        → postTx(_pokeData.age) == block.timestamp
+    ```
+
+* Functions `opPoke` and `opChallenge` may only mutate `_pokeData` to a finalized, non-stale `_opPokeData`:
+    ```
+    preTx(_pokeData) != postTx(_pokeData) ⋀ msg.sig ∊ {"opPoke", "opChallenge"}
+        → postTx(_pokeData) = preTx(_opPokeData)
+          ⋀ let (val, age) := preTx(scribe.readWithAge()) in (val, age) = preTx(_opPokeData)
+    ```
+
+
+## `{Scribe, ScribeOptimistic}::_pokeData`
+
+* `_pokeData.age` is strictly monotonically increasing:
+    ```
+    preTx(_pokeData.age) != postTx(_pokeData.age)
+        → preTx(_pokeData.age) < postTx(_pokeData.age)
+    ```
+
+* `_pokeData.val` can only be read by _toll'ed_ caller.
+
+
+## `ScribeOptimistic::_opPokeData`
+
+* Only `opPoke` and `opChallenge` functions may mutate `_opPokeData`:
+    ```
+    preTx(_opPokeData) != postTx(_opPokeData)
+        → msg.sig ∊ {"opPoke", "opChallenge"}
+    ```
+
+* Function `opPoke` may only set `_opPokeData.age` to `block.timestamp`:
+    ```
+    preTx(_opPokeData.age) != postTx(_opPokeData.age) ⋀ msg.sig == "opPoke"
+        → postTx(_opPokeData.age) == block.timestamp
+    ```
+
+* Function `opChallenge` may only delete `_opPokeData`:
+    ```
+    preTx(_opPokeData.age) != postTx(_opPokeData.age) ⋀ msg.sig == "opChallenge"
+        → postTx(_opPokeData.val) == 0 ⋀ postTx(_opPokeData.age) == 0
+    ```
+
+
+## `{Scribe, ScribeOptimistic}::_pubKeys`
 
 * `_pubKeys[0]` is the zero point:
     ```
@@ -57,7 +104,7 @@ This document specifies invariants of the Scribe oracle contracts.
 * Only functions `lift` and `drop` may mutate the array's state:
     ```
     ∀x ∊ uint: preTx(_pubKeys[x]) != postTx(_pubKeys[x])
-        → (msg.sig == "lift" ∨ msg.sig == "drop")
+        → msg.sig ∊ {"lift", "drop"}
     ```
 
 * Array's state may only be mutated by auth'ed caller:
@@ -67,7 +114,7 @@ This document specifies invariants of the Scribe oracle contracts.
     ```
 
 
-## `IScribe`'s `mapping(address => uint) _feeds`
+## `{Scribe, ScribeOptimistic}::_feeds`
 
 * Image of mapping is `[0, _pubKeys.length)`:
     ```
@@ -83,7 +130,7 @@ This document specifies invariants of the Scribe oracle contracts.
 * Only functions `lift` and `drop` may mutate the mapping's state:
     ```
     ∀x ∊ Address: preTx(_feeds[x]) != postTx(_feeds[x])
-        → (msg.sig == "lift" ∨ msg.sig == "drop")
+        → msg.sig ∊ {"lift", "drop"}
     ```
 
 * Mapping's state may only be mutated by auth'ed caller:

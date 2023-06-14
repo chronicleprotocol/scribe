@@ -83,7 +83,7 @@ To circumvent verifying Schnorr signatures onchain, `ScribeOptimistic` provides 
 
 The `opPoke()` function binds the feed to the data they signed. A public callable `opChallenge()` function can be called at any time. The function verifies the current optimistically poked data and, if the Schnorr signature verification succeeds, finalizes the data. However, if the Schnorr signature verification fails, the feed bound to the data is automatically `diss`'ed, i.e. removed from the whitelist, and the data deleted.
 
-If an `opPoke()` is not challenged, its value finalized after a specified period. For more info, see [`IScribeOptimistic::opChallengePeriod()](../src/IScribeOptimistic.sol).
+If an `opPoke()` is not challenged, its value finalizes after a specified period. For more info, see [`IScribeOptimistic::opChallengePeriod()`](../src/IScribeOptimistic.sol).
 
 Monitoring optimistic pokes and, if necessary, challenging them can be incentivized via ETH rewards. For more info, see [`IScribeOptimistic::maxChallengeReward()`](../src/IScribeOptimistic.sol).
 

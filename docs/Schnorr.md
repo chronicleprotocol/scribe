@@ -1,7 +1,7 @@
 # Schnorr Signature Scheme Specification
 
 This document specifies a custom Schnorr-based signature scheme on the secp256k1
-elliptic curve. The scheme is used by Chronicle Protocol's `Scribe` oracle contract.
+elliptic curve. The scheme is used by Chronicle Protocol's Scribe oracle contract.
 
 ## Terminology
 
