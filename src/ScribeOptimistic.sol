@@ -284,12 +284,11 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
                 keccak256(
                     abi.encodePacked(
                         wat,
-                        abi.encodePacked(pokeData.val, pokeData.age),
-                        abi.encodePacked(
-                            schnorrData.signature,
-                            schnorrData.commitment,
-                            schnorrData.signersBlob
-                        )
+                        pokeData.val,
+                        pokeData.age,
+                        schnorrData.signature,
+                        schnorrData.commitment,
+                        schnorrData.signersBlob
                     )
                 )
             )
