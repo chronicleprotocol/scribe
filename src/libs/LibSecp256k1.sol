@@ -205,12 +205,18 @@ library LibSecp256k1 {
             h = addmod(mulmod(p.x, z1_2, _P), _P - x1, _P);
         }
 
-        // Compute z = (z1 + h)² - z1²       - h²            (mod P)
-        //           = (z1 + h)² - z1²       + (P - h²)      (mod P)
-        //           = (z1 + h)² + (P - z1²) + (P - h²)      (mod P)
-        //           = (z1 + h)² + (P - z1²) + (P - (h * h)) (mod P)
-        //             ╰───────╯   ╰───────╯   ╰───────────╯
-        //               left         mid          right
+        // Compute h_2 = h²    (mod P)
+        //             = h * h (mod P)
+        uint h_2 = mulmod(h, h, _P);
+
+        // Compute i = 4 * h² (mod P)
+        uint i = mulmod(4, h_2, _P);
+
+        // Compute z = (z1 + h)² - z1²       - h²       (mod P)
+        //           = (z1 + h)² - z1²       + (P - h²) (mod P)
+        //           = (z1 + h)² + (P - z1²) + (P - h²) (mod P)
+        //             ╰───────╯   ╰───────╯   ╰──────╯
+        //               left         mid       right
         //
         // Unchecked because the only protected operations performed are
         // subtractions from P where the subtrahend is the result of a (mod P)
@@ -218,21 +224,16 @@ library LibSecp256k1 {
         unchecked {
             uint left = mulmod(addmod(z1, h, _P), addmod(z1, h, _P), _P);
             uint mid = _P - z1_2;
-            uint right = _P - mulmod(h, h, _P);
+            uint right = _P - h_2;
 
             self.z = addmod(left, addmod(mid, right, _P), _P);
         }
 
-        // Compute v = x1 * i         (mod P)
-        //           = x1 * 4 * h²    (mod P)
-        //           = x1 * 4 * h * h (mod P)
-        uint v = mulmod(x1, mulmod(4, mulmod(h, h, _P), _P), _P);
+        // Compute v = x1 * i (mod P)
+        uint v = mulmod(x1, i, _P);
 
-        // Compute j = h * i         (mod P)
-        //           = h * 4 * h²    (mod P)
-        //           = 4 * h * h²    (mod P)
-        //           = 4 * h * h * h (mod P)
-        uint j = mulmod(4, mulmod(h, mulmod(h, h, _P), _P), _P);
+        // Compute j = h * i (mod P)
+        uint j = mulmod(h, i, _P);
 
         // Compute r = 2 * (s               - y1)       (mod P)
         //           = 2 * (s               + (P - y1)) (mod P)
