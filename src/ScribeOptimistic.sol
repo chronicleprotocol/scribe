@@ -129,9 +129,8 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         }
 
         // Decide current age.
-        uint32 age = opPokeDataFinalized && opPokeData.age > _pokeData.age
-            ? opPokeData.age
-            : _pokeData.age;
+        uint32 age =
+            opPokeData.age > _pokeData.age ? opPokeData.age : _pokeData.age;
 
         // Revert if pokeData stale.
         if (pokeData.age <= age) {
