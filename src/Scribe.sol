@@ -429,8 +429,9 @@ contract Scribe is IScribe, Auth, Toll {
             _feeds[feed] = index;
 
             emit FeedLifted(msg.sender, feed, index);
+
+            require(index <= maxFeeds);
         }
-        require(index <= maxFeeds);
 
         return index;
     }
