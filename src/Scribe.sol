@@ -139,11 +139,7 @@ contract Scribe is IScribe, Auth, Toll {
         return keccak256(
             abi.encodePacked(
                 "\x19Ethereum Signed Message:\n32",
-                keccak256(
-                    abi.encodePacked(
-                        wat, abi.encodePacked(pokeData.val, pokeData.age)
-                    )
-                )
+                keccak256(abi.encodePacked(wat, pokeData.val, pokeData.age))
             )
         );
     }
