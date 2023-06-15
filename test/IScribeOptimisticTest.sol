@@ -566,6 +566,30 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         opScribe.opChallenge(schnorrData);
     }
 
+    function test_opChallenge_FailsIf_CalledSubsequently() public {
+        LibFeed.Feed[] memory feeds = _createAndLiftFeeds(opScribe.bar());
+
+        IScribe.PokeData memory pokeData;
+        pokeData.val = 1;
+        pokeData.age = 1;
+
+        IScribe.SchnorrData memory schnorrData;
+        schnorrData = feeds.signSchnorr(opScribe.constructPokeMessage(pokeData));
+
+        IScribe.ECDSAData memory ecdsaData;
+        ecdsaData = feeds[0].signECDSA(
+            opScribe.constructOpPokeMessage(pokeData, schnorrData)
+        );
+
+        opScribe.opPoke(pokeData, schnorrData, ecdsaData);
+
+        bool opPokeInvalid = opScribe.opChallenge(schnorrData);
+        assertFalse(opPokeInvalid);
+
+        vm.expectRevert(IScribeOptimistic.NoOpPokeToChallenge.selector);
+        opScribe.opChallenge(schnorrData);
+    }
+
     // -- Test: Public View Functions --
 
     function testFuzz_challengeReward(uint maxChallengeReward, uint balance)
@@ -676,6 +700,25 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         opScribe.setOpChallengePeriod(0);
     }
 
+    // - Test: Auth Protected Functions Are _afterAuthedAction Protected -
+
+    function _setUpFeedsAndOpPokeOnce(IScribe.PokeData memory pokeData)
+        private
+    {
+        LibFeed.Feed[] memory feeds = _createAndLiftFeeds(opScribe.bar());
+
+        IScribe.SchnorrData memory schnorrData;
+        schnorrData = feeds.signSchnorr(opScribe.constructPokeMessage(pokeData));
+
+        opScribe.opPoke(
+            pokeData,
+            schnorrData,
+            feeds[0].signECDSA(
+                opScribe.constructOpPokeMessage(pokeData, schnorrData)
+            )
+        );
+    }
+
     function testFuzz_setOpChallengePeriod_IsAfterAuthedActionProtected(
         bool opPokeFinalized
     ) public {
@@ -755,22 +798,379 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         opScribe.setBar(1);
     }
 
-    // -- Private Helpers --
+    // -- Test: _afterAuthedAction Behaviour --
 
-    function _setUpFeedsAndOpPokeOnce(IScribe.PokeData memory pokeData)
-        private
+    // -----------------------
+    // 1. Case:
+    //
+    // State:
+    //    _pokeData    = NULL
+    //    _opPokeData  = Non-Finalized
+    //
+    // => value = NULL
+    // => age   = NULL
+
+    function _setUp_afterAuthedAction_1()
+        internal
+        returns (IScribe.PokeData memory, IScribe.PokeData memory)
     {
         LibFeed.Feed[] memory feeds = _createAndLiftFeeds(opScribe.bar());
 
-        IScribe.SchnorrData memory schnorrData;
-        schnorrData = feeds.signSchnorr(opScribe.constructPokeMessage(pokeData));
+        IScribe.PokeData memory pokeData;
+        IScribe.PokeData memory opPokeData = IScribe.PokeData(1, 1);
+        IScribe.SchnorrData memory schnorrData =
+            feeds.signSchnorr(opScribe.constructPokeMessage(opPokeData));
 
         opScribe.opPoke(
-            pokeData,
+            opPokeData,
             schnorrData,
             feeds[0].signECDSA(
-                opScribe.constructOpPokeMessage(pokeData, schnorrData)
+                opScribe.constructOpPokeMessage(opPokeData, schnorrData)
             )
+        );
+
+        return (pokeData, opPokeData);
+    }
+
+    function test_afterAuthedAction_1_setBar() public {
+        _setUp_afterAuthedAction_1();
+
+        opScribe.setBar(3);
+
+        (bool ok,) = opScribe.tryRead();
+        assertFalse(ok);
+        console2.log(
+            "afterAuthedAction: {_pokeData=NULL, _opPokeData=Non-Finalized} + setBar() => {value=NULL, age = NULL}"
+        );
+    }
+
+    function test_afterAuthedAction_1_drop() public {
+        _setUp_afterAuthedAction_1();
+
+        opScribe.drop(1);
+
+        (bool ok,) = opScribe.tryRead();
+        assertFalse(ok);
+        console2.log(
+            "afterAuthedAction: {_pokeData=NULL, _opPokeData=Non-Finalized} + drop() => {value=NULL, age=NULL}"
+        );
+    }
+
+    function test_afterAuthedAction_1_setChallengePeriod_NonFinalizes()
+        public
+    {
+        _setUp_afterAuthedAction_1();
+
+        // Note that _opPokeData still non-finalized after challenge period
+        // update.
+        opScribe.setOpChallengePeriod(1);
+
+        (bool ok,) = opScribe.tryRead();
+        assertFalse(ok);
+        console2.log(
+            "afterAuthedAction: {_pokeData=NULL, _opPokeData=Non-Finalized} + setOpChallengePeriod() non-finalizing => {value=NULL, age=NULL}"
+        );
+    }
+
+    function test_afterAuthedAction_1_setChallengePeriod_Finalizes() public {
+        _setUp_afterAuthedAction_1();
+
+        // Update challenge period so that _opPokeData could finalize.
+        vm.warp(block.timestamp + 10 minutes);
+        opScribe.setOpChallengePeriod(1);
+
+        (bool ok,) = opScribe.tryRead();
+        assertFalse(ok);
+        console2.log(
+            "afterAuthedAction: {_pokeData=NULL, _opPokeData=Non-Finalized} + setOpChallengePeriod() finalizing => {value=NULL, age=NULL}"
+        );
+    }
+
+    // -----------------------
+    // 2. Case:
+    //
+    // State:
+    //    _pokeData    = Non-NULL
+    //    _opPokeData  = Non-Finalized
+    //
+    // => value = _pokeData
+    // => age   = block.timestamp
+
+    function _setUp_afterAuthedAction_2()
+        internal
+        returns (IScribe.PokeData memory, IScribe.PokeData memory)
+    {
+        LibFeed.Feed[] memory feeds = _createAndLiftFeeds(opScribe.bar());
+
+        IScribe.PokeData memory pokeData = IScribe.PokeData(2, 1);
+        opScribe.poke(
+            pokeData, feeds.signSchnorr(opScribe.constructPokeMessage(pokeData))
+        );
+
+        vm.warp(block.timestamp + 1);
+
+        IScribe.PokeData memory opPokeData =
+            IScribe.PokeData(1, uint32(block.timestamp));
+        IScribe.SchnorrData memory schnorrData =
+            feeds.signSchnorr(opScribe.constructPokeMessage(opPokeData));
+
+        opScribe.opPoke(
+            opPokeData,
+            schnorrData,
+            feeds[0].signECDSA(
+                opScribe.constructOpPokeMessage(opPokeData, schnorrData)
+            )
+        );
+
+        return (pokeData, opPokeData);
+    }
+
+    function test_afterAuthedAction_2_setBar() public {
+        (IScribe.PokeData memory pokeData,) = _setUp_afterAuthedAction_2();
+
+        opScribe.setBar(3);
+
+        (bool ok, uint val, uint age) = opScribe.tryReadWithAge();
+        assertTrue(ok);
+        assertEq(val, pokeData.val);
+        assertEq(age, block.timestamp);
+        console2.log(
+            "afterAuthedAction: {_pokeData=Non-NULL, _opPokeData=Non-Finalized} + setBar() => {value=_pokeData, age=block.timestamp}"
+        );
+    }
+
+    function test_afterAuthedAction_2_drop() public {
+        (IScribe.PokeData memory pokeData,) = _setUp_afterAuthedAction_2();
+
+        opScribe.drop(1);
+
+        (bool ok, uint val, uint age) = opScribe.tryReadWithAge();
+        assertTrue(ok);
+        assertEq(val, pokeData.val);
+        assertEq(age, block.timestamp);
+        console2.log(
+            "afterAuthedAction: {_pokeData=Non-NULL, _opPokeData=Non-Finalized} + drop() => {value=_pokeData, age=block.timestamp}"
+        );
+    }
+
+    function test_afterAuthedAction_2_setChallengePeriod_NonFinalizes()
+        public
+    {
+        (IScribe.PokeData memory pokeData,) = _setUp_afterAuthedAction_2();
+
+        // Note that _opPokeData still non-finalized after challenge period
+        // update.
+        opScribe.setOpChallengePeriod(1);
+
+        (bool ok, uint val, uint age) = opScribe.tryReadWithAge();
+        assertTrue(ok);
+        assertEq(val, pokeData.val);
+        assertEq(age, block.timestamp);
+        console2.log(
+            "afterAuthedAction: {_pokeData=Non-NULL, _opPokeData=Non-Finalized} + setOpChallengePeriod() non-finalizing => {value=_pokeData, age=block.timestamp}"
+        );
+    }
+
+    function test_afterAuthedAction_2_setChallengePeriod_Finalizes() public {
+        (IScribe.PokeData memory pokeData,) = _setUp_afterAuthedAction_2();
+
+        // Update challenge period so that _opPokeData could finalize.
+        vm.warp(block.timestamp + 10 minutes);
+        opScribe.setOpChallengePeriod(1);
+
+        (bool ok, uint val, uint age) = opScribe.tryReadWithAge();
+        assertTrue(ok);
+        assertEq(val, pokeData.val);
+        //assertEq(age, block.timestamp);
+        console2.log(
+            "afterAuthedAction: {_pokeData=Non-NULL, _opPokeData=Non-Finalized} + setOpChallengePeriod() finalizing => {value=_pokeData, age=block.timestamp}"
+        );
+    }
+
+    // -----------------------
+    // 3. Case:
+    //
+    // State:
+    //    _pokeData    = NULL
+    //    _opPokeData  = Finalized
+    //
+    // => value = NULL
+    // => age   = NULL
+
+    function _setUp_afterAuthedAction_3()
+        internal
+        returns (IScribe.PokeData memory, IScribe.PokeData memory)
+    {
+        LibFeed.Feed[] memory feeds = _createAndLiftFeeds(opScribe.bar());
+
+        IScribe.PokeData memory opPokeData =
+            IScribe.PokeData(1, uint32(block.timestamp));
+        IScribe.SchnorrData memory schnorrData =
+            feeds.signSchnorr(opScribe.constructPokeMessage(opPokeData));
+
+        opScribe.opPoke(
+            opPokeData,
+            schnorrData,
+            feeds[0].signECDSA(
+                opScribe.constructOpPokeMessage(opPokeData, schnorrData)
+            )
+        );
+
+        vm.warp(block.timestamp + opScribe.opChallengePeriod() + 1);
+
+        return (IScribe.PokeData(0, 0), opPokeData);
+    }
+
+    function test_afterAuthedAction_3_setBar() public {
+        _setUp_afterAuthedAction_3();
+
+        opScribe.setBar(3);
+
+        (bool ok,) = opScribe.tryRead();
+        assertFalse(ok);
+        console2.log(
+            "afterAuthedAction: {_pokeData=NULL, _opPokeData=Finalized} + setBar() => {value=NULL, age=NULL}"
+        );
+    }
+
+    function test_afterAuthedAction_3_drop() public {
+        _setUp_afterAuthedAction_3();
+
+        opScribe.drop(1);
+
+        (bool ok,) = opScribe.tryRead();
+        assertFalse(ok);
+        console2.log(
+            "afterAuthedAction: {_pokeData=NULL, _opPokeData=Finalized} + drop() => {value=NULL, age=NULL}"
+        );
+    }
+
+    function test_afterAuthedAction_3_setChallengePeriod_NonFinalizes()
+        public
+    {
+        _setUp_afterAuthedAction_3();
+
+        // Update challenge period so that _opPokeData non-finalizes.
+        opScribe.setOpChallengePeriod(type(uint16).max);
+
+        (bool ok,) = opScribe.tryRead();
+        assertFalse(ok);
+        console2.log(
+            "afterAuthedAction: {_pokeData=NULL, _opPokeData=Finalized} + setOpChallengePeriod() non-finalizing => {value=NULL, age=NULL}"
+        );
+    }
+
+    function test_afterAuthedAction_3_setChallengePeriod_Finalizes() public {
+        _setUp_afterAuthedAction_3();
+
+        // Update challenge period so that _opPokeData still finalized.
+        opScribe.setOpChallengePeriod(1);
+
+        (bool ok,) = opScribe.tryRead();
+        assertFalse(ok);
+        console2.log(
+            "afterAuthedAction: {_pokeData=NULL, _opPokeData=Finalized} + setOpChallengePeriod() finalizing => {value=NULL, age=NULL}"
+        );
+    }
+
+    // -----------------------
+    // 4. Case:
+    //
+    // State:
+    //    _pokeData    = Non-NULL
+    //    _opPokeData  = Finalized
+    //
+    // => value = _pokeData
+    // => age   = block.timestamp
+
+    function _setUp_afterAuthedAction_4()
+        internal
+        returns (IScribe.PokeData memory, IScribe.PokeData memory)
+    {
+        LibFeed.Feed[] memory feeds = _createAndLiftFeeds(opScribe.bar());
+
+        IScribe.PokeData memory pokeData = IScribe.PokeData(2, 1);
+        opScribe.poke(
+            pokeData, feeds.signSchnorr(opScribe.constructPokeMessage(pokeData))
+        );
+
+        vm.warp(block.timestamp + 1);
+
+        IScribe.PokeData memory opPokeData =
+            IScribe.PokeData(1, uint32(block.timestamp));
+        IScribe.SchnorrData memory schnorrData =
+            feeds.signSchnorr(opScribe.constructPokeMessage(opPokeData));
+
+        opScribe.opPoke(
+            opPokeData,
+            schnorrData,
+            feeds[0].signECDSA(
+                opScribe.constructOpPokeMessage(opPokeData, schnorrData)
+            )
+        );
+
+        vm.warp(block.timestamp + opScribe.opChallengePeriod() + 1);
+
+        return (pokeData, opPokeData);
+    }
+
+    function test_afterAuthedAction_4_setBar() public {
+        (IScribe.PokeData memory pokeData,) = _setUp_afterAuthedAction_4();
+
+        opScribe.setBar(3);
+
+        (bool ok, uint val, uint age) = opScribe.tryReadWithAge();
+        assertTrue(ok);
+        assertEq(val, pokeData.val);
+        //assertEq(age, block.timestamp);
+        console2.log(
+            "afterAuthedAction: {_pokeData=Non-NULL, _opPokeData=Finalized} + setBar() => {value=_pokeData, age=block.timestamp}"
+        );
+    }
+
+    function test_afterAuthedAction_4_drop() public {
+        (IScribe.PokeData memory pokeData,) = _setUp_afterAuthedAction_4();
+
+        opScribe.drop(1);
+
+        (bool ok, uint val, uint age) = opScribe.tryReadWithAge();
+        assertTrue(ok);
+        assertEq(val, pokeData.val);
+        //assertEq(age, block.timestamp);
+        console2.log(
+            "afterAuthedAction: {_pokeData=Non-NULL, _opPokeData=Finalized} + drop() => {value=_pokeData, age=block.timestamp}"
+        );
+    }
+
+    function test_afterAuthedAction_4_setChallengePeriod_NonFinalizes()
+        public
+    {
+        (IScribe.PokeData memory pokeData,) = _setUp_afterAuthedAction_4();
+
+        // Update challenge period so that _opPokeData non-finalizes.
+        opScribe.setOpChallengePeriod(type(uint16).max);
+
+        (bool ok, uint val, uint age) = opScribe.tryReadWithAge();
+        assertTrue(ok);
+        assertEq(val, pokeData.val);
+        assertEq(age, block.timestamp);
+        console2.log(
+            "afterAuthedAction: {_pokeData=Non-NULL, _opPokeData=Finalized} + setOpChallengePeriod() non-finalizing => {value=_pokeData, age=block.timestamp}"
+        );
+    }
+
+    function test_afterAuthedAction_4_setChallengePeriod_Finalizes() public {
+        (IScribe.PokeData memory pokeData,) = _setUp_afterAuthedAction_4();
+
+        // Update challenge period so that _opPokeData still finalized.
+        opScribe.setOpChallengePeriod(1);
+
+        (bool ok, uint val, uint age) = opScribe.tryReadWithAge();
+        assertTrue(ok);
+        assertEq(val, pokeData.val);
+        //assertEq(age, block.timestamp);
+        console2.log(
+            "afterAuthedAction: {_pokeData=Non-NULL, _opPokeData=Finalized} + setOpChallengePeriod() finalizing => {value=_pokeData, age=block.timestamp}"
         );
     }
 }
