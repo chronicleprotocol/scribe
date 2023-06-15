@@ -800,6 +800,255 @@ abstract contract IScribeOptimisticTest is IScribeTest {
 
     // -- Test: _afterAuthedAction Behaviour --
 
+    /// @dev Proves that an _afterAuthedAction executed after 2 {poke,opPoke}'s
+    ///      executed does not leave opScribe without a value.
+    ///
+    ///      Possibilities for 2 {poke,opPoke}'s:
+    ///      0: poke()                 + poke()                 -> val is second poke()'s val
+    ///      1: poke()                 + non-finalized opPoke() -> val is poke()'s val
+    ///      2: poke()                 + finalized opPoke()     -> val is finalized opPoke()'s val
+    ///      3: finalized opPoke()     + non-finalized opPoke() -> val is finalized opPoke()'s val
+    ///      4: finalized opPoke()     + poke()                 -> val is poke()'s val
+    ///      5: finalized opPoke()     + finalized opPoke()     -> val is second finalized opPoke()'s val
+    ///      6: non-finalized opPoke() + poke()                 -> val is poke()'s val
+    function testFuzz_afterAuthedAction_ProvidesValue_If_MoreThanOncePoked(
+        uint pathSeed
+    ) public {
+        LibFeed.Feed[] memory feeds = _createAndLiftFeeds(opScribe.bar());
+
+        uint path = bound(pathSeed, 0, 6);
+
+        uint128 otherVal = 1;
+        uint128 wantVal = 2;
+
+        IScribe.PokeData memory pokeData;
+        IScribe.SchnorrData memory schnorrData;
+
+        if (path == 0) {
+            // 1. poke()
+            pokeData.val = otherVal;
+            pokeData.age = 1;
+            opScribe.poke(
+                pokeData,
+                feeds.signSchnorr(opScribe.constructPokeMessage(pokeData))
+            );
+
+            vm.warp(block.timestamp + 1);
+
+            // 2. poke()
+            pokeData.val = wantVal;
+            pokeData.age = uint32(block.timestamp);
+            opScribe.poke(
+                pokeData,
+                feeds.signSchnorr(opScribe.constructPokeMessage(pokeData))
+            );
+
+            // Execute _afterAuthedAction
+            opScribe.setBar(3);
+
+            assertEq(opScribe.read(), wantVal);
+        }
+
+        if (path == 1) {
+            // 1. poke()
+            pokeData.val = wantVal;
+            pokeData.age = 1;
+            opScribe.poke(
+                pokeData,
+                feeds.signSchnorr(opScribe.constructPokeMessage(pokeData))
+            );
+
+            vm.warp(block.timestamp + 1);
+
+            // 2. non-finalized opPoke()
+            pokeData.val = otherVal;
+            pokeData.age = uint32(block.timestamp);
+            schnorrData =
+                feeds.signSchnorr(opScribe.constructPokeMessage(pokeData));
+            opScribe.opPoke(
+                pokeData,
+                schnorrData,
+                feeds[0].signECDSA(
+                    opScribe.constructOpPokeMessage(pokeData, schnorrData)
+                )
+            );
+
+            // Execute _afterAuthedAction
+            opScribe.setBar(3);
+
+            assertEq(opScribe.read(), wantVal);
+        }
+
+        if (path == 2) {
+            // 1. poke()
+            pokeData.val = otherVal;
+            pokeData.age = 1;
+            opScribe.poke(
+                pokeData,
+                feeds.signSchnorr(opScribe.constructPokeMessage(pokeData))
+            );
+
+            vm.warp(block.timestamp + 1);
+
+            // 2. finalized opPoke()
+            pokeData.val = wantVal;
+            pokeData.age = uint32(block.timestamp);
+            schnorrData =
+                feeds.signSchnorr(opScribe.constructPokeMessage(pokeData));
+            opScribe.opPoke(
+                pokeData,
+                schnorrData,
+                feeds[0].signECDSA(
+                    opScribe.constructOpPokeMessage(pokeData, schnorrData)
+                )
+            );
+
+            // Finalize opPoke().
+            vm.warp(block.timestamp + opScribe.opChallengePeriod() + 1);
+
+            // Execute _afterAuthedAction
+            opScribe.setBar(3);
+
+            assertEq(opScribe.read(), wantVal);
+        }
+
+        if (path == 3) {
+            // 1. finalized opPoke()
+            pokeData.val = wantVal;
+            pokeData.age = 1;
+            schnorrData =
+                feeds.signSchnorr(opScribe.constructPokeMessage(pokeData));
+            opScribe.opPoke(
+                pokeData,
+                schnorrData,
+                feeds[0].signECDSA(
+                    opScribe.constructOpPokeMessage(pokeData, schnorrData)
+                )
+            );
+
+            // Finalize opPoke().
+            vm.warp(block.timestamp + opScribe.opChallengePeriod() + 1);
+
+            // 2. non-finalized opPoke()
+            pokeData.val = otherVal;
+            pokeData.age = uint32(block.timestamp);
+            schnorrData =
+                feeds.signSchnorr(opScribe.constructPokeMessage(pokeData));
+            opScribe.opPoke(
+                pokeData,
+                schnorrData,
+                feeds[0].signECDSA(
+                    opScribe.constructOpPokeMessage(pokeData, schnorrData)
+                )
+            );
+
+            // Execute _afterAuthedAction
+            opScribe.setBar(3);
+
+            assertEq(opScribe.read(), wantVal);
+        }
+
+        if (path == 4) {
+            // 1. finalized opPoke()
+            pokeData.val = otherVal;
+            pokeData.age = 1;
+            schnorrData =
+                feeds.signSchnorr(opScribe.constructPokeMessage(pokeData));
+            opScribe.opPoke(
+                pokeData,
+                schnorrData,
+                feeds[0].signECDSA(
+                    opScribe.constructOpPokeMessage(pokeData, schnorrData)
+                )
+            );
+
+            // Finalize opPoke().
+            vm.warp(block.timestamp + opScribe.opChallengePeriod() + 1);
+
+            // 2. poke()
+            pokeData.val = wantVal;
+            pokeData.age = uint32(block.timestamp);
+            opScribe.poke(
+                pokeData,
+                feeds.signSchnorr(opScribe.constructPokeMessage(pokeData))
+            );
+
+            // Execute _afterAuthedAction
+            opScribe.setBar(3);
+
+            assertEq(opScribe.read(), wantVal);
+        }
+
+        if (path == 5) {
+            // 1. finalized opPoke()
+            pokeData.val = otherVal;
+            pokeData.age = 1;
+            schnorrData =
+                feeds.signSchnorr(opScribe.constructPokeMessage(pokeData));
+            opScribe.opPoke(
+                pokeData,
+                schnorrData,
+                feeds[0].signECDSA(
+                    opScribe.constructOpPokeMessage(pokeData, schnorrData)
+                )
+            );
+
+            // Finalize opPoke()
+            vm.warp(block.timestamp + opScribe.opChallengePeriod() + 1);
+
+            // 2. finalized opPoke()
+            pokeData.val = wantVal;
+            pokeData.age = uint32(block.timestamp);
+            schnorrData =
+                feeds.signSchnorr(opScribe.constructPokeMessage(pokeData));
+            opScribe.opPoke(
+                pokeData,
+                schnorrData,
+                feeds[0].signECDSA(
+                    opScribe.constructOpPokeMessage(pokeData, schnorrData)
+                )
+            );
+
+            // Finalize opPoke().
+            vm.warp(block.timestamp + opScribe.opChallengePeriod() + 1);
+
+            // Execute _afterAuthedAction
+            opScribe.setBar(3);
+
+            assertEq(opScribe.read(), wantVal);
+        }
+
+        if (path == 6) {
+            // 1. non-finalized opPoke()
+            pokeData.val = otherVal;
+            pokeData.age = 1;
+            schnorrData =
+                feeds.signSchnorr(opScribe.constructPokeMessage(pokeData));
+            opScribe.opPoke(
+                pokeData,
+                schnorrData,
+                feeds[0].signECDSA(
+                    opScribe.constructOpPokeMessage(pokeData, schnorrData)
+                )
+            );
+
+            vm.warp(block.timestamp + 1);
+
+            // 2. poke()
+            pokeData.val = wantVal;
+            pokeData.age = uint32(block.timestamp);
+            opScribe.poke(
+                pokeData,
+                feeds.signSchnorr(opScribe.constructPokeMessage(pokeData))
+            );
+
+            // Execute _afterAuthedAction
+            opScribe.setBar(3);
+
+            assertEq(opScribe.read(), wantVal);
+        }
+    }
+
     // -----------------------
     // 1. Case:
     //

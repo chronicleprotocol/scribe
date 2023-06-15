@@ -444,33 +444,65 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
 
     /// @dev Ensures an auth'ed configuration update does not enable
     ///      successfully challenging a prior to the update valid opPoke.
+    ///
+    /// @custom:invariant Val is provided if _pokeData prior to the tx is
+    ///                   non-empty. Note that this is the case if there were
+    ///                   at least two valid calls ∊ {poke, opPoke}.
+    ///                     preTx(_pokeData) != (0, 0)
+    ///                       → (true, _) = postTx(tryRead())
+    /// @custom:invariant Val is provided via _pokeData after the tx.
+    ///                     postTx(readWithAge()) = postTx(_pokeData)
+    /// @custom:invariant _opPokeData is empty after the tx.
+    ///                     (0, 0) = postTx(_opPokeData)
     function _afterAuthedAction() internal {
         // Do nothing during deployment.
         if (address(this).code.length == 0) return;
 
         // Decide whether _opPokeData is finalized.
+        //
+        // Note that the decision is based on the possibly updated
+        // opChallengePeriod! This means a once finalized opPoke my be reverted
+        // if the opChallengePeriod was increased.
         bool opPokeDataFinalized =
             _opPokeData.age + opChallengePeriod <= uint32(block.timestamp);
 
-        // If _opPokeData is not finalized, drop it.
+        // @todo Remember to update Invariants.md!
+
+        // Note that _opPokeData is in one of the following three states:
+        // 1. finalized and newer than _pokeData
+        // 2. finalized but older than _pokeData
+        // 3. non-finalized
         //
-        // Note that this ensures a valid opPoke cannot become invalid
-        // after an auth'ed configuration change.
+        // Note that for state 1 _opPokeData can be moved to _pokeData and
+        // afterwards deleted.
+        // Note that for state 2 and 3 _opPokeData can be directly deleted.
+
+        // If _opPokeData is in state 1, move it to the _pokeData storage.
+        //
+        // Note that this ensures the current value is provided via _pokeData.
+        if (opPokeDataFinalized && _opPokeData.age > _pokeData.age) {
+            _pokeData = _opPokeData;
+        }
+
+        // If _opPokeData is in state 3, emit event to indicate a possibly valid
+        // opPoke was reverted.
         if (!opPokeDataFinalized) {
             emit OpPokeDataDropped(msg.sender, _opPokeData);
-            delete _opPokeData;
         }
+
+        // Now it is safe to delete _opPokeData.
+        delete _opPokeData;
+
+        // Note that the current value is now provided via _pokeData.
+        assert(_currentPokeData().val == _pokeData.val);
+        assert(_currentPokeData().age == _pokeData.age);
 
         // Set the age of contract's current value to block.timestamp.
         //
         // Note that this ensures an already signed, but now possibly invalid
         // with regards to contract configurations, opPoke payload cannot be
         // opPoke'd anymore.
-        if (opPokeDataFinalized && _opPokeData.age > _pokeData.age) {
-            _opPokeData.age = uint32(block.timestamp);
-        } else {
-            _pokeData.age = uint32(block.timestamp);
-        }
+        _pokeData.age = uint32(block.timestamp);
     }
 
     // -- Searcher Incentivization Logic --
