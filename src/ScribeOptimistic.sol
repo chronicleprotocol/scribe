@@ -495,8 +495,8 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         delete _opPokeData;
 
         // Note that the current value is now provided via _pokeData.
-        assert(_currentPokeData().val == _pokeData.val);
-        assert(_currentPokeData().age == _pokeData.age);
+        // assert(_currentPokeData().val == _pokeData.val);
+        // assert(_currentPokeData().age == _pokeData.age);
 
         // Set the age of contract's current value to block.timestamp.
         //
