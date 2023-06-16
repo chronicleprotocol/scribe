@@ -458,13 +458,16 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         // Do nothing during deployment.
         if (address(this).code.length == 0) return;
 
+        // Load _opPokeData from storage.
+        PokeData memory opPokeData = _opPokeData;
+
         // Decide whether _opPokeData is finalized.
         //
         // Note that the decision is based on the possibly updated
-        // opChallengePeriod! This means a once finalized opPoke my be reverted
+        // opChallengePeriod! This means a once finalized opPoke may be dropped
         // if the opChallengePeriod was increased.
         bool opPokeDataFinalized =
-            _opPokeData.age + opChallengePeriod <= uint32(block.timestamp);
+            opPokeData.age + opChallengePeriod <= uint32(block.timestamp);
 
         // @todo Remember to update Invariants.md!
 
@@ -480,14 +483,14 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         // If _opPokeData is in state 1, move it to the _pokeData storage.
         //
         // Note that this ensures the current value is provided via _pokeData.
-        if (opPokeDataFinalized && _opPokeData.age > _pokeData.age) {
-            _pokeData = _opPokeData;
+        if (opPokeDataFinalized && opPokeData.age > _pokeData.age) {
+            _pokeData = opPokeData;
         }
 
         // If _opPokeData is in state 3, emit event to indicate a possibly valid
-        // opPoke was reverted.
+        // opPoke was dropped.
         if (!opPokeDataFinalized) {
-            emit OpPokeDataDropped(msg.sender, _opPokeData);
+            emit OpPokeDataDropped(msg.sender, opPokeData);
         }
 
         // Now it is safe to delete _opPokeData.
