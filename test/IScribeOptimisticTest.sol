@@ -1105,7 +1105,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         );
     }
 
-    function test_afterAuthedAction_1_setChallengePeriod_NonFinalizes()
+    function test_afterAuthedAction_1_setChallengePeriod()
         public
     {
         _setUp_afterAuthedAction_1();
@@ -1117,21 +1117,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         (bool ok,) = opScribe.tryRead();
         assertFalse(ok);
         console2.log(
-            "afterAuthedAction: {_pokeData=NULL, _opPokeData=Non-Finalized} + setOpChallengePeriod() non-finalizing => {value=NULL, age=NULL}"
-        );
-    }
-
-    function test_afterAuthedAction_1_setChallengePeriod_Finalizes() public {
-        _setUp_afterAuthedAction_1();
-
-        // Update challenge period so that _opPokeData could finalize.
-        vm.warp(block.timestamp + 10 minutes);
-        opScribe.setOpChallengePeriod(1);
-
-        (bool ok,) = opScribe.tryRead();
-        assertFalse(ok);
-        console2.log(
-            "afterAuthedAction: {_pokeData=NULL, _opPokeData=Non-Finalized} + setOpChallengePeriod() finalizing => {value=NULL, age=NULL}"
+            "afterAuthedAction: {_pokeData=NULL, _opPokeData=Non-Finalized} + setOpChallengePeriod() => {value=NULL, age=NULL}"
         );
     }
 
@@ -1202,7 +1188,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         );
     }
 
-    function test_afterAuthedAction_2_setChallengePeriod_NonFinalizes()
+    function test_afterAuthedAction_2_setChallengePeriod()
         public
     {
         (IScribe.PokeData memory pokeData,) = _setUp_afterAuthedAction_2();
@@ -1216,23 +1202,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         assertEq(val, pokeData.val);
         assertEq(age, block.timestamp);
         console2.log(
-            "afterAuthedAction: {_pokeData=Non-NULL, _opPokeData=Non-Finalized} + setOpChallengePeriod() non-finalizing => {value=_pokeData, age=block.timestamp}"
-        );
-    }
-
-    function test_afterAuthedAction_2_setChallengePeriod_Finalizes() public {
-        (IScribe.PokeData memory pokeData,) = _setUp_afterAuthedAction_2();
-
-        // Update challenge period so that _opPokeData could finalize.
-        vm.warp(block.timestamp + 10 minutes);
-        opScribe.setOpChallengePeriod(1);
-
-        (bool ok, uint val, uint age) = opScribe.tryReadWithAge();
-        assertTrue(ok);
-        assertEq(val, pokeData.val);
-        //assertEq(age, block.timestamp);
-        console2.log(
-            "afterAuthedAction: {_pokeData=Non-NULL, _opPokeData=Non-Finalized} + setOpChallengePeriod() finalizing => {value=_pokeData, age=block.timestamp}"
+            "afterAuthedAction: {_pokeData=Non-NULL, _opPokeData=Non-Finalized} + setOpChallengePeriod() => {value=_pokeData, age=block.timestamp}"
         );
     }
 
@@ -1243,8 +1213,8 @@ abstract contract IScribeOptimisticTest is IScribeTest {
     //    _pokeData    = NULL
     //    _opPokeData  = Finalized
     //
-    // => value = NULL
-    // => age   = NULL
+    // => value = _opPokeData
+    // => age   = block.timestamp
 
     function _setUp_afterAuthedAction_3()
         internal
@@ -1271,54 +1241,47 @@ abstract contract IScribeOptimisticTest is IScribeTest {
     }
 
     function test_afterAuthedAction_3_setBar() public {
-        _setUp_afterAuthedAction_3();
+        (, IScribe.PokeData memory opPokeData) = _setUp_afterAuthedAction_3();
 
         opScribe.setBar(3);
 
-        (bool ok,) = opScribe.tryRead();
-        assertFalse(ok);
+        (bool ok, uint val, uint age) = opScribe.tryReadWithAge();
+        assertTrue(ok);
+        assertEq(val, opPokeData.val);
+        assertEq(age, uint32(block.timestamp));
         console2.log(
-            "afterAuthedAction: {_pokeData=NULL, _opPokeData=Finalized} + setBar() => {value=NULL, age=NULL}"
+            "afterAuthedAction: {_pokeData=NULL, _opPokeData=Finalized} + setBar() => {value=opPokeData, age=block.timestamp}"
         );
     }
 
     function test_afterAuthedAction_3_drop() public {
-        _setUp_afterAuthedAction_3();
+        (, IScribe.PokeData memory opPokeData) = _setUp_afterAuthedAction_3();
 
         opScribe.drop(1);
 
-        (bool ok,) = opScribe.tryRead();
-        assertFalse(ok);
+        (bool ok, uint val, uint age) = opScribe.tryReadWithAge();
+        assertTrue(ok);
+        assertEq(val, opPokeData.val);
+        assertEq(age, uint32(block.timestamp));
         console2.log(
-            "afterAuthedAction: {_pokeData=NULL, _opPokeData=Finalized} + drop() => {value=NULL, age=NULL}"
+            "afterAuthedAction: {_pokeData=NULL, _opPokeData=Finalized} + drop() => {value=opPokeData, age=block.timestamp}"
         );
     }
 
-    function test_afterAuthedAction_3_setChallengePeriod_NonFinalizes()
+    function test_afterAuthedAction_3_setChallengePeriod()
         public
     {
-        _setUp_afterAuthedAction_3();
-
-        // Update challenge period so that _opPokeData non-finalizes.
-        opScribe.setOpChallengePeriod(type(uint16).max);
-
-        (bool ok,) = opScribe.tryRead();
-        assertFalse(ok);
-        console2.log(
-            "afterAuthedAction: {_pokeData=NULL, _opPokeData=Finalized} + setOpChallengePeriod() non-finalizing => {value=NULL, age=NULL}"
-        );
-    }
-
-    function test_afterAuthedAction_3_setChallengePeriod_Finalizes() public {
-        _setUp_afterAuthedAction_3();
+        (, IScribe.PokeData memory opPokeData) = _setUp_afterAuthedAction_3();
 
         // Update challenge period so that _opPokeData still finalized.
         opScribe.setOpChallengePeriod(1);
 
-        (bool ok,) = opScribe.tryRead();
-        assertFalse(ok);
+        (bool ok, uint val, uint age) = opScribe.tryReadWithAge();
+        assertTrue(ok);
+        assertEq(val, opPokeData.val);
+        assertEq(age, uint32(block.timestamp));
         console2.log(
-            "afterAuthedAction: {_pokeData=NULL, _opPokeData=Finalized} + setOpChallengePeriod() finalizing => {value=NULL, age=NULL}"
+            "afterAuthedAction: {_pokeData=NULL, _opPokeData=Finalized} + setOpChallengePeriod() => {value=opPokeData, age=block.timestamp}"
         );
     }
 
@@ -1329,7 +1292,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
     //    _pokeData    = Non-NULL
     //    _opPokeData  = Finalized
     //
-    // => value = _pokeData
+    // => value = _opPokeData
     // => age   = block.timestamp
 
     function _setUp_afterAuthedAction_4()
@@ -1364,62 +1327,47 @@ abstract contract IScribeOptimisticTest is IScribeTest {
     }
 
     function test_afterAuthedAction_4_setBar() public {
-        (IScribe.PokeData memory pokeData,) = _setUp_afterAuthedAction_4();
+        (, IScribe.PokeData memory opPokeData) = _setUp_afterAuthedAction_4();
 
         opScribe.setBar(3);
 
         (bool ok, uint val, uint age) = opScribe.tryReadWithAge();
         assertTrue(ok);
-        assertEq(val, pokeData.val);
+        assertEq(val, opPokeData.val);
         //assertEq(age, block.timestamp);
         console2.log(
-            "afterAuthedAction: {_pokeData=Non-NULL, _opPokeData=Finalized} + setBar() => {value=_pokeData, age=block.timestamp}"
+            "afterAuthedAction: {_pokeData=Non-NULL, _opPokeData=Finalized} + setBar() => {value=_opPokeData, age=block.timestamp}"
         );
     }
 
     function test_afterAuthedAction_4_drop() public {
-        (IScribe.PokeData memory pokeData,) = _setUp_afterAuthedAction_4();
+        (, IScribe.PokeData memory opPokeData) = _setUp_afterAuthedAction_4();
 
         opScribe.drop(1);
 
         (bool ok, uint val, uint age) = opScribe.tryReadWithAge();
         assertTrue(ok);
-        assertEq(val, pokeData.val);
+        assertEq(val, opPokeData.val);
         //assertEq(age, block.timestamp);
         console2.log(
-            "afterAuthedAction: {_pokeData=Non-NULL, _opPokeData=Finalized} + drop() => {value=_pokeData, age=block.timestamp}"
+            "afterAuthedAction: {_pokeData=Non-NULL, _opPokeData=Finalized} + drop() => {value=_opPokeData, age=block.timestamp}"
         );
     }
 
-    function test_afterAuthedAction_4_setChallengePeriod_NonFinalizes()
+    function test_afterAuthedAction_4_setChallengePeriod()
         public
     {
-        (IScribe.PokeData memory pokeData,) = _setUp_afterAuthedAction_4();
-
-        // Update challenge period so that _opPokeData non-finalizes.
-        opScribe.setOpChallengePeriod(type(uint16).max);
-
-        (bool ok, uint val, uint age) = opScribe.tryReadWithAge();
-        assertTrue(ok);
-        assertEq(val, pokeData.val);
-        assertEq(age, block.timestamp);
-        console2.log(
-            "afterAuthedAction: {_pokeData=Non-NULL, _opPokeData=Finalized} + setOpChallengePeriod() non-finalizing => {value=_pokeData, age=block.timestamp}"
-        );
-    }
-
-    function test_afterAuthedAction_4_setChallengePeriod_Finalizes() public {
-        (IScribe.PokeData memory pokeData,) = _setUp_afterAuthedAction_4();
+        (, IScribe.PokeData memory opPokeData) = _setUp_afterAuthedAction_4();
 
         // Update challenge period so that _opPokeData still finalized.
         opScribe.setOpChallengePeriod(1);
 
         (bool ok, uint val, uint age) = opScribe.tryReadWithAge();
         assertTrue(ok);
-        assertEq(val, pokeData.val);
+        assertEq(val, opPokeData.val);
         //assertEq(age, block.timestamp);
         console2.log(
-            "afterAuthedAction: {_pokeData=Non-NULL, _opPokeData=Finalized} + setOpChallengePeriod() finalizing => {value=_pokeData, age=block.timestamp}"
+            "afterAuthedAction: {_pokeData=Non-NULL, _opPokeData=Finalized} + setOpChallengePeriod() => {value=_opPokeData, age=block.timestamp}"
         );
     }
 }
