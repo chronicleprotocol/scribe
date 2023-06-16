@@ -1105,9 +1105,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         );
     }
 
-    function test_afterAuthedAction_1_setChallengePeriod()
-        public
-    {
+    function test_afterAuthedAction_1_setChallengePeriod() public {
         _setUp_afterAuthedAction_1();
 
         // Note that _opPokeData still non-finalized after challenge period
@@ -1188,9 +1186,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         );
     }
 
-    function test_afterAuthedAction_2_setChallengePeriod()
-        public
-    {
+    function test_afterAuthedAction_2_setChallengePeriod() public {
         (IScribe.PokeData memory pokeData,) = _setUp_afterAuthedAction_2();
 
         // Note that _opPokeData still non-finalized after challenge period
@@ -1268,9 +1264,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         );
     }
 
-    function test_afterAuthedAction_3_setChallengePeriod()
-        public
-    {
+    function test_afterAuthedAction_3_setChallengePeriod() public {
         (, IScribe.PokeData memory opPokeData) = _setUp_afterAuthedAction_3();
 
         // Update challenge period so that _opPokeData still finalized.
@@ -1354,9 +1348,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         );
     }
 
-    function test_afterAuthedAction_4_setChallengePeriod()
-        public
-    {
+    function test_afterAuthedAction_4_setChallengePeriod() public {
         (, IScribe.PokeData memory opPokeData) = _setUp_afterAuthedAction_4();
 
         // Update challenge period so that _opPokeData still finalized.
