@@ -469,8 +469,6 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         bool opPokeDataFinalized =
             opPokeData.age + opChallengePeriod <= uint32(block.timestamp);
 
-        // @todo Remember to update Invariants.md!
-
         // Note that _opPokeData is in one of the following three states:
         // 1. finalized and newer than _pokeData
         // 2. finalized but older than _pokeData

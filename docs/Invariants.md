@@ -19,23 +19,22 @@ This document specifies invariants of the Scribe and ScribeOptimistic oracle con
 
 ## `ScribeOptimistic::_pokeData`
 
-* Only `poke`, `opPoke`, and `opChallenge` functions may mutate `_pokeData`:
+* Only `poke`, `opPoke`, `opChallenge` and `_afterAuthedAction` protected auth'ed functions may mutate `_pokeData`:
     ```
     preTx(_pokeData) != postTx(_pokeData)
-        → msg.sig ∊ {"poke", "opPoke", "opChallenge"}
+        → msg.sig ∊ {"poke", "opPoke", "opChallenge", "setBar", "drop", "setOpChallengePeriod"}
     ```
 
-* Function `poke` may only mutate `_pokeData.age` to `block.timestamp`:
+* `poke` function may only mutate `_pokeData.age` to `block.timestamp`:
     ```
     preTx(_pokeData) != postTx(_pokeData) ⋀ msg.sig == "poke"
         → postTx(_pokeData.age) == block.timestamp
     ```
 
-* Functions `opPoke` and `opChallenge` may only mutate `_pokeData` to a finalized, non-stale `_opPokeData`:
+* `opPoke`, `opChallenge` and `_afterAuthedAction` protected auth'ed functions may only mutate `_pokeData` to a finalized, non-stale `_opPokeData`:
     ```
-    preTx(_pokeData) != postTx(_pokeData) ⋀ msg.sig ∊ {"opPoke", "opChallenge"}
-        → postTx(_pokeData) = preTx(_opPokeData)
-          ⋀ let (val, age) := preTx(scribe.readWithAge()) in (val, age) = preTx(_opPokeData)
+    preTx(_pokeData) != postTx(_pokeData) ⋀ msg.sig ∊ {"opPoke", "opChallenge", "setBar", "drop", "setOpChallengePeriod"}
+        → postTx(_pokeData) = preTx(_opPokeData) ⋀ preTx(scribe.readWithAge()) = preTx(_opPokeData)
     ```
 
 
@@ -52,21 +51,21 @@ This document specifies invariants of the Scribe and ScribeOptimistic oracle con
 
 ## `ScribeOptimistic::_opPokeData`
 
-* Only `opPoke` and `opChallenge` functions may mutate `_opPokeData`:
+* Only `opPoke`, `opChallenge` and `_afterAuthedAction` protected auth'ed functions may mutate `_opPokeData`:
     ```
     preTx(_opPokeData) != postTx(_opPokeData)
-        → msg.sig ∊ {"opPoke", "opChallenge"}
+        → msg.sig ∊ {"opPoke", "opChallenge", "setBar", "drop", "setOpChallengePeriod"}
     ```
 
-* Function `opPoke` may only set `_opPokeData.age` to `block.timestamp`:
+* `opPoke` function may only set `_opPokeData.age` to `block.timestamp`:
     ```
     preTx(_opPokeData.age) != postTx(_opPokeData.age) ⋀ msg.sig == "opPoke"
         → postTx(_opPokeData.age) == block.timestamp
     ```
 
-* Function `opChallenge` may only delete `_opPokeData`:
+* `opChallenge` and `_afterAuthedAction` protected auth'ed functions may only delete `_opPokeData`:
     ```
-    preTx(_opPokeData.age) != postTx(_opPokeData.age) ⋀ msg.sig == "opChallenge"
+    preTx(_opPokeData.age) != postTx(_opPokeData.age) ⋀ msg.sig ∊ {"opChallenge", "setBar", "drop", "setOpChallengePeriod"}
         → postTx(_opPokeData.val) == 0 ⋀ postTx(_opPokeData.age) == 0
     ```
 
