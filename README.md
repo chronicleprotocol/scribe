@@ -31,7 +31,7 @@ $ FOUNDRY_PROFILE=intense forge test # Run all tests in intense mode
 $ forge test --nmt "FuzzDifferential(OracleSuite|Dissig)" # Run only non-differential fuzz tests
 ```
 
-Note that in order to run the whole test suite, i.e. including differential fuzzing tests, the [`dissig`]() and oracle-suite's [`schnorr`]() cli tool binaries need to be present inside the `bin/` directory.
+Note that in order to run the whole test suite, i.e. including differential fuzzing tests, the [`dissig`]() and oracle-suite's [`schnorr`]() binaries need to be present inside the `bin/` directory.
 
 Lint:
 ```bash
