@@ -20,7 +20,9 @@ lcov.info
 node_modules/
 
 # Binaries
-bin/*
+!/bin
+bin/dissig
+bin/schnorr
 
 # Flattened contracts
 flattened/
