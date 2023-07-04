@@ -3,7 +3,6 @@ pragma solidity ^0.8.16;
 import {console2} from "forge-std/console2.sol";
 
 import {IAuth} from "chronicle-std/auth/IAuth.sol";
-import {IToll} from "chronicle-std/toll/IToll.sol";
 
 import {IScribe} from "src/IScribe.sol";
 import {IScribeOptimistic} from "src/IScribeOptimistic.sol";

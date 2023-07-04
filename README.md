@@ -25,10 +25,13 @@ $ yarn install # Installs dependencies for vector-based tests
 
 Run tests:
 ```bash
-$ forge test
-$ forge test -vvvv # Run with full stack traces
-$ FOUNDRY_PROFILE=intense forge test # Run in intense mode
+$ forge test # Run all tests, including differential fuzzing tests
+$ forge test -vvvv # Run all tests with full stack traces
+$ FOUNDRY_PROFILE=intense forge test # Run all tests in intense mode
+$ forge test --nmt "FuzzDifferential(OracleSuite|Dissig)" # Run only non-differential fuzz tests
 ```
+
+Note that in order to run the whole test suite, i.e. including differential fuzzing tests, the [`dissig`]() and oracle-suite's [`schnorr`]() cli tool binaries need to be present inside the `bin/` directory.
 
 Lint:
 ```bash

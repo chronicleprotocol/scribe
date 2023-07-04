@@ -14,7 +14,7 @@ abstract contract LibSecp256k1Test is Test {
 
     // -- toAddress --
 
-    function testDifferentialFuzz_toAddress(uint privKey) public {
+    function testFuzzDifferential_toAddress(uint privKey) public {
         // Bound privKey to secp256k1's order, i.e. privKey ∊ [1, Q).
         privKey = bound(privKey, 1, LibSecp256k1.Q() - 1);
 
