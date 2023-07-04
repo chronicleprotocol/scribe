@@ -48,7 +48,8 @@ interface IScribeOptimistic is IScribe {
     /// @param reward The ETH rewards paid.
     event OpChallengeRewardPaid(address indexed challenger, uint reward);
 
-    /// @notice Emitted when an opPoke dropped.
+    /// @notice Emitted when an opPoke dropped due to an auth'ed configuration
+    ///         change.
     /// @dev opPoke's are dropped if security parameters are updated that could
     ///      lead to an initially valid opPoke becoming invalid or an opPoke was
     ///      was successfully challenged.
