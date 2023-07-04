@@ -1,7 +1,6 @@
 pragma solidity ^0.8.16;
 
 import {Test} from "forge-std/Test.sol";
-import {console2} from "forge-std/console2.sol";
 
 import {IAuth} from "chronicle-std/auth/IAuth.sol";
 import {IToll} from "chronicle-std/toll/IToll.sol";
@@ -11,6 +10,7 @@ import {IScribe} from "src/IScribe.sol";
 import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
 
 import {LibFeed} from "script/libs/LibFeed.sol";
+import {LibOracleSuite} from "script/libs/LibOracleSuite.sol";
 
 abstract contract IScribeTest is Test {
     using LibSecp256k1 for LibSecp256k1.Point;
@@ -438,6 +438,18 @@ abstract contract IScribeTest is Test {
 
         vm.expectRevert(IScribe.SchnorrSignatureInvalid.selector);
         scribe.poke(pokeData, schnorrData);
+    }
+
+    // -- Test: constructPokeMessage --
+
+    function testFuzzDifferentialOracleSuite_constructPokeMessage(
+        IScribe.PokeData memory pokeData
+    ) public {
+        bytes32 want = scribe.constructPokeMessage(pokeData);
+        bytes32 got = LibOracleSuite.constructPokeMessage(
+            scribe.wat(), pokeData.val, pokeData.age
+        );
+        assertEq(want, got);
     }
 
     // -- Test: Auth Protected Functions --
