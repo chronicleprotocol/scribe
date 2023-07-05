@@ -1324,10 +1324,9 @@ abstract contract IScribeOptimisticTest is IScribeTest {
 
         opScribe.setBar(3);
 
-        (bool ok, uint val, uint age) = opScribe.tryReadWithAge();
+        (bool ok, uint val,) = opScribe.tryReadWithAge();
         assertTrue(ok);
         assertEq(val, opPokeData.val);
-        //assertEq(age, block.timestamp);
         console2.log(
             "afterAuthedAction: {_pokeData=Non-NULL, _opPokeData=Finalized} + setBar() => {value=_opPokeData, age=block.timestamp}"
         );
@@ -1338,10 +1337,9 @@ abstract contract IScribeOptimisticTest is IScribeTest {
 
         opScribe.drop(1);
 
-        (bool ok, uint val, uint age) = opScribe.tryReadWithAge();
+        (bool ok, uint val,) = opScribe.tryReadWithAge();
         assertTrue(ok);
         assertEq(val, opPokeData.val);
-        //assertEq(age, block.timestamp);
         console2.log(
             "afterAuthedAction: {_pokeData=Non-NULL, _opPokeData=Finalized} + drop() => {value=_opPokeData, age=block.timestamp}"
         );
@@ -1353,10 +1351,9 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         // Update challenge period so that _opPokeData still finalized.
         opScribe.setOpChallengePeriod(1);
 
-        (bool ok, uint val, uint age) = opScribe.tryReadWithAge();
+        (bool ok, uint val,) = opScribe.tryReadWithAge();
         assertTrue(ok);
         assertEq(val, opPokeData.val);
-        //assertEq(age, block.timestamp);
         console2.log(
             "afterAuthedAction: {_pokeData=Non-NULL, _opPokeData=Finalized} + setOpChallengePeriod() => {value=_opPokeData, age=block.timestamp}"
         );
