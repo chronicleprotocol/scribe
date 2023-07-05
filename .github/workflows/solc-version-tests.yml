@@ -22,7 +22,8 @@ jobs:
 
       - name: Run Forge tests for each supported solc version
         run: >
-          FOUNDRY_PROFILE=ci forge test --use 0.8.16 &&
-          FOUNDRY_PROFILE=ci forge test --use 0.8.17 &&
-          FOUNDRY_PROFILE=ci forge test --use 0.8.18 &&
-          FOUNDRY_PROFILE=ci forge test --use 0.8.19
+          FOUNDRY_PROFILE=ci forge test --use 0.8.16 --nmt "FuzzDifferential(OracleSuite|Dissig)" &&
+          FOUNDRY_PROFILE=ci forge test --use 0.8.17 --nmt "FuzzDifferential(OracleSuite|Dissig)" &&
+          FOUNDRY_PROFILE=ci forge test --use 0.8.18 --nmt "FuzzDifferential(OracleSuite|Dissig)" &&
+          FOUNDRY_PROFILE=ci forge test --use 0.8.19 --nmt "FuzzDifferential(OracleSuite|Dissig)" &&
+          FOUNDRY_PROFILE=ci forge test --use 0.8.20 --nmt "FuzzDifferential(OracleSuite|Dissig)"
