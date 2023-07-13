@@ -26,7 +26,7 @@ plt.legend()
 
 # Adding labels and title
 plt.xlabel('number of bar')
-plt.ylabel('poke() gas usage')
+plt.ylabel('(op)poke() gas usage')
 plt.title('Scribe Benchmark Results')
 
 # Save graph to file
