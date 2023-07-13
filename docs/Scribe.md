@@ -141,4 +141,4 @@ function challengeReward() external view returns (uint);
 
 ## Benchmarks
 
-Benchmarks can be found in [`script/benchmarks/`](../script/benchmarks/).
+Benchmarks can be found in [`./Benchmarks.md`](./Benchmarks.md).
