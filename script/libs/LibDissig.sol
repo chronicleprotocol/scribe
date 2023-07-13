@@ -2,6 +2,7 @@ pragma solidity ^0.8.16;
 
 import {Vm} from "forge-std/Vm.sol";
 
+import {console2} from "forge-std/console2.sol";
 import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
 
 /**
@@ -17,49 +18,38 @@ library LibDissig {
     Vm private constant vm =
         Vm(address(uint160(uint(keccak256("hevm cheat code")))));
 
-    /// @dev Returns the point [scalar]G.
+    /// @dev Signs message `message` via set of private keys `privKeys`.
     ///
-    ///      Computed via:
+    ///      Signed via:
     ///      ```bash
-    ///      ./bin/dissig --scribe                     \
-    ///                   --scribe-cmd=pointFromScalar \
-    ///                   --scribe-scalar=<scalar>
+    ///      ./bin/dissig                      \
+    ///         --scribe                       \
+    ///         --scribe-cmd=sign              \
+    ///         --scribe-message=<message>     \
+    ///         --scribe-privKeys=<privKey[0]> \
+    ///         --scribe-privKeys=<privKey[1]> |
+    ///         ...
     ///      ```
-    function toPoint(uint scalar)
+    function sign(uint[] memory privKeys, bytes32 message)
         internal
-        returns (LibSecp256k1.Point memory)
+        returns (uint, address)
     {
-        string[] memory inputs = new string[](4);
+        string[] memory inputs = new string[](4 + privKeys.length);
         inputs[0] = "bin/dissig";
         inputs[1] = "--scribe";
-        inputs[2] = "--scribe-cmd=pointFromScalar";
-        inputs[3] = string.concat("--scribe-scalar=", vm.toString(scalar));
+        inputs[2] = "--scribe-cmd=sign";
+        inputs[3] = string.concat("--scribe-message=", vm.toString(message));
+        for (uint i; i < privKeys.length; i++) {
+            inputs[4 + i] = string.concat(
+                "--scribe-privKeys=", vm.toString(bytes32(privKeys[i]))
+            );
+        }
 
-        uint[2] memory coordinates = abi.decode(vm.ffi(inputs), (uint[2]));
-        return LibSecp256k1.Point({x: coordinates[0], y: coordinates[1]});
-    }
+        uint[2] memory result = abi.decode(vm.ffi(inputs), (uint[2]));
 
-    /// @dev Returns the sum of the points generated from the scalars.
-    ///
-    ///      Computed via:
-    ///      ```bash
-    ///      ./bin/dissig --scribe                      \
-    ///                   --scribe-cmd=pointAggregation \
-    ///                   --scribe-scalars=<scalarA>    \
-    ///                   --scribe-scalars=<scalarB>
-    ///      ````
-    function aggregateToPoint(uint scalarA, uint scalarB)
-        internal
-        returns (LibSecp256k1.Point memory)
-    {
-        string[] memory inputs = new string[](5);
-        inputs[0] = "bin/dissig";
-        inputs[1] = "--scribe";
-        inputs[2] = "--scribe-cmd=pointAggregation";
-        inputs[3] = string.concat("--scribe-scalars=", vm.toString(scalarA));
-        inputs[4] = string.concat("--scribe-scalars=", vm.toString(scalarB));
+        uint signature = result[0];
+        address commitment = address(uint160(result[1]));
 
-        uint[2] memory coordinates = abi.decode(vm.ffi(inputs), (uint[2]));
-        return LibSecp256k1.Point({x: coordinates[0], y: coordinates[1]});
+        return (signature, commitment);
     }
 }
