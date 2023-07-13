@@ -22,39 +22,25 @@ import {LibFeed} from "script/libs/LibFeed.sol";
  *      2. Deploy contract via:
  *          $ forge script script/benchmarks/ScribeOptimisticBenchmark.s.sol --rpc-url http://127.0.0.1:8545 --broadcast --sig "deploy()"
  *
- *      3. Lift feeds via:
- *          $ forge script script/benchmarks/ScribeOptimisticBenchmark.s.sol --rpc-url http://127.0.0.1:8545 --broadcast --sig "liftFeeds()"
+ *      3. Set bar via:
+ *          $ BAR=10 # Note to update to appropriate value
+ *          $ forge script script/benchmarks/ScribeBenchmark.s.sol --rpc-url http://127.0.0.1:8545 --broadcast --sig $(cast calldata "setBar(uint8)" $BAR)
  *
- *      4. Set opChallengePeriod via:
- *          $ forge script script/benchmarks/ScribeOptimisticBenchmark.s.sol --rpc-url http://127.0.0.1:8545 --broadcast --sig "setOpChallengePeriod()"
+ *      4. Lift feeds via:
+ *          $ forge script script/benchmarks/ScribeBenchmark.s.sol --rpc-url http://127.0.0.1:8545 --broadcast --sig "liftFeeds()"
  *
- *      4. Poke via:
+ *      5. Set opChallengePeriod via:
+ *          $ OP_CHALLENGE_PERIOD=1 # Note to update to appropriate value
+ *          $ forge script script/benchmarks/ScribeOptimisticBenchmark.s.sol --rpc-url http://127.0.0.1:8545 --broadcast --sig $(cast calldata "setOpChallengePeriod(uint16)" $OP_CHALLENGE_PERIOD)"
+ *
+ *      6. Poke via:
  *          $ forge script script/benchmarks/ScribeOptimisticBenchmark.s.sol --rpc-url http://127.0.0.1:8545 --broadcast --sig "poke()"
  *
- *      5. opPoke via:
+ *      7. opPoke via:
  *          $ forge script script/benchmarks/ScribeOptimisticBenchmark.s.sol --rpc-url http://127.0.0.1:8545 --broadcast --sig "opPoke()"
  *
  *      Note to (op)Poke more than once to get realistic gas costs.
  *      During the first execution the storage slots are empty.
- *
- * @dev Results using solc_version = "0.8.16" and via_ir = true:
- *      - Deployment:
- *          2,919,984
- *
- *      - Lift 2 feeds:
- *          181,619
- *
- *      - Set opChallengePeriod:
- *          55,903
- *
- *      - opPoke 1. time:
- *          67,341
- *
- *      - opPoke 2. time:
- *          53,440
- *
- *      - opPoke 3. time:
- *          53,440
  */
 contract ScribeOptimisticBenchmark is Script {
     using LibFeed for LibFeed.Feed;
@@ -75,12 +61,19 @@ contract ScribeOptimisticBenchmark is Script {
         opScribe = new ScribeOptimistic("ETH/USD");
     }
 
-    function setOpChallengePeriod() public {
+    function setBar(uint8 bar) public {
+        uint deployer = vm.deriveKey(ANVIL_MNEMONIC, uint32(0));
+
+        vm.broadcast(deployer);
+        opScribe.setBar(bar);
+    }
+
+    function setOpChallengePeriod(uint16 opChallengePeriod) public {
         uint deployer = vm.deriveKey(ANVIL_MNEMONIC, uint32(0));
 
         // Note to set opChallengePeriod to small value.
         vm.broadcast(deployer);
-        opScribe.setOpChallengePeriod(1 seconds);
+        opScribe.setOpChallengePeriod(opChallengePeriod);
     }
 
     function liftFeeds() public {
@@ -104,7 +97,7 @@ contract ScribeOptimisticBenchmark is Script {
     }
 
     function poke() public {
-        uint relayer = vm.deriveKey(ANVIL_MNEMONIC, uint32(1));
+        uint relay = vm.deriveKey(ANVIL_MNEMONIC, uint32(1));
 
         // Create bar many feeds.
         LibFeed.Feed[] memory feeds = _createFeeds(opScribe.bar());
@@ -128,12 +121,12 @@ contract ScribeOptimisticBenchmark is Script {
         schnorrData = feeds.signSchnorr(opScribe.constructPokeMessage(pokeData));
 
         // Execute poke.
-        vm.broadcast(relayer);
+        vm.broadcast(relay);
         opScribe.poke(pokeData, schnorrData);
     }
 
     function opPoke() public {
-        uint relayer = vm.deriveKey(ANVIL_MNEMONIC, uint32(1));
+        uint relay = vm.deriveKey(ANVIL_MNEMONIC, uint32(1));
 
         // Create bar many feeds.
         LibFeed.Feed[] memory feeds = _createFeeds(opScribe.bar());
@@ -156,7 +149,7 @@ contract ScribeOptimisticBenchmark is Script {
         );
 
         // Execute opPoke.
-        vm.broadcast(relayer);
+        vm.broadcast(relay);
         opScribe.opPoke(pokeData, schnorrData, ecdsaData);
     }
 

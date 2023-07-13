@@ -10,6 +10,11 @@ import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
 
 import {LibFeed} from "script/libs/LibFeed.sol";
 
+interface GasPriceOracle {
+    function getL1Fee(bytes memory data) external view returns (uint);
+    function l1BaseFee() external view returns (uint);
+}
+
 /**
  * @notice Scribe Benchmark Script
  *
@@ -19,31 +24,19 @@ import {LibFeed} from "script/libs/LibFeed.sol";
  *
  *      2. Deploy contract via:
  *          $ forge script script/benchmarks/ScribeBenchmark.s.sol --rpc-url http://127.0.0.1:8545 --broadcast --sig "deploy()"
+ * *
+ *      3. Set bar via:
+ *          $ BAR=10 # Note to update to appropriate value
+ *          $ forge script script/benchmarks/ScribeBenchmark.s.sol --rpc-url http://127.0.0.1:8545 --broadcast --sig $(cast calldata "setBar(uint8)" $BAR)
  *
- *      3. Lift feeds via:
+ *      4. Lift feeds via:
  *          $ forge script script/benchmarks/ScribeBenchmark.s.sol --rpc-url http://127.0.0.1:8545 --broadcast --sig "liftFeeds()"
  *
- *      4. Poke via:
+ *      5. Poke via:
  *          $ forge script script/benchmarks/ScribeBenchmark.s.sol --rpc-url http://127.0.0.1:8545 --broadcast --sig "poke()"
  *
  *      Note to poke more than once to get realistic gas costs.
  *      During the first execution the storage slots are empty.
- *
- * @dev Results using solc_version = "0.8.16" and via_ir = true:
- *      - Deployment:
- *          2,043,070
- *
- *      - Lift 2 feeds:
- *          181,417
- *
- *      - Poke 1. time:
- *          82,436
- *
- *      - Poke 2. time:
- *          65,336
- *
- *      - Poke 3. time:
- *          65,324
  */
 contract ScribeBenchmark is Script {
     using LibFeed for LibFeed.Feed;
@@ -60,6 +53,13 @@ contract ScribeBenchmark is Script {
 
         vm.broadcast(deployer);
         scribe = new Scribe("ETH/USD");
+    }
+
+    function setBar(uint8 bar) public {
+        uint deployer = vm.deriveKey(ANVIL_MNEMONIC, uint32(0));
+
+        vm.broadcast(deployer);
+        scribe.setBar(bar);
     }
 
     function liftFeeds() public {
@@ -83,7 +83,7 @@ contract ScribeBenchmark is Script {
     }
 
     function poke() public {
-        uint relayer = vm.deriveKey(ANVIL_MNEMONIC, uint32(1));
+        uint relay = vm.deriveKey(ANVIL_MNEMONIC, uint32(1));
 
         // Create bar many feeds.
         LibFeed.Feed[] memory feeds = _createFeeds(scribe.bar());
@@ -107,7 +107,7 @@ contract ScribeBenchmark is Script {
         schnorrData = feeds.signSchnorr(scribe.constructPokeMessage(pokeData));
 
         // Execute poke.
-        vm.broadcast(relayer);
+        vm.broadcast(relay);
         scribe.poke(pokeData, schnorrData);
     }
 
