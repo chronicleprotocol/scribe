@@ -25,5 +25,5 @@ jobs:
         id: build
 
       - name: Run Forge test
-        run: FOUNDRY_PROFILE=ci forge test -vvv --nmt "FuzzDifferential(OracleSuite|Dissig)"
+        run: FOUNDRY_PROFILE=ci forge test -vvv --nmt "FuzzDifferentialOracleSuite"
         id: test
