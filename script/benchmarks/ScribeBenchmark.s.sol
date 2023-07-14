@@ -10,11 +10,6 @@ import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
 
 import {LibFeed} from "script/libs/LibFeed.sol";
 
-interface GasPriceOracle {
-    function getL1Fee(bytes memory data) external view returns (uint);
-    function l1BaseFee() external view returns (uint);
-}
-
 /**
  * @notice Scribe Benchmark Script
  *
