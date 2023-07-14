@@ -28,7 +28,7 @@ Run tests:
 $ forge test # Run all tests, including differential fuzzing tests
 $ forge test -vvvv # Run all tests with full stack traces
 $ FOUNDRY_PROFILE=intense forge test # Run all tests in intense mode
-$ forge test --nmt "FuzzDifferential(OracleSuite|Dissig)" # Run only non-differential fuzz tests
+$ forge test --nmt "FuzzDifferentialOracleSuite" # Run only non-differential fuzz tests
 ```
 
 Note that in order to run the whole test suite, i.e. including differential fuzzing tests, the oracle-suite's [`schnorr`](https://github.com/chronicleprotocol/oracle-suite) binary needs to be present inside the `bin/` directory.
