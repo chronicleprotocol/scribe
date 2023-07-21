@@ -146,7 +146,7 @@ interface IScribe is IChronicle {
     function verifySchnorrSignature(
         bytes32 message,
         SchnorrData calldata schnorrData
-    ) external returns (bool ok, bytes memory err);
+    ) external view returns (bool ok, bytes memory err);
 
     /// @notice Returns the message expected to be signed via Schnorr for
     ///         `pokeData`.
