@@ -14,6 +14,7 @@ This document provides technical documentation for Chronicle Protocol's Scribe o
   - [Lifting Feeds](#lifting-feeds)
   - [Chainlink Compatibility](#chainlink-compatibility)
   - [Optimistic-Flavored Scribe](#optimistic-flavored-scribe)
+    - [About Bounded Gas Usage](#about-bounded-gas-usage)
     - [Verifying Optimistic Pokes](#verifying-optimistic-pokes)
   - [Benchmarks](#benchmarks)
 
