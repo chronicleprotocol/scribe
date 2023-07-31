@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.16;
 
 import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
