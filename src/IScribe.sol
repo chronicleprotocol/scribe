@@ -65,13 +65,17 @@ interface IScribe is IChronicle {
     /// @param caller The caller's address.
     /// @param feed The feed address lifted.
     /// @param index The feed's index identifier.
-    event FeedLifted(address indexed caller, address indexed feed, uint index);
+    event FeedLifted(
+        address indexed caller, address indexed feed, uint indexed index
+    );
 
     /// @notice Emitted when feed dropped.
     /// @param caller The caller's address.
     /// @param feed The feed address dropped.
     /// @param index The feed's index identifier.
-    event FeedDropped(address indexed caller, address indexed feed, uint index);
+    event FeedDropped(
+        address indexed caller, address indexed feed, uint indexed index
+    );
 
     /// @notice Emitted when bar updated.
     /// @param caller The caller's address.
