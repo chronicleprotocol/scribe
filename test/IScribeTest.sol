@@ -28,8 +28,12 @@ abstract contract IScribeTest is Test {
 
     // Events copied from IScribe.
     event Poked(address indexed caller, uint128 val, uint32 age);
-    event FeedLifted(address indexed caller, address indexed feed, uint index);
-    event FeedDropped(address indexed caller, address indexed feed, uint index);
+    event FeedLifted(
+        address indexed caller, address indexed feed, uint indexed index
+    );
+    event FeedDropped(
+        address indexed caller, address indexed feed, uint indexed index
+    );
     event BarUpdated(address indexed caller, uint8 oldBar, uint8 newBar);
 
     function setUp(address scribe_) internal virtual {
