@@ -58,7 +58,7 @@ contract ScribeOptimisticBenchmark is Script {
         uint deployer = vm.deriveKey(ANVIL_MNEMONIC, uint32(0));
 
         vm.broadcast(deployer);
-        opScribe = new ScribeOptimistic("ETH/USD");
+        opScribe = new ScribeOptimistic(address(this), "ETH/USD");
     }
 
     function setBar(uint8 bar) public {

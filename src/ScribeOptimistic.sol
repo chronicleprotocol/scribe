@@ -45,7 +45,9 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
 
     // -- Constructor and Receive Functionality --
 
-    constructor(bytes32 wat_) Scribe(wat_) {
+    constructor(address initialAuthed, bytes32 wat_)
+        Scribe(initialAuthed, wat_)
+    {
         // Note to have a non-zero challenge period.
         _setOpChallengePeriod(1 hours);
     }

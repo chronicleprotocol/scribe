@@ -5,4 +5,4 @@
 [submodule "lib/chronicle-std"]
 	path = lib/chronicle-std
 	url = https://github.com/chronicleprotocol/chronicle-std
-	branch = v1
+	branch = v2
