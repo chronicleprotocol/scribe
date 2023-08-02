@@ -502,15 +502,14 @@ abstract contract IScribeOptimisticTest is IScribeTest {
 
         {
             // Expect events.
-            (, bytes memory err) = opScribe.verifySchnorrSignature(
-                opScribe.constructPokeMessage(pokeData), schnorrData
-            );
-
             vm.expectEmit();
             emit OpChallengeRewardPaid(address(this), 1 ether);
 
             vm.expectEmit();
-            emit OpPokeChallengedSuccessfully(address(this), err);
+            emit OpPokeChallengedSuccessfully(
+                address(this),
+                abi.encodeWithSelector(IScribe.SchnorrSignatureInvalid.selector)
+            );
         }
 
         // Challenge opPoke.

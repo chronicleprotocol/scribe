@@ -103,9 +103,8 @@ contract ScribeHandler is CommonBase, StdUtils {
         bytes32 pokeMessage = scribe.constructPokeMessage(pokeData);
         IScribe.SchnorrData memory schnorrData = feeds.signSchnorr(pokeMessage);
 
-        // Note to not poke if schnorr signature is valid, but cannot be
-        // verified via LibSchnorr::verifySignature.
-        (bool ok,) = scribe.verifySchnorrSignature(pokeMessage, schnorrData);
+        // Note to not poke if schnorr signature is valid, but not acceptable.
+        bool ok = scribe.isAcceptableSchnorrSignatureNow(pokeMessage, schnorrData);
         if (ok) {
             // Execute poke.
             scribe.poke(pokeData, feeds.signSchnorr(pokeMessage));

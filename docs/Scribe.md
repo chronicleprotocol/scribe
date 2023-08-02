@@ -119,15 +119,15 @@ function constructPokeMessage(PokeData calldata pokeData)
        returns (bytes32);
 ```
 
-3. Verify Schnorr signature:
+3. Verify Schnorr signature is acceptable:
 ```solidity
-function verifySchnorrSignature(
+function isAcceptableSchnorrSignatureNow(
         bytes32 message,
         SchnorrData calldata schnorrData
-) external returns (bool ok, bytes memory err);
+) external view returns (bool ok);
 ```
 
-4. If signature verifications fails:
+4. If Schnorr signature is not acceptable:
 ```solidity
 function opChallenge(SchnorrData calldata schnorrData)
         external

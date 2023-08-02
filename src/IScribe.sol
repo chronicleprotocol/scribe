@@ -134,21 +134,21 @@ interface IScribe is IChronicle {
     function poke(PokeData calldata pokeData, SchnorrData calldata schnorrData)
         external;
 
-    /// @notice Returns whether `message`'s integrity is proven via
-    ///         `schnorrData`.
-    /// @dev Expects `schnorrData`'s signature to be signed by exactly bar many
-    ///      feeds.
+    /// @notice Returns whether the Schnorr signature `schnorrData` is
+    ///         currently acceptable for message `message`.
+    /// @dev Note that a valid Schnorr signature is only acceptable if the
+    ///      signature was signed by exactly bar many feeds.
+    ///      For more info, see `bar()(uint8)` and `feeds()(address[],uint[])`.
+    /// @dev Note that bar and feeds are configurable, meaning a once acceptable
+    ///      Schnorr signature may become unacceptable in the future.
     /// @param message The message expected to be signed via `schnorrData`.
     /// @param schnorrData The SchnorrData to verify whether it proves
     ///                    the `message`'s integrity.
-    /// @return ok True if `message`'s integrity proven via `schnorrData`,
-    ///            false otherwise.
-    /// @return err Null if `message`'s integrity proven via `schnorrData`,
-    ///             abi-encoded custom error otherwise.
-    function verifySchnorrSignature(
+    /// @return ok True if Schnorr signature is acceptable, false otherwise.
+    function isAcceptableSchnorrSignatureNow(
         bytes32 message,
         SchnorrData calldata schnorrData
-    ) external view returns (bool ok, bytes memory err);
+    ) external view returns (bool ok);
 
     /// @notice Returns the message expected to be signed via Schnorr for
     ///         `pokeData`.
