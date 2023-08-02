@@ -7,8 +7,9 @@ import {LibBytes} from "src/libs/LibBytes.sol";
 abstract contract LibBytesTest is Test {
     using LibBytes for uint;
 
-    function testFuzz_getByteAtIndex(uint8 wantByte, uint index) public {
-        vm.assume(index < 32);
+    function testFuzz_getByteAtIndex(uint8 wantByte, uint indexSeed) public {
+        // Let index ∊ [0, 32).
+        uint index = bound(indexSeed, 0, 31);
 
         // Create word with wantByte at byte index.
         uint word = uint(wantByte) << (index * 8);

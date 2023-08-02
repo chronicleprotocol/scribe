@@ -17,13 +17,9 @@ library LibBytes {
         returns (uint)
     {
         uint result;
-
-        // Shift byte at index to be least significant byte and afterwards
-        // mask off all remaining bytes.
-        // Note that << 3 equals a multiplication by 8.
-        result = (word >> (index << 3)) & 0xFF;
-
-        // Note that the resulting byte is returned as word.
+        assembly ("memory-safe") {
+            result := byte(sub(31, index), word)
+        }
         return result;
     }
 }
