@@ -42,3 +42,7 @@ Update gas snapshots:
 ```bash
 $ forge snapshot --nmt "Fuzz" [--check]
 ```
+
+## Dependencies
+
+- [chronicleprotocol/chronicle-std@v2](https://github.com/chronicleprotocol/chronicle-std/tree/v2)

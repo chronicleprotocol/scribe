@@ -56,7 +56,7 @@ contract Scribe is IScribe, Auth, Toll {
 
     // -- Constructor --
 
-    constructor(bytes32 wat_) {
+    constructor(address initialAuthed, bytes32 wat_) Auth(initialAuthed) {
         require(wat_ != 0);
 
         // Set wat immutables.

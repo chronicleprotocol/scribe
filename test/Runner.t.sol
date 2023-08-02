@@ -12,14 +12,14 @@ import {ScribeHandler} from "./invariants/ScribeHandler.sol";
 
 contract ScribeTest is IScribeTest {
     function setUp() public {
-        setUp(address(new Scribe("ETH/USD")));
+        setUp(address(new Scribe(address(this), "ETH/USD")));
     }
 }
 
 contract ScribeInvariantTest is IScribeInvariantTest {
     function setUp() public {
         setUp(
-            address(new ScribeInspectable("ETH/USD")),
+            address(new ScribeInspectable(address(this), "ETH/USD")),
             address(new ScribeHandler())
         );
     }
@@ -34,7 +34,7 @@ import {IScribeOptimisticTest} from "./IScribeOptimisticTest.sol";
 
 contract ScribeOptimisticTest is IScribeOptimisticTest {
     function setUp() public {
-        setUp(address(new ScribeOptimistic("ETH/USD")));
+        setUp(address(new ScribeOptimistic(address(this), "ETH/USD")));
     }
 }
 

@@ -80,7 +80,7 @@ abstract contract IScribeTest is Test {
     // -- Test: Deployment --
 
     function test_Deployment() public virtual {
-        // Deployer is auth'ed.
+        // Address given as constructor argument is auth'ed.
         assertTrue(IAuth(address(scribe)).authed(address(this)));
 
         // Wat is set.

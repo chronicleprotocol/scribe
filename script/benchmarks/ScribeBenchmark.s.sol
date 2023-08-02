@@ -47,7 +47,7 @@ contract ScribeBenchmark is Script {
         uint deployer = vm.deriveKey(ANVIL_MNEMONIC, uint32(0));
 
         vm.broadcast(deployer);
-        scribe = new Scribe("ETH/USD");
+        scribe = new Scribe(address(this), "ETH/USD");
     }
 
     function setBar(uint8 bar) public {
