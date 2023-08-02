@@ -28,7 +28,7 @@ abstract contract IScribeTest is Test {
 
     // Events copied from IScribe.
     event Poked(
-        address indexed caller, uint128 indexed val, uint32 indexed age
+        address indexed caller, uint128 val, uint32 age
     );
     event FeedLifted(address indexed caller, address indexed feed, uint index);
     event FeedDropped(address indexed caller, address indexed feed, uint index);
