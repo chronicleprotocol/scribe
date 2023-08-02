@@ -1,6 +1,7 @@
 pragma solidity ^0.8.16;
 
 import {Test} from "forge-std/Test.sol";
+import {console2} from "forge-std/console2.sol";
 
 import {IScribe} from "src/IScribe.sol";
 
@@ -70,6 +71,47 @@ abstract contract LibSchnorrDataTest is Test {
 
         uint got = this.getSignerIndexLength(schnorrData);
         assertEq(got, length);
+    }
+
+    // -- Optimizations --
+
+    /// @dev Tests correctness of a possible optimization.
+    ///
+    ///      Note that the optimization is currently not implemented.
+    function testFuzzOptimization_getSignerIndex_WordIndexComputation(
+        uint index
+    ) public {
+        // Current implementation:
+        uint want;
+        assembly ("memory-safe") {
+            want := mul(div(index, 32), 32)
+        }
+
+        // Possible optimization:
+        uint mask = type(uint).max << 5;
+        uint got = index & mask;
+
+        assertEq(want, got);
+    }
+
+    /// @dev Tests correctness of a possible optimization.
+    ///
+    ///      Note that the optimization is currently not implemented.
+    function testFuzzOptimization_getSignerIndex_ByteIndexComputation(
+        uint index
+    ) public {
+        // Current implementation:
+        uint want;
+        unchecked {
+            want = 31 - (index % 32);
+        }
+
+        // Possible optimization:
+        uint mask = type(uint).max >> (256 - 5);
+        uint got;
+        got = (~index) & mask;
+
+        assertEq(want, got);
     }
 
     // -- Executors --
