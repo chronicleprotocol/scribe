@@ -27,9 +27,7 @@ abstract contract IScribeTest is Test {
     mapping(address => bool) internal addressFilter;
 
     // Events copied from IScribe.
-    event Poked(
-        address indexed caller, uint128 val, uint32 age
-    );
+    event Poked(address indexed caller, uint128 val, uint32 age);
     event FeedLifted(address indexed caller, address indexed feed, uint index);
     event FeedDropped(address indexed caller, address indexed feed, uint index);
     event BarUpdated(address indexed caller, uint8 oldBar, uint8 newBar);

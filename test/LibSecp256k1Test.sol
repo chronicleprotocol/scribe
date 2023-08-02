@@ -24,6 +24,35 @@ abstract contract LibSecp256k1Test is Test {
         assertEq(want, got);
     }
 
+    // -- isZeroPoint --
+
+    function test_isZeroPoint() public {
+        assertTrue(LibSecp256k1.Point(0, 0).isZeroPoint());
+        assertFalse(LibSecp256k1.Point(1, 0).isZeroPoint());
+    }
+
+    function testFuzz_isZeroPoint(LibSecp256k1.Point memory p) public {
+        bool want = p.x == 0 && p.y == 0;
+        bool got = p.isZeroPoint();
+
+        assertEq(want, got);
+    }
+
+    // -- yParity --
+
+    function test_yParity() public {
+        assertEq(LibSecp256k1.Point(1, 0).yParity(), 0);
+        assertEq(LibSecp256k1.Point(1, 1).yParity(), 1);
+        assertEq(LibSecp256k1.Point(1, 2).yParity(), 0);
+    }
+
+    function testFuzz_yParity(LibSecp256k1.Point memory p) public {
+        uint want = p.y % 2;
+        uint got = p.yParity();
+
+        assertEq(want, got);
+    }
+
     // -- toAffine --
 
     function testFuzz_toAffine_DoesNotRevert(
