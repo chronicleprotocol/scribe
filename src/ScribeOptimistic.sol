@@ -161,6 +161,9 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
 
         // Store the signerIndex as opFeedIndex and bind them to their provided
         // schnorrData.
+        //
+        // Note that cast is safe as _feed's image is [0, _pubKeys.length) and
+        // _pubKeys' length is bounded by maxFeeds, i.e. type(uint8).max - 1.
         opFeedIndex = uint8(signerIndex);
         _schnorrDataCommitment = uint160(
             uint(
