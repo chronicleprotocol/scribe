@@ -92,6 +92,8 @@ library LibSchnorr {
             ecrecover(bytes32(msgHash), uint8(v), bytes32(r), bytes32(s));
 
         // Verification succeeds iff ([s]G - [e]P)ₑ = Rₑ.
+        //
+        // Note that commitment is guaranteed to not be zero.
         return commitment == recovered;
     }
 }
