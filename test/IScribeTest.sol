@@ -144,7 +144,7 @@ abstract contract IScribeTest is Test {
 
     // -- Test: Schnorr Verification --
 
-    function testFuzz_verifySignature(uint barSeed) public {
+    function testFuzz_isAcceptableSchnorrSignatureNow(uint barSeed) public {
         // Let bar ∊ [1, scribe.maxFeeds()].
         uint bar = bound(barSeed, 1, scribe.maxFeeds());
 
@@ -153,18 +153,13 @@ abstract contract IScribeTest is Test {
 
         bytes32 message = keccak256("scribe");
 
-        bool ok;
-        bytes memory err;
-        // forgefmt: disable-next-item
-        (ok, err) = scribe.verifySchnorrSignature(
-            message,
-            feeds.signSchnorr(message)
+        bool ok = scribe.isAcceptableSchnorrSignatureNow(
+            message, feeds.signSchnorr(message)
         );
         assertTrue(ok);
-        assertEq(err.length, 0);
     }
 
-    function testFuzz_verifySignature_FailsIf_BarNotReached(
+    function testFuzz_isAcceptableSchnorrSignatureNow_FailsIf_BarNotReached(
         uint barSeed,
         uint numberSignersSeed
     ) public {
@@ -184,25 +179,15 @@ abstract contract IScribeTest is Test {
 
         bytes32 message = keccak256("scribe");
 
-        bool ok;
-        bytes memory err;
-        // forgefmt: disable-next-item
-        (ok, err) = scribe.verifySchnorrSignature(
-            message,
-            feeds.signSchnorr(message)
+        bool ok = scribe.isAcceptableSchnorrSignatureNow(
+            message, feeds.signSchnorr(message)
         );
         assertFalse(ok);
-        assertEq(
-            err,
-            abi.encodeWithSelector(
-                IScribe.BarNotReached.selector, uint8(numberSigners), uint8(bar)
-            )
-        );
     }
 
-    function testFuzz_verifySignature_FailsIf_SignersNotOrdered(uint barSeed)
-        public
-    {
+    function testFuzz_isAcceptableSchnorrSignatureNow_FailsIf_SignersNotOrdered(
+        uint barSeed
+    ) public {
         // Let bar ∊ [3, scribe.maxFeeds()].
         uint bar = bound(barSeed, 3, scribe.maxFeeds());
 
@@ -211,20 +196,13 @@ abstract contract IScribeTest is Test {
 
         bytes32 message = keccak256("scribe");
 
-        bool ok;
-        bytes memory err;
-        // forgefmt: disable-next-item
-        (ok, err) = scribe.verifySchnorrSignature(
-            message,
-            feeds.signSchnorr_withoutOrderingSignerIndexes(message)
+        bool ok = scribe.isAcceptableSchnorrSignatureNow(
+            message, feeds.signSchnorr_withoutOrderingSignerIndexes(message)
         );
         assertFalse(ok);
-        assertEq(
-            err, abi.encodeWithSelector(IScribe.SignersNotOrdered.selector)
-        );
     }
 
-    function testFuzz_verifySignature_FailsIf_SignerNotFeed(
+    function testFuzz_isAcceptableSchnorrSignatureNow_FailsIf_SignerNotFeed(
         uint barSeed,
         uint nonSignerIndexSeed
     ) public {
@@ -241,26 +219,15 @@ abstract contract IScribeTest is Test {
 
         bytes32 message = keccak256("scribe");
 
-        bool ok;
-        bytes memory err;
-        // forgefmt: disable-next-item
-        (ok, err) = scribe.verifySchnorrSignature(
-            message,
-            feeds.signSchnorr(message)
+        bool ok = scribe.isAcceptableSchnorrSignatureNow(
+            message, feeds.signSchnorr(message)
         );
         assertFalse(ok);
-        assertEq(
-            err,
-            abi.encodeWithSelector(
-                IScribe.SignerNotFeed.selector,
-                LibSecp256k1.ZERO_POINT().toAddress()
-            )
-        );
     }
 
-    function testFuzz_verifySignature_FailsIf_SignatureInvalid(uint barSeed)
-        public
-    {
+    function testFuzz_isAcceptableSchnorrSignatureNow_FailsIf_SignatureInvalid(
+        uint barSeed
+    ) public {
         // Let bar ∊ [1, scribe.maxFeeds()].
         uint bar = bound(barSeed, 1, scribe.maxFeeds());
 
@@ -277,18 +244,10 @@ abstract contract IScribeTest is Test {
             schnorrData.signature = bytes32(uint(schnorrData.signature) + 1);
         }
 
-        bool ok;
-        bytes memory err;
-        // forgefmt: disable-next-item
-        (ok, err) = scribe.verifySchnorrSignature(
-            message,
-            schnorrData
+        bool ok = scribe.isAcceptableSchnorrSignatureNow(
+            message, schnorrData
         );
         assertFalse(ok);
-        assertEq(
-            err,
-            abi.encodeWithSelector(IScribe.SchnorrSignatureInvalid.selector)
-        );
     }
 
     // -- Test: Poke --

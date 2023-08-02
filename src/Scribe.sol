@@ -147,11 +147,14 @@ contract Scribe is IScribe, Auth, Toll {
     // -- Schnorr Signature Verification --
 
     /// @inheritdoc IScribe
-    function verifySchnorrSignature(
+    function isAcceptableSchnorrSignatureNow(
         bytes32 message,
         SchnorrData calldata schnorrData
-    ) external view returns (bool, bytes memory) {
-        return _verifySchnorrSignature(message, schnorrData);
+    ) external view returns (bool) {
+        bool ok;
+        (ok, /*err*/ ) = _verifySchnorrSignature(message, schnorrData);
+
+        return ok;
     }
 
     /// @custom:invariant Reverts iff out of gas.
