@@ -20,6 +20,8 @@ library LibBytes {
         assembly ("memory-safe") {
             result := byte(sub(31, index), word)
         }
+
+        // Note that the resulting byte is returned as word.
         return result;
     }
 }
