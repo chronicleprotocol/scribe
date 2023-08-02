@@ -6,7 +6,7 @@ elliptic curve. The scheme is used by Chronicle Protocol's Scribe oracle contrac
 ## Terminology
 
 * `H()` - Keccak256 hash function
-* `‖`   - Concatenation operator
+* `‖`   - Concatenation operator, defined as `abi.encodePacked()`
 
 * `G` - Generator of secp256k1
 * `Q` - Order of secp256k1
