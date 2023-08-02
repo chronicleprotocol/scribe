@@ -20,6 +20,9 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
     using LibSecp256k1 for LibSecp256k1.Point;
     using LibSecp256k1 for LibSecp256k1.Point[];
 
+    /// @dev The initial opChallengePeriod set during construction.
+    uint16 private constant _INITIAL_OP_CHALLENGE_PERIOD = 1 hours;
+
     // -- Storage --
 
     /// @inheritdoc IScribeOptimistic
@@ -49,7 +52,7 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         Scribe(initialAuthed, wat_)
     {
         // Note to have a non-zero challenge period.
-        _setOpChallengePeriod(1 hours);
+        _setOpChallengePeriod(_INITIAL_OP_CHALLENGE_PERIOD);
     }
 
     receive() external payable {}
