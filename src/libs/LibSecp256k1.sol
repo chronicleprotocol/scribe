@@ -84,7 +84,7 @@ library LibSecp256k1 {
 
     /// @dev Returns whether `self` is the zero point.
     function isZeroPoint(Point memory self) internal pure returns (bool) {
-        return self.x == 0 && self.y == 0;
+        return (self.x | self.y) == 0;
     }
 
     /// @dev Returns the parity of `self`'s y coordinate.
@@ -93,7 +93,7 @@ library LibSecp256k1 {
     ///      value.
     ///      See "Appendix F: Signing Transactions" in the Yellow Paper.
     function yParity(Point memory self) internal pure returns (uint) {
-        return self.y % 2;
+        return self.y & 1;
     }
 
     // -- Jacobian Point --
