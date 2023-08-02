@@ -32,17 +32,15 @@ library LibSchnorr {
         }
 
         // Note to enforce signature is less than Q to prevent signature
-        // malleability. However, this check is disabled because the Scribe
-        // contract only accepts messages with strictly monotonically
-        // increasing timestamps, circumventing replay attack vectors and
-        // therefore also signature malleability issues at a higher level.
+        // malleability.
         //
-        // Note that this check MUST be enabled for general purpose Schnorr
-        // signature verifications!
-        //
-        // if (uint(signature) >= LibSecp256k1.Q()) {
-        //     return false;
-        // }
+        // While the Scribe contract only accepts messages with strictly
+        // monotonically increasing timestamps, circumventing replay attack
+        // vectors and therefore also signature malleability issues at a higher
+        // level, this check is enabled as an additional defense mechanism.
+        if (uint(signature) >= LibSecp256k1.Q()) {
+            return false;
+        }
 
         // Construct challenge = H(Pₓ ‖ Pₚ ‖ m ‖ Rₑ) mod Q
         uint challenge = uint(
