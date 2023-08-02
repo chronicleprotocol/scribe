@@ -244,9 +244,7 @@ abstract contract IScribeTest is Test {
             schnorrData.signature = bytes32(uint(schnorrData.signature) + 1);
         }
 
-        bool ok = scribe.isAcceptableSchnorrSignatureNow(
-            message, schnorrData
-        );
+        bool ok = scribe.isAcceptableSchnorrSignatureNow(message, schnorrData);
         assertFalse(ok);
     }
 
