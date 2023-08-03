@@ -87,6 +87,21 @@ library LibSecp256k1 {
         return (self.x | self.y) == 0;
     }
 
+    /// @dev Returns whether `self` is a point on the curve.
+    ///
+    /// @dev The secp256k1 curve is specified as y² ≡ x³ * ax + b (mod P)
+    ///      where:
+    ///         a = _A = 0
+    ///         b = _B = 7
+    function isOnCurve(Point memory self) internal pure returns (bool) {
+        uint left = mulmod(self.y, self.y, _P);
+        // Note that computing _A * x can be waived as ∀x: _A * x = 0.
+        uint right =
+            addmod(mulmod(self.x, mulmod(self.x, self.x, _P), _P), _B, _P);
+
+        return left == right;
+    }
+
     /// @dev Returns the parity of `self`'s y coordinate.
     ///
     /// @dev The value 0 represents an even y value and 1 represents an odd y

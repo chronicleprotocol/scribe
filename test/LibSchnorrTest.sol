@@ -12,11 +12,12 @@ import {LibDissig} from "script/libs/LibDissig.sol";
 import {LibOracleSuite} from "script/libs/LibOracleSuite.sol";
 
 abstract contract LibSchnorrTest is Test {
+    using LibSecp256k1 for LibSecp256k1.Point;
+    using LibSecp256k1Extended for uint;
     using LibSchnorrExtended for uint;
     using LibSchnorrExtended for uint[];
     using LibSchnorrExtended for LibSecp256k1.Point;
     using LibSchnorrExtended for LibSecp256k1.Point[];
-    using LibSecp256k1Extended for uint;
 
     function testFuzzDifferentialOracleSuite_verifySignature(
         uint[] memory privKeySeeds,
@@ -231,7 +232,7 @@ abstract contract LibSchnorrTest is Test {
         assertFalse(ok);
     }
 
-    function testFuzz_verifySignature_FailsIf_PubKeyMutated(
+    function testFuzz_verifySignature_FailsIf_PubKeyNotOnCurve(
         uint privKeySeed,
         bytes32 message,
         uint pubKeyXMask,
@@ -249,12 +250,58 @@ abstract contract LibSchnorrTest is Test {
 
         // Compute and mutate pubKey.
         LibSecp256k1.Point memory pubKey = privKey.derivePublicKey();
-        pubKey.x = pubKey.x ^ pubKeyXMask;
+        pubKey.x ^= pubKeyXMask;
         pubKey.y = flipParity ? pubKey.y + 1 : pubKey.y;
+
+        vm.assume(!pubKey.isOnCurve());
 
         // Signature verification should not succeed.
         bool ok = LibSchnorr.verifySignature(
             pubKey, message, bytes32(signature), commitment
+        );
+        assertFalse(ok);
+    }
+
+    function testFuzz_verifySignature_FailsIf_SignatureIsZero(
+        uint privKeySeed,
+        bytes32 message
+    ) public {
+        // Let privKey ∊ [1, Q).
+        uint privKey = bound(privKeySeed, 1, LibSecp256k1.Q() - 1);
+
+        // Sign message.
+        uint signature;
+        address commitment;
+        (signature, commitment) = privKey.signMessage(message);
+
+        // Let signature be zero.
+        signature = 0;
+
+        // Signature verification should not succeed.
+        bool ok = LibSchnorr.verifySignature(
+            privKey.derivePublicKey(), message, bytes32(signature), commitment
+        );
+        assertFalse(ok);
+    }
+
+    function testFuzz_verifySignature_FailsIf_CommitmentIsZero(
+        uint privKeySeed,
+        bytes32 message
+    ) public {
+        // Let privKey ∊ [1, Q).
+        uint privKey = bound(privKeySeed, 1, LibSecp256k1.Q() - 1);
+
+        // Sign message.
+        uint signature;
+        address commitment;
+        (signature, commitment) = privKey.signMessage(message);
+
+        // Let commitment be zero.
+        commitment = address(0);
+
+        // Signature verification should not succeed.
+        bool ok = LibSchnorr.verifySignature(
+            privKey.derivePublicKey(), message, bytes32(signature), commitment
         );
         assertFalse(ok);
     }
