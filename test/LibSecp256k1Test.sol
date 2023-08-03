@@ -14,9 +14,9 @@ abstract contract LibSecp256k1Test is Test {
 
     // -- toAddress --
 
-    function testFuzzDifferential_toAddress(uint privKey) public {
-        // Bound privKey to secp256k1's order, i.e. privKey ∊ [1, Q).
-        privKey = bound(privKey, 1, LibSecp256k1.Q() - 1);
+    function testFuzzDifferential_toAddress(uint privKeySeed) public {
+        // Let privKey ∊ [1, Q).
+        uint privKey = bound(privKeySeed, 1, LibSecp256k1.Q() - 1);
 
         address want = vm.addr(privKey);
         address got = privKey.derivePublicKey().toAddress();
@@ -36,6 +36,35 @@ abstract contract LibSecp256k1Test is Test {
         bool got = p.isZeroPoint();
 
         assertEq(want, got);
+    }
+
+    // -- isOnCurve --
+
+    function testFuzz_isOnCurve(uint privKeySeed) public {
+        // Let privKey ∊ [1, Q).
+        uint privKey = bound(privKeySeed, 1, LibSecp256k1.Q() - 1);
+
+        assertTrue(privKey.derivePublicKey().isOnCurve());
+    }
+
+    function testFuzz_isOnCurve_FailsIf_PointNotOnCurve(
+        uint privKeySeed,
+        uint maskX,
+        uint maskY
+    ) public {
+        vm.assume(maskX != 0 || maskY != 0);
+
+        // Let privKey ∊ [1, Q).
+        uint privKey = bound(privKeySeed, 1, LibSecp256k1.Q() - 1);
+
+        // Compute and mutate point.
+        LibSecp256k1.Point memory p = privKey.derivePublicKey();
+        LibSecp256k1.Point memory pMutated = privKey.derivePublicKey();
+        pMutated.x ^= maskX;
+        pMutated.y ^= maskY;
+        vm.assume(pMutated.x != p.x || pMutated.y != p.y);
+
+        assertFalse(pMutated.isOnCurve());
     }
 
     // -- yParity --
@@ -61,9 +90,9 @@ abstract contract LibSecp256k1Test is Test {
         jacPoint.toAffine();
     }
 
-    function testFuzz_toJacobian_toAffine(uint privKey) public {
-        // Bound privKey to secp256k1's order, i.e. privKey ∊ [1, Q).
-        privKey = bound(privKey, 1, LibSecp256k1.Q() - 1);
+    function testFuzz_toJacobian_toAffine(uint privKeySeed) public {
+        // Let privKey ∊ [1, Q).
+        uint privKey = bound(privKeySeed, 1, LibSecp256k1.Q() - 1);
 
         LibSecp256k1.Point memory want = privKey.derivePublicKey();
         LibSecp256k1.Point memory got = want.toJacobian().toAffine();
