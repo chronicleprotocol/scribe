@@ -10,10 +10,10 @@ import matplotlib.pyplot as plt
 x = [5, 10, 15, 20, 50, 100]
 
 # Scribe benchmark results received via `run.sh`
-scribe = [79769, 107473, 132715, 159414, 318426, 583390]
+scribe = [79428, 106862, 131834, 158263, 315655, 577919]
 
 # ScribeOptimistic benchmark results received via `run.sh`
-opScribe = [66496, 66556, 66625, 66685, 67459, 68879]
+opScribe = [66462, 66534, 66603, 66663, 67437, 68845]
 
 # Plotting the benchmark data
 plt.plot(x, scribe, label='Scribe')
