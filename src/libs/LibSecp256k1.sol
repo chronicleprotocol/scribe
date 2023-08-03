@@ -89,7 +89,7 @@ library LibSecp256k1 {
 
     /// @dev Returns whether `self` is a point on the curve.
     ///
-    /// @dev The secp256k1 curve is specified as y² ≡ x³ * ax + b (mod P)
+    /// @dev The secp256k1 curve is specified as y² ≡ x³ + ax + b (mod P)
     ///      where:
     ///         a = _A = 0
     ///         b = _B = 7
