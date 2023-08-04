@@ -103,10 +103,10 @@ interface IScribeOptimistic is IScribe {
     ///      dropped.
     /// @param schnorrData The SchnorrData initially provided via
     ///                    opPoke.
-    /// @return True if opPoke declared invalid, false otherwise.
+    /// @return ok True if opPoke declared invalid, false otherwise.
     function opChallenge(SchnorrData calldata schnorrData)
         external
-        returns (bool);
+        returns (bool ok);
 
     /// @notice Returns the message expected to be signed via ECDSA for calling
     ///         opPoke.
@@ -114,29 +114,36 @@ interface IScribeOptimistic is IScribe {
     ///         H(tag ‖ H(wat ‖ pokeData ‖ schnorrData)), where H() is the keccak256 function.
     /// @param pokeData The pokeData being optimistically poked.
     /// @param schnorrData The schnorrData proving `pokeData`'s integrity.
-    /// @return Message to be signed for an opPoke for `pokeData` and
-    ///         `schnorrData`.
+    /// @return opPokeMessage Message to be signed for an opPoke for `pokeData`
+    ///                       and `schnorrData`.
     function constructOpPokeMessage(
         PokeData calldata pokeData,
         SchnorrData calldata schnorrData
-    ) external view returns (bytes32);
+    ) external view returns (bytes32 opPokeMessage);
 
     /// @notice Returns the feed index of the feed last opPoke'd.
-    /// @return Feed index of the feed last opPoke'd.
-    function opFeedIndex() external view returns (uint8);
+    /// @return opFeedIndex Feed index of the feed last opPoke'd.
+    function opFeedIndex() external view returns (uint8 opFeedIndex);
 
     /// @notice Returns the opChallengePeriod security parameter.
-    /// @return The opChallengePeriod security parameter.
-    function opChallengePeriod() external view returns (uint16);
+    /// @return opChallengePeriod The opChallengePeriod security parameter.
+    function opChallengePeriod()
+        external
+        view
+        returns (uint16 opChallengePeriod);
 
     /// @notice Returns the maxChallengeRewards parameter.
-    /// @return The maxChallengeRewards parameter.
-    function maxChallengeReward() external view returns (uint);
+    /// @return maxChallengeReward The maxChallengeRewards parameter.
+    function maxChallengeReward()
+        external
+        view
+        returns (uint maxChallengeReward);
 
     /// @notice Returns the ETH rewards being paid for successfully challenging
     ///         an opPoke.
-    /// @return The ETH reward for successfully challenging an opPoke.
-    function challengeReward() external view returns (uint);
+    /// @return challengeReward The ETH reward for successfully challenging an
+    ///                         opPoke.
+    function challengeReward() external view returns (uint challengeReward);
 
     /// @notice Updates the opChallengePeriod security parameter.
     /// @dev Only callable by auth'ed address.

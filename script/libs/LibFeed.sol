@@ -83,8 +83,7 @@ library LibFeed {
     }
 
     /// @dev Returns a Schnorr multi-signature (aggregated signature) of type
-    ///      IScribe.SchnorrData signing `message` via `selfs`' private
-    ///      keys.
+    ///      IScribe.SchnorrData signing `message` via `selfs`' private keys.
     function signSchnorr(Feed[] memory selfs, bytes32 message)
         internal
         view
@@ -111,6 +110,10 @@ library LibFeed {
         });
     }
 
+    /// @dev Returns a Schnorr multi-signature (aggregated signature) of type
+    ///      IScribe.SchnorrData signing `message` via `selfs`' private keys.
+    ///      Note that SchnorrData's signersBlob is not ordered and the signature
+    ///      therefore unacceptable for Scribe.
     function signSchnorr_withoutOrderingSignerIndexes(
         Feed[] memory selfs,
         bytes32 message

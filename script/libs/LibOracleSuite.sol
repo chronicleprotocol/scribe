@@ -3,7 +3,7 @@ pragma solidity ^0.8.16;
 import {Vm} from "forge-std/Vm.sol";
 
 /**
- * @notice LibOracleSuite
+ * @title LibOracleSuite
  *
  * @dev Wrapper library for oracle-suite's `schnorr` cli tool.
  *
