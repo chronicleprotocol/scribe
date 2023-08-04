@@ -127,7 +127,7 @@ interface IScribe is IChronicle {
     /// @dev Expects `pokeData`'s age to be greater than the timestamp of the
     ///      last successful poke.
     /// @dev Expects `schnorrData` to prove `pokeData`'s integrity.
-    ///      See `verifySchnorrSignature(PokeData,SchnorrData)(bool,bytes)`.
+    ///      See `isAcceptableSchnorrSignatureNow(bytes32,SchnorrData)(bool)`.
     /// @param pokeData The PokeData being poked.
     /// @param schnorrData The SchnorrData proving the `pokeData`'s
     ///                    integrity.

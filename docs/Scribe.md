@@ -131,12 +131,12 @@ function isAcceptableSchnorrSignatureNow(
 ```solidity
 function opChallenge(SchnorrData calldata schnorrData)
         external
-        returns (bool);
+        returns (bool ok);
 ```
 
 5. ETH Challenge reward can be checked beforehand:
 ```solidity
-function challengeReward() external view returns (uint);
+function challengeReward() external view returns (uint challengeReward);
 ```
 
 ## Benchmarks
