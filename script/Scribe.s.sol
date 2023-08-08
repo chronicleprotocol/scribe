@@ -14,7 +14,7 @@ import {Scribe} from "src/Scribe.sol";
 import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
 
 contract Chronicle_BASE_QUOTE_COUNTER is Scribe {
-    // @todo       ^^^^ ^^^^^ ^^^^^^^ Adjust name of Scribe instance.
+    // @todo Adjust name's BASE, QUOTE and COUNTER.
     constructor(address initialAuthed, bytes32 wat_)
         Scribe(initialAuthed, wat_)
     {}
@@ -34,11 +34,11 @@ contract ScribeScript is Script {
         bytes32 salt,
         address initialAuthed,
         bytes32 wat
-    ) public {
+    ) public virtual {
         // Create creation code with constructor arguments.
         bytes memory creationCode = abi.encodePacked(
             type(Chronicle_BASE_QUOTE_COUNTER).creationCode,
-            // @todo       ^^^^ ^^^^^ ^^^^^^^ Adjust name of Scribe instance.
+            // @todo Adjust name's BASE, QUOTE and COUNTER.
             abi.encode(initialAuthed, wat)
         );
 
@@ -66,12 +66,9 @@ contract ScribeScript is Script {
 
     // -- IScribe Functions --
 
-    function poke() public {
-        // @todo
-    }
-
+    /// @dev Sets bar of `self` to `bar`.
     function setBar(address self, uint8 bar) public {
-        // @todo require bar not zero.
+        require(bar != 0, "Bar cannot be zero");
 
         vm.startBroadcast();
         IScribe(self).setBar(bar);
@@ -80,6 +77,9 @@ contract ScribeScript is Script {
         console2.log("Bar set to", bar);
     }
 
+    /// @dev Lifts feed with public key `pubKeyXCoordinate` `pubKeyYCoordinate`.
+    ///      Note that the ECDSA signature signing
+    ///      IScribe::feedRegistrationMessage() must be valid.
     function lift(
         address self,
         uint pubKeyXCoordinate,
@@ -97,14 +97,25 @@ contract ScribeScript is Script {
         ecdsaData.r = r;
         ecdsaData.s = s;
 
-        // Some sanity checks.
-        require(!pubKey.isZeroPoint(), "Public key is zero point");
-        require(pubKey.isOnCurve(), "Public key not valid secp256k1 point");
+        require(!pubKey.isZeroPoint(), "Public key cannot be zero point");
+        require(pubKey.isOnCurve(), "Public key must be valid secp256k1 point");
         bool isFeed;
         (isFeed, /*feedIndex*/ ) = IScribe(self).feeds(pubKey.toAddress());
         require(!isFeed, "Public key already lifted");
 
-        // @todo Also check that signature correct.
+        address recovered =
+            ecrecover(IScribe(self).feedRegistrationMessage(), v, r, s);
+        require(
+            recovered != address(0),
+            "Invalid ECDSA signature: recovered address is zero"
+        );
+
+        address expected =
+            LibSecp256k1.Point(pubKeyXCoordinate, pubKeyYCoordinate).toAddress();
+        require(
+            expected == recovered,
+            "Invalid ECDSA signature: does not recover to feed's address"
+        );
 
         vm.startBroadcast();
         IScribe(self).lift(pubKey, ecdsaData);
@@ -113,57 +124,15 @@ contract ScribeScript is Script {
         console2.log("Lifted", pubKey.toAddress());
     }
 
-    function lift(
-        address self,
-        uint[] memory pubKeyXCoordinates,
-        uint[] memory pubKeyYCoordinates,
-        uint8[] memory vs,
-        bytes32[] memory rs,
-        bytes32[] memory ss
-    ) public {
-        LibSecp256k1.Point[] memory pubKeys =
-            new LibSecp256k1.Point[](pubKeyXCoordinates.length);
-        IScribe.ECDSAData[] memory ecdsaDatas =
-            new IScribe.ECDSAData[](pubKeyXCoordinates.length);
-        for (uint i; i < pubKeys.length; i++) {
-            pubKeys[i].x = pubKeyXCoordinates[i];
-            pubKeys[i].y = pubKeyYCoordinates[i];
-
-            ecdsaDatas[i].v = vs[i];
-            ecdsaDatas[i].r = rs[i];
-            ecdsaDatas[i].s = ss[i];
-        }
-
-        // @todo Sanity checks.
-        //       Especially array lengths.
-
-        vm.startBroadcast();
-        IScribe(self).lift(pubKeys, ecdsaDatas);
-        vm.stopBroadcast();
-
-        for (uint i; i < pubKeys.length; i++) {
-            console2.log("Lifted", pubKeys[i].toAddress());
-        }
-    }
-
     /// @dev Drops feed with index `feedIndex`.
     function drop(address self, uint feedIndex) public {
+        require(feedIndex != 0, "Feed index cannot be zero");
+
         vm.startBroadcast();
         IScribe(self).drop(feedIndex);
         vm.stopBroadcast();
 
         console2.log("Dropped", feedIndex);
-    }
-
-    /// @dev Drops feeds with indexes `feedIndexes`.
-    function drop(address self, uint[] memory feedIndexes) public {
-        vm.startBroadcast();
-        IScribe(self).drop(feedIndexes);
-        vm.stopBroadcast();
-
-        for (uint i; i < feedIndexes.length; i++) {
-            console2.log("Dropped", feedIndexes[i]);
-        }
     }
 
     // -- IAuth Functions --
