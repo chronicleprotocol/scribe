@@ -22,13 +22,17 @@ library LibSchnorr {
         bytes32 signature,
         address commitment
     ) internal pure returns (bool) {
-        // Return false if pubKey is not valid secp256k1 point, or signature
-        // or commitment is zero.
+        // Return false if signature or commitment is zero.
+        if (signature == 0 || commitment == address(0)) {
+            return false;
+        }
+
+        // Note to enforce pubKey is valid secp256k1 point.
         //
         // While the Scribe contract ensures to only verify signatures for valid
         // public keys, this check is enabled as an additional defense
         // mechanism.
-        if (!pubKey.isOnCurve() || signature == 0 || commitment == address(0)) {
+        if (!pubKey.isOnCurve()) {
             return false;
         }
 
