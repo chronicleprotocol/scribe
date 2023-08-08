@@ -9,3 +9,4 @@
 [submodule "lib/greenhouse"]
 	path = lib/greenhouse
 	url = https://github.com/chronicleprotocol/greenhouse
+	branch = v1

@@ -7,6 +7,7 @@ Scribe is an efficient Schnorr multi-signature based Oracle. For more info, see 
 ## Installation
 
 Install module via Foundry:
+
 ```bash
 $ forge install chronicleprotocol/scribe
 ```
@@ -16,6 +17,7 @@ $ forge install chronicleprotocol/scribe
 The project uses the Foundry toolchain. You can find installation instructions [here](https://getfoundry.sh/).
 
 Setup:
+
 ```bash
 $ git clone https://github.com/chronicleprotocol/scribe
 $ cd scribe/
@@ -24,6 +26,7 @@ $ yarn install # Installs dependencies for vector-based tests
 ```
 
 Run tests:
+
 ```bash
 $ forge test # Run all tests, including differential fuzzing tests
 $ forge test -vvvv # Run all tests with full stack traces
@@ -31,14 +34,16 @@ $ FOUNDRY_PROFILE=intense forge test # Run all tests in intense mode
 $ forge test --nmt "FuzzDifferentialOracleSuite" # Run only non-differential fuzz tests
 ```
 
-Note that in order to run the whole test suite, i.e. including differential fuzzing tests, the oracle-suite's [`schnorr`](https://github.com/chronicleprotocol/oracle-suite) binary needs to be present inside the `bin/` directory.
+Note that in order to run the whole test suite, i.e. including differential fuzz tests, the oracle-suite's [`schnorr`](https://github.com/chronicleprotocol/oracle-suite) binary needs to be present inside the `bin/` directory.
 
 Lint:
+
 ```bash
 $ forge fmt [--check]
 ```
 
 Update gas snapshots:
+
 ```bash
 $ forge snapshot --nmt "Fuzz" [--check]
 ```
@@ -46,3 +51,7 @@ $ forge snapshot --nmt "Fuzz" [--check]
 ## Dependencies
 
 - [chronicleprotocol/chronicle-std@v2](https://github.com/chronicleprotocol/chronicle-std/tree/v2)
+
+Deployment via:
+
+- [chronicleprotocol/greenhouse@v1](https://github.com/chronicleprotocol/greenhouse/tree/v1)
