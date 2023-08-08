@@ -83,10 +83,13 @@ interface IScribe is IChronicle {
     /// @param newBar The new bar's value.
     event BarUpdated(address indexed caller, uint8 oldBar, uint8 newBar);
 
-    /// @notice Returns the oracle's identifier message.
+    /// @notice Returns the feed registration message.
     /// @dev This message must be signed by a feed in order to be lifted.
-    /// @return watMessage The oracle's identifier message.
-    function watMessage() external view returns (bytes32 watMessage);
+    /// @return feedRegistrationMessage The oracle's identifier message.
+    function feedRegistrationMessage()
+        external
+        view
+        returns (bytes32 feedRegistrationMessage);
 
     /// @notice The maximum number of feed lifts supported.
     /// @dev Note that the constraint comes from feed's indexes being encoded as
@@ -193,7 +196,7 @@ interface IScribe is IChronicle {
     /// @notice Lifts public key `pubKey` to being a feed.
     /// @dev Only callable by auth'ed address.
     /// @dev The message expected to be signed by `ecdsaData` is defined as via
-    ///      `watMessage()(bytes32)` function.
+    ///      `feedRegistrationMessage()(bytes32)` function.
     /// @param pubKey The public key of the feed.
     /// @param ecdsaData ECDSA signed message by the feed's public key.
     /// @return The feed index of the newly lifted feed.
@@ -204,7 +207,7 @@ interface IScribe is IChronicle {
     /// @notice Lifts public keys `pubKeys` to being feeds.
     /// @dev Only callable by auth'ed address.
     /// @dev The message expected to be signed by `ecdsaDatas` is defined as via
-    ///      `watMessage()(bytes32)` function.
+    ///      `feedRegistrationMessage()(bytes32)` function.
     /// @param pubKeys The public keys of the feeds.
     /// @param ecdsaDatas ECDSA signed message by the feeds' public keys.
     /// @return List of feed indexes of the newly lifted feeds.

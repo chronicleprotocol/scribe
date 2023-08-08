@@ -23,7 +23,7 @@ contract ScribeHandler is CommonBase, StdUtils {
     uint public constant MAX_BAR = 10;
 
     bytes32 public WAT;
-    bytes32 public WAT_MESSAGE;
+    bytes32 public FEED_REGISTRATION_MESSAGE;
 
     IScribe public scribe;
 
@@ -46,7 +46,7 @@ contract ScribeHandler is CommonBase, StdUtils {
 
         // Cache constants.
         WAT = scribe.wat();
-        WAT_MESSAGE = scribe.watMessage();
+        FEED_REGISTRATION_MESSAGE = scribe.feedRegistrationMessage();
 
         _ensureBarFeedsLifted();
     }
@@ -63,8 +63,9 @@ contract ScribeHandler is CommonBase, StdUtils {
                 feed = LibFeed.newFeed(nextPrivKey++);
 
                 // Lift feed and set its index.
-                uint index =
-                    scribe.lift(feed.pubKey, feed.signECDSA(WAT_MESSAGE));
+                uint index = scribe.lift(
+                    feed.pubKey, feed.signECDSA(FEED_REGISTRATION_MESSAGE)
+                );
                 feed.index = uint8(index);
 
                 // Store feed in feedSet.
@@ -123,7 +124,8 @@ contract ScribeHandler is CommonBase, StdUtils {
         LibFeed.Feed memory feed = LibFeed.newFeed(nextPrivKey++);
 
         // Lift feed and set its index.
-        uint index = scribe.lift(feed.pubKey, feed.signECDSA(WAT_MESSAGE));
+        uint index =
+            scribe.lift(feed.pubKey, feed.signECDSA(FEED_REGISTRATION_MESSAGE));
         feed.index = uint8(index);
 
         // Store feed in feedSet.

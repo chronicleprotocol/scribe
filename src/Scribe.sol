@@ -28,14 +28,19 @@ contract Scribe is IScribe, Auth, Toll {
     /// @inheritdoc IScribe
     uint8 public constant decimals = 18;
 
-    /// @dev The storage slot of _pubKeys[0].
-    uint internal immutable SLOT_pubKeys;
+    /// @inheritdoc IScribe
+    bytes32 public constant feedRegistrationMessage = keccak256(
+        abi.encodePacked(
+            "\x19Ethereum Signed Message:\n32",
+            keccak256("Chronicle Feed Registration")
+        )
+    );
 
     /// @inheritdoc IChronicle
     bytes32 public immutable wat;
 
-    /// @inheritdoc IScribe
-    bytes32 public immutable watMessage;
+    /// @dev The storage slot of _pubKeys[0].
+    uint internal immutable SLOT_pubKeys;
 
     // -- Storage --
 
@@ -59,10 +64,8 @@ contract Scribe is IScribe, Auth, Toll {
     constructor(address initialAuthed, bytes32 wat_) Auth(initialAuthed) {
         require(wat_ != 0);
 
-        // Set wat immutables.
+        // Set wat immutable.
         wat = wat_;
-        watMessage =
-            keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", wat));
 
         // Let initial bar be 2.
         _setBar(2);
@@ -419,7 +422,7 @@ contract Scribe is IScribe, Auth, Toll {
 
         // forgefmt: disable-next-item
         address recovered = ecrecover(
-            watMessage,
+            feedRegistrationMessage,
             ecdsaData.v,
             ecdsaData.r,
             ecdsaData.s

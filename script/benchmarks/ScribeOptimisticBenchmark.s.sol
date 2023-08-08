@@ -88,7 +88,7 @@ contract ScribeOptimisticBenchmark is Script {
         IScribe.ECDSAData[] memory sigs = new IScribe.ECDSAData[](feeds.length);
         for (uint i; i < feeds.length; i++) {
             pubKeys[i] = feeds[i].pubKey;
-            sigs[i] = feeds[i].signECDSA(opScribe.watMessage());
+            sigs[i] = feeds[i].signECDSA(opScribe.feedRegistrationMessage());
         }
 
         // Lift feeds.
