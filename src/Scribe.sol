@@ -158,7 +158,7 @@ contract Scribe is IScribe, Auth, Toll {
     }
 
     /// @custom:invariant Reverts iff out of gas.
-    /// @custom:invariant Does not run into an infinite loop.
+    /// @custom:invariant Runtime is Θ(bar).
     function _verifySchnorrSignature(
         bytes32 message,
         SchnorrData calldata schnorrData
@@ -175,7 +175,10 @@ contract Scribe is IScribe, Auth, Toll {
         // Note that Jacobian coordinates are used.
         LibSecp256k1.JacobianPoint memory aggPubKey;
 
-        // Fail if bar not reached.
+        // Fail if number signers unequal to bar.
+        //
+        // Note that requiring equality constrains the verification's runtime
+        // from Ω(bar) to Θ(bar).
         uint numberSigners = schnorrData.getSignerIndexLength();
         if (numberSigners != bar) {
             return (false, _errorBarNotReached(uint8(numberSigners), bar));
@@ -208,7 +211,9 @@ contract Scribe is IScribe, Auth, Toll {
             }
 
             // Fail if signers not strictly monotonically increasing.
-            // This prevents double signing attacks and enforces strict ordering.
+            //
+            // Note that this prevents double signing attacks and enforces
+            // strict ordering.
             if (uint160(lastSigner) >= uint160(signer)) {
                 return (false, _errorSignersNotOrdered());
             }
