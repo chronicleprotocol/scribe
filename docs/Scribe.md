@@ -1,6 +1,6 @@
 # Scribe
 
-This document provides technical documentation for Chronicle Protocol's Scribe oracle system.
+This document provides technical documentation for _Chronicle Protocol_'s Scribe oracle system.
 
 
 ## Table of Contents
@@ -23,7 +23,7 @@ Scribe is an efficient Schnorr multi-signature based oracle allowing a subset of
 
 The Scribe contract also allows the creation of an _optimistic-flavored_ oracle instance with onchain fault resolution called _ScribeOptimistic_.
 
-Scribe implements Chronicle Protocol's [`IChronicle`](https://github.com/chronicleprotocol/chronicle-std/blob/v1/src/IChronicle.sol) interface for reading the oracle's value.
+Scribe implements _Chronicle Protocol_'s [`IChronicle`](https://github.com/chronicleprotocol/chronicle-std/blob/v1/src/IChronicle.sol) interface for reading the oracle's value.
 
 To protect authorized functions, Scribe uses `chronicle-std`'s [`Auth`](https://github.com/chronicleprotocol/chronicle-std/blob/v1/src/auth/Auth.sol) module. Functions to read the oracle's value are protected via `chronicle-std`'s [`Toll`](https://github.com/chronicleprotocol/chronicle-std/blob/v1/src/toll/Toll.sol) module.
 

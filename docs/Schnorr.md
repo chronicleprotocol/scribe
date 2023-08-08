@@ -1,7 +1,7 @@
 # Schnorr Signature Scheme Specification
 
 This document specifies a custom Schnorr-based signature scheme on the secp256k1
-elliptic curve. The scheme is used by Chronicle Protocol's Scribe oracle contract.
+elliptic curve. The scheme is used by _Chronicle Protocol_'s Scribe oracle contract.
 
 ## Terminology
 
@@ -111,7 +111,7 @@ to `160 bits` (trying random Ethereum addresses).
 
 However, the difficulty of cracking a secp256k1 public key using the
 baby-step giant-step algorithm is `O(√Q)`, with `Q` being the order of the group[^baby-step-giant-step-wikipedia].
-Note that `√Q ~ 3.4e38 > 127 bit`.
+Note that `√Q ~ 3.4e38 < 128 bit`.
 
 Therefore, this signing scheme does not weaken the overall security.
 
@@ -119,7 +119,7 @@ Therefore, this signing scheme does not weaken the overall security.
 ## Implementation Optimizations
 
 This implementation uses the ecrecover precompile to perform the necessary
-elliptic curve multiplication in secp256k1 for the verification process.
+elliptic curve multiplication in secp256k1 during the verification process.
 
 The ecrecover precompile can roughly be implemented in python via[^vitalik-ethresearch-post]:
 ```python

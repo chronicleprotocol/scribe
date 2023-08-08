@@ -34,7 +34,7 @@ This document specifies invariants of the Scribe and ScribeOptimistic oracle con
 * `opPoke`, `opChallenge` and `_afterAuthedAction` protected auth'ed functions may only mutate `_pokeData` to a finalized, non-stale `_opPokeData`:
     ```
     preTx(_pokeData) != postTx(_pokeData) ⋀ msg.sig ∊ {"opPoke", "opChallenge", "setBar", "drop", "setOpChallengePeriod"}
-        → postTx(_pokeData) = preTx(_opPokeData) ⋀ preTx(scribe.readWithAge()) = preTx(_opPokeData)
+        → postTx(_pokeData) = preTx(_opPokeData) ⋀ preTx(readWithAge()) = preTx(_opPokeData)
     ```
 
 
