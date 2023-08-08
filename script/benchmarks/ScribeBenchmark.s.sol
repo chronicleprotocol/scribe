@@ -69,7 +69,7 @@ contract ScribeBenchmark is Script {
         IScribe.ECDSAData[] memory sigs = new IScribe.ECDSAData[](feeds.length);
         for (uint i; i < feeds.length; i++) {
             pubKeys[i] = feeds[i].pubKey;
-            sigs[i] = feeds[i].signECDSA(scribe.watMessage());
+            sigs[i] = feeds[i].signECDSA(scribe.feedRegistrationMessage());
         }
 
         // Lift feeds.

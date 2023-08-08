@@ -20,7 +20,7 @@ abstract contract IScribeTest is Test {
     IScribe private scribe;
 
     bytes32 internal WAT;
-    bytes32 internal WAT_MESSAGE;
+    bytes32 internal FEED_REGISTRATION_MESSAGE;
 
     LibFeed.Feed internal notFeed;
 
@@ -41,7 +41,7 @@ abstract contract IScribeTest is Test {
 
         // Cache constants.
         WAT = scribe.wat();
-        WAT_MESSAGE = scribe.watMessage();
+        FEED_REGISTRATION_MESSAGE = scribe.feedRegistrationMessage();
 
         // Toll address(this).
         IToll(address(scribe)).kiss(address(this));
@@ -73,7 +73,9 @@ abstract contract IScribeTest is Test {
                 string.concat("Feed #", vm.toString(i + 1))
             );
 
-            scribe.lift(feeds[i].pubKey, feeds[i].signECDSA(WAT_MESSAGE));
+            scribe.lift(
+                feeds[i].pubKey, feeds[i].signECDSA(FEED_REGISTRATION_MESSAGE)
+            );
         }
 
         return feeds;
@@ -422,7 +424,8 @@ abstract contract IScribeTest is Test {
         vm.expectEmit();
         emit FeedLifted(address(this), feed.pubKey.toAddress(), 1);
 
-        uint index = scribe.lift(feed.pubKey, feed.signECDSA(WAT_MESSAGE));
+        uint index =
+            scribe.lift(feed.pubKey, feed.signECDSA(FEED_REGISTRATION_MESSAGE));
         assertEq(index, 1);
 
         // Check via feeds(address)(bool,uint).
@@ -454,7 +457,7 @@ abstract contract IScribeTest is Test {
         vm.expectRevert();
         scribe.lift(
             LibFeed.newFeed(privKeyFeed).pubKey,
-            LibFeed.newFeed(privKeySigner).signECDSA(WAT_MESSAGE)
+            LibFeed.newFeed(privKeySigner).signECDSA(FEED_REGISTRATION_MESSAGE)
         );
     }
 
@@ -465,12 +468,12 @@ abstract contract IScribeTest is Test {
         LibFeed.Feed memory feed;
         for (uint i; i < maxFeeds; i++) {
             feed = LibFeed.newFeed(i + 1);
-            scribe.lift(feed.pubKey, feed.signECDSA(WAT_MESSAGE));
+            scribe.lift(feed.pubKey, feed.signECDSA(FEED_REGISTRATION_MESSAGE));
         }
 
         feed = LibFeed.newFeed(maxFeeds + 1);
         vm.expectRevert();
-        scribe.lift(feed.pubKey, feed.signECDSA(WAT_MESSAGE));
+        scribe.lift(feed.pubKey, feed.signECDSA(FEED_REGISTRATION_MESSAGE));
     }
 
     function testFuzz_lift_Multiple(uint[] memory privKeys) public {
@@ -496,7 +499,7 @@ abstract contract IScribeTest is Test {
         IScribe.ECDSAData[] memory ecdsaDatas =
             new IScribe.ECDSAData[](feeds_.length);
         for (uint i; i < feeds_.length; i++) {
-            ecdsaDatas[i] = feeds_[i].signECDSA(WAT_MESSAGE);
+            ecdsaDatas[i] = feeds_[i].signECDSA(FEED_REGISTRATION_MESSAGE);
         }
 
         uint indexCtr = 1;
@@ -559,7 +562,7 @@ abstract contract IScribeTest is Test {
         feeds[1] = LibFeed.newFeed(privKeyFeed);
 
         IScribe.ECDSAData[] memory ecdsaDatas = new IScribe.ECDSAData[](2);
-        ecdsaDatas[0] = feeds[0].signECDSA(WAT_MESSAGE);
+        ecdsaDatas[0] = feeds[0].signECDSA(FEED_REGISTRATION_MESSAGE);
         ecdsaDatas[1] = ecdsaDatas[0];
 
         LibSecp256k1.Point[] memory pubKeys = new LibSecp256k1.Point[](2);
@@ -590,7 +593,7 @@ abstract contract IScribeTest is Test {
         IScribe.ECDSAData[] memory ecdsaDatas =
             new IScribe.ECDSAData[](maxFeeds + 1);
         for (uint i; i < maxFeeds + 1; i++) {
-            ecdsaDatas[i] = feeds[i].signECDSA(WAT_MESSAGE);
+            ecdsaDatas[i] = feeds[i].signECDSA(FEED_REGISTRATION_MESSAGE);
         }
 
         vm.expectRevert();
@@ -613,7 +616,8 @@ abstract contract IScribeTest is Test {
 
         LibFeed.Feed memory feed = LibFeed.newFeed(privKey);
 
-        uint index = scribe.lift(feed.pubKey, feed.signECDSA(WAT_MESSAGE));
+        uint index =
+            scribe.lift(feed.pubKey, feed.signECDSA(FEED_REGISTRATION_MESSAGE));
         assertEq(index, 1);
 
         vm.expectEmit();
@@ -664,7 +668,7 @@ abstract contract IScribeTest is Test {
         IScribe.ECDSAData[] memory ecdsaDatas =
             new IScribe.ECDSAData[](feeds_.length);
         for (uint i; i < feeds_.length; i++) {
-            ecdsaDatas[i] = feeds_[i].signECDSA(WAT_MESSAGE);
+            ecdsaDatas[i] = feeds_[i].signECDSA(FEED_REGISTRATION_MESSAGE);
         }
 
         // Lift feeds.
@@ -735,7 +739,8 @@ abstract contract IScribeTest is Test {
         bool ok;
         uint index;
 
-        index = scribe.lift(feed.pubKey, feed.signECDSA(WAT_MESSAGE));
+        index =
+            scribe.lift(feed.pubKey, feed.signECDSA(FEED_REGISTRATION_MESSAGE));
         assertEq(index, 1);
         (ok, index) = scribe.feeds(feed.pubKey.toAddress());
         assertTrue(ok);
@@ -748,7 +753,8 @@ abstract contract IScribeTest is Test {
 
         // Note that lifting same feed again leads to an increased index
         // nevertheless.
-        index = scribe.lift(feed.pubKey, feed.signECDSA(WAT_MESSAGE));
+        index =
+            scribe.lift(feed.pubKey, feed.signECDSA(FEED_REGISTRATION_MESSAGE));
         assertEq(index, 2);
         (ok, index) = scribe.feeds(feed.pubKey.toAddress());
         assertTrue(ok);
