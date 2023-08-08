@@ -31,8 +31,8 @@ library LibPublicKeyVerifier {
     }
 
     /// @dev Verifies that no subset of a given set of public keys compute to
-    ///      the aggregated public key. If two distinct sets of public keys with
-    ///      same aggregated public key is found, the two sets are returned.
+    ///      the same aggregated public key. If two distinct sets of public keys
+    ///      with same aggregated public key is found, the two sets are returned.
     ///
     /// @return True if public keys have no linear relationship, false
     ///         otherwise.
