@@ -22,7 +22,7 @@ import {IScribeChaincheck} from "./IScribeChaincheck.sol";
  *          "IScribeOptimistic": {
  *              "opChallengePeriod": <timestamp>,
  *              "challengeReward": <ETH amount in wei>,
- *              "maxChallengeReward": <ETH amount in wei,
+ *              "maxChallengeReward": <ETH amount in wei>
  *          },
  *          "IScribe": {
  *              "wat": "ETH/USD",
@@ -36,7 +36,7 @@ import {IScribeChaincheck} from "./IScribeChaincheck.sol";
  *                  0,
  *                  ...
  *              ],
- *              "feedPublicKeys": [
+ *              "feedPublicKeys": {
  *                  "xCoordinates": [
  *                      <uint>,
  *                      ...
@@ -44,8 +44,8 @@ import {IScribeChaincheck} from "./IScribeChaincheck.sol";
  *                  "yCoordinates": [
  *                      <uint>,
  *                      ...
- *                  ],
- *              ],
+ *                  ]
+ *              }
  *          },
  *          "IAuth": {
  *              "legacy": <bool>,

@@ -43,7 +43,7 @@ import {
  *                  0,
  *                  ...
  *              ],
- *              "feedPublicKeys": [
+ *              "feedPublicKeys": {
  *                  "xCoordinates": [
  *                      <uint>,
  *                      ...
@@ -51,8 +51,8 @@ import {
  *                  "yCoordinates": [
  *                      <uint>,
  *                      ...
- *                  ],
- *              ],
+ *                  ]
+ *              }
  *          },
  *          "IAuth": {
  *              "legacy": <bool>,
@@ -180,7 +180,7 @@ contract IScribeChaincheck is Chaincheck {
     // -- Constants --
 
     function check_wat() internal {
-        bytes32 want = toBytes32(config.readString("IScribe.wat"));
+        bytes32 want = toBytes32(config.readString(".IScribe.wat"));
         bytes32 got = self.wat();
 
         if (want != got) {
@@ -233,7 +233,7 @@ contract IScribeChaincheck is Chaincheck {
     }
 
     function check_feeds_AllExpectedFeedsAreLifted() internal {
-        address[] memory wantFeeds = config.readAddressArray("IScribe.feeds");
+        address[] memory wantFeeds = config.readAddressArray(".IScribe.feeds");
 
         // Check that each expected feeds are lifted.
         address wantFeed;
@@ -257,7 +257,7 @@ contract IScribeChaincheck is Chaincheck {
     }
 
     function check_feeds_OnlyExpectedFeedsAreLifted() internal {
-        address[] memory wantFeeds = config.readAddressArray("IScribe.feeds");
+        address[] memory wantFeeds = config.readAddressArray(".IScribe.feeds");
 
         // Check that only expected feeds are lifted.
         address[] memory gotFeeds;
@@ -284,9 +284,9 @@ contract IScribeChaincheck is Chaincheck {
     }
 
     function check_feeds_AllExpectedFeedIndexesLinkToCorrectFeed() internal {
-        address[] memory wantFeeds = config.readAddressArray("IScribe.feeds");
+        address[] memory wantFeeds = config.readAddressArray(".IScribe.feeds");
         uint[] memory wantFeedIndexes =
-            config.readUintArray("IScribe.feedIndexes");
+            config.readUintArray(".IScribe.feedIndexes");
 
         // Check that each feed index links to correct feed.
         address wantFeed;
