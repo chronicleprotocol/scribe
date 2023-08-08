@@ -133,7 +133,7 @@ interface IScribeOptimistic is IScribe {
         returns (uint16 opChallengePeriod);
 
     /// @notice Returns the maxChallengeRewards parameter.
-    /// @return maxChallengeReward The maxChallengeRewards parameter.
+    /// @return maxChallengeReward The maxChallengeReward parameter.
     function maxChallengeReward()
         external
         view

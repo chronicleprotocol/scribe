@@ -32,7 +32,7 @@ library LibFeedSet {
         bool lifted
     ) internal {
         address addr = feed.pubKey.toAddress();
-        require(s.saved[addr], "LibFeed::updateLifted: Unknown feed");
+        require(s.saved[addr], "LibFeedSet::updateLifted: Unknown feed");
 
         s.lifted[addr] = lifted;
     }
@@ -56,7 +56,7 @@ library LibFeedSet {
 
         require(
             ctr == amount,
-            "LibFeed::getLiftedFeeds: Not enough lifted feeds in FeedSet"
+            "LibFeedSet::liftedFeeds: Not enough lifted feeds in FeedSet"
         );
         return feeds;
     }
