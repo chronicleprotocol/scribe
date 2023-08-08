@@ -108,8 +108,7 @@ abstract contract LibSchnorrDataTest is Test {
 
         // Possible optimization:
         uint mask = type(uint).max >> (256 - 5);
-        uint got;
-        got = (~index) & mask;
+        uint got = (~index) & mask;
 
         assertEq(want, got);
     }
