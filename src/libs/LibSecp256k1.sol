@@ -91,11 +91,11 @@ library LibSecp256k1 {
     ///
     /// @dev The secp256k1 curve is specified as y² ≡ x³ + ax + b (mod P)
     ///      where:
-    ///         a = _A = 0
-    ///         b = _B = 7
+    ///         a = 0
+    ///         b = 7
     function isOnCurve(Point memory self) internal pure returns (bool) {
         uint left = mulmod(self.y, self.y, _P);
-        // Note that computing _A * x can be waived as ∀x: _A * x = 0.
+        // Note that adding a * x can be waived as ∀x: a * x = 0.
         uint right =
             addmod(mulmod(self.x, mulmod(self.x, self.x, _P), _P), _B, _P);
 

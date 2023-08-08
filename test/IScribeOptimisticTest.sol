@@ -736,9 +736,9 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         opScribe.setOpChallengePeriod(1);
     }
 
-    function test_drop_Single_IsAfterAuthedActionProtected(bool opPokeFinalized)
-        public
-    {
+    function testFuzz_drop_Single_IsAfterAuthedActionProtected(
+        bool opPokeFinalized
+    ) public {
         IScribe.PokeData memory pokeData;
         pokeData.val = 1;
         pokeData.age = uint32(block.timestamp);
@@ -755,7 +755,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         opScribe.drop(1);
     }
 
-    function test_drop_Multiple_IsAfterAuthedActionProtected(
+    function testFuzz_drop_Multiple_IsAfterAuthedActionProtected(
         bool opPokeFinalized
     ) public {
         IScribe.PokeData memory pokeData;
@@ -777,7 +777,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         opScribe.drop(feedIndexes);
     }
 
-    function test_setBar_IsAfterAuthedActionProtected(bool opPokeFinalized)
+    function testFuzz_setBar_IsAfterAuthedActionProtected(bool opPokeFinalized)
         public
     {
         IScribe.PokeData memory pokeData;
