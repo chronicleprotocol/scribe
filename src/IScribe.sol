@@ -85,7 +85,8 @@ interface IScribe is IChronicle {
 
     /// @notice Returns the feed registration message.
     /// @dev This message must be signed by a feed in order to be lifted.
-    /// @return feedRegistrationMessage The oracle's identifier message.
+    /// @return feedRegistrationMessage Chronicle Protocol's feed registration
+    ///                                 message.
     function feedRegistrationMessage()
         external
         view
