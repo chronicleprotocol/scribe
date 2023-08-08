@@ -15,10 +15,20 @@ import {IScribe} from "src/IScribe.sol";
 
 import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
 
+import {
+    LibPublicKeyVerifier,
+    LibSignerSet
+} from "../libs/LibPublicKeyVerifier.sol";
+
 /**
  * @notice IScribe's `chaincheck` Integration Test
  *
+ * @dev Note that this `chaincheck` has a runtime of and memory consumption of
+ *      ω(2^#feeds). If the script fails with "EVMError: MemoryLimitOOG",
+ *      increase the memory limit via the `--memory-limit` flag.
+ *
  * @dev Config Definition:
+ *
  *      ```json
  *      {
  *          "IScribe": {
@@ -64,6 +74,7 @@ import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
 contract IScribeChaincheck is Chaincheck {
     using stdJson for string;
     using LibSecp256k1 for LibSecp256k1.Point;
+    using LibPublicKeyVerifier for LibPublicKeyVerifier.PublicKeyVerifier;
 
     Vm internal constant vm =
         Vm(address(uint160(uint(keccak256("hevm cheat code")))));
@@ -72,6 +83,9 @@ contract IScribeChaincheck is Chaincheck {
     string config;
 
     string[] logs;
+
+    // Necessary for check_invariant_PubKeysHaveNoLinearRelationship().
+    LibPublicKeyVerifier.PublicKeyVerifier pubKeyVerifier;
 
     function setUp(address self_, string memory config_)
         public
@@ -107,11 +121,12 @@ contract IScribeChaincheck is Chaincheck {
         check_feeds_PublicKeysCorrectlyOrdered();
 
         // Invariants:
-        check_invariant_ZeroPubKeyIsNotLifted();
+        check_invariant_ZeroPublicKeyIsNotLifted();
+        check_invariant_PublicKeysHaveNoLinearRelationship();
         check_invariant_BarIsNotZero();
         check_invariant_ReadFunctionsReturnSameValue();
 
-        // Check dependencies.
+        // Dependencies:
         check_IAuth();
         check_IToll();
 
@@ -379,7 +394,7 @@ contract IScribeChaincheck is Chaincheck {
 
     // -- Invariants --
 
-    function check_invariant_ZeroPubKeyIsNotLifted() internal {
+    function check_invariant_ZeroPublicKeyIsNotLifted() internal {
         bool isFeed;
         (isFeed, /*feedIndex*/ ) =
             self.feeds(LibSecp256k1.ZERO_POINT().toAddress());
@@ -387,6 +402,33 @@ contract IScribeChaincheck is Chaincheck {
         if (isFeed) {
             logs.push(
                 StdStyle.red("[INVARIANT BROKEN] Zero public key is lifted")
+            );
+        }
+    }
+
+    function check_invariant_PublicKeysHaveNoLinearRelationship() internal {
+        uint[] memory feedPublicKeysXCoordinates =
+            config.readUintArray(".IScribe.feedPublicKeys.xCoordinates");
+        uint[] memory feedPublicKeysYCoordinates =
+            config.readUintArray(".IScribe.feedPublicKeys.yCoordinates");
+
+        // Make LibSecp256k1.Point types from coordinates.
+        LibSecp256k1.Point[] memory pubKeys;
+        pubKeys = new LibSecp256k1.Point[](feedPublicKeysXCoordinates.length);
+        for (uint i; i < pubKeys.length; i++) {
+            pubKeys[i] = LibSecp256k1.Point({
+                x: feedPublicKeysXCoordinates[i],
+                y: feedPublicKeysYCoordinates[i]
+            });
+        }
+
+        bool ok;
+        (ok, /*set1*/, /*set2*/ ) = pubKeyVerifier.verifyPublicKeys(pubKeys);
+        if (!ok) {
+            logs.push(
+                StdStyle.red(
+                    "[INVARIANT BROKEN] Public keys have linear relationship"
+                )
             );
         }
     }
