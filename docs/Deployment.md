@@ -28,7 +28,7 @@ In order to have the `wat` in the name of the deployed instance, the code inside
 
 1. Adjust the name of the `Chronicle_BASE_QUOTE_COUNTER` contract
 2. Adjust the name of the contract inside the `deploy` function
-3. Remove both `@todo` statements
+3. Remove both `@todo` comments
 
 ## Execution
 

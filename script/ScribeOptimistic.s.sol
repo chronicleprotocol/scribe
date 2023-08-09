@@ -8,9 +8,9 @@ import {IScribe} from "src/IScribe.sol";
 import {IScribeOptimistic} from "src/IScribeOptimistic.sol";
 import {ScribeOptimistic} from "src/ScribeOptimistic.sol";
 
-import {ScribeScript} from "./Scribe.s.sol";
-
 import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
+
+import {ScribeScript} from "./Scribe.s.sol";
 
 contract Chronicle_BASE_QUOTE_COUNTER is ScribeOptimistic {
     // @todo Adjust name's BASE, QUOTE and COUNTER.
