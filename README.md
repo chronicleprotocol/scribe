@@ -55,3 +55,11 @@ $ forge snapshot --nmt "Fuzz" [--check]
 Deployment via:
 
 - [chronicleprotocol/greenhouse@v1](https://github.com/chronicleprotocol/greenhouse/tree/v1)
+
+## Licensing
+
+The primary license for Scribe is the Business Source License 1.1 (`BUSL-1.1`), see [`LICENSE`](./LICENSE). However, some files are dual licensed under `MIT`:
+
+- All files in `src/libs/` may also be licensed under `MIT` (as indicated in their SPDX headers), see [`src/libs/LICENSE`](./src/libs/LICENSE)
+- Several Solidity interface files may also be licensed under `MIT` (as indicated in their SPDX headers)
+- Several files in `script/` may also be licensed under `MIT` (as indicated in their SPDX headers)

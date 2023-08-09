@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.16;
 
 import {IChronicle} from "chronicle-std/IChronicle.sol";
