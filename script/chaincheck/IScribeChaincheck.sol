@@ -122,7 +122,11 @@ contract IScribeChaincheck is Chaincheck {
 
         // Invariants:
         check_invariant_ZeroPublicKeyIsNotLifted();
-        check_invariant_PublicKeysHaveNoLinearRelationship();
+        // Note that check is disabled due to heavy memory usage making it
+        // currently unusable in ci.
+        // @todo: Try to fix. However, problem is NP hard so most likely need
+        //        more resources in ci or utilize some caching strategy.
+        //check_invariant_PublicKeysHaveNoLinearRelationship();
         check_invariant_BarIsNotZero();
         check_invariant_ReadFunctionsReturnSameValue();
 

@@ -17,6 +17,7 @@ import {IScribeChaincheck} from "./IScribeChaincheck.sol";
  * @notice IScribeOptimistic's `chaincheck` Integration Test
  *
  * @dev Config Definition:
+ *
  *      ```json
  *      {
  *          "IScribeOptimistic": {
