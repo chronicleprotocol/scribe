@@ -49,17 +49,7 @@ contract ScribeOptimisticScript is ScribeScript {
         IGreenhouse(greenhouse).plant(salt, creationCode);
         vm.stopBroadcast();
 
-        console2.log("-- Deployment Info Start --");
-        console2.log("name:", "");
-        console2.log("contract:", "ScribeOptimistic");
-        console2.log("chain:", "");
-        console2.log("chainId:", uint(0));
-        console2.log("address:", deployed);
-        console2.log("salt:", vm.toString(salt));
-        console2.log("version:", "");
-        console2.log("environment:", "");
-        console2.log("deployedAt:", "");
-        console2.log("-- Deployment Info End --");
+        console2.log("Deployed at", deployed);
     }
 
     /// @dev Sets the opChallengePeriod of `self` to `opChallengePeriod`.
