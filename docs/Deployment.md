@@ -20,7 +20,7 @@ The following environment variables must be set:
     - Note to use the wat's string representation
     - Note that the wat must not exceed 32 bytes in length
 
-Note that an `.env.example` file is provided in the project root. To set all environment variables at once, create a copy of the file and rename the copy to `.env`, adjust the variable's values', and run `source .env`.
+Note that an `.env.example` file is provided in the project root. To set all environment variables at once, create a copy of the file and rename the copy to `.env`, adjust the variables' values, and run `source .env`.
 
 ## Code Adjustments
 

@@ -53,7 +53,7 @@ contract ScribeScript is Script {
         vm.stopBroadcast();
 
         console2.log("-- Deployment Info Start --");
-        console2.log("name:", "Chronicle_ETH_USD_1");
+        console2.log("name:", "");
         console2.log("contract:", "Scribe");
         console2.log("chain:", "");
         console2.log("chainId:", uint(0));

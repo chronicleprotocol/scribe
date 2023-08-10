@@ -11,7 +11,8 @@ import {LibSecp256k1Extended} from "script/libs/LibSecp256k1Extended.sol";
 /**
  * @title LibSchnorrExtended
  *
- * @notice Extended library for Schnorr signatures as specified in `Schnorr.md`
+ * @notice Extended library for Schnorr signatures as specified in
+ *         `docs/Schnorr.md`
  */
 library LibSchnorrExtended {
     using LibSecp256k1 for LibSecp256k1.Point;

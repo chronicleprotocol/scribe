@@ -20,7 +20,7 @@ import {LibFeed} from "script/libs/LibFeed.sol";
  *
  *      2. Deploy contract via:
  *          $ forge script script/benchmarks/ScribeBenchmark.s.sol --rpc-url http://127.0.0.1:8545 --broadcast --sig "deploy()"
- * *
+ *
  *      3. Set bar via:
  *          $ BAR=10 # Note to update to appropriate value
  *          $ forge script script/benchmarks/ScribeBenchmark.s.sol --rpc-url http://127.0.0.1:8545 --broadcast --sig $(cast calldata "setBar(uint8)" $BAR)

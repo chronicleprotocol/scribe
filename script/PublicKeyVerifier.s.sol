@@ -78,7 +78,6 @@ contract PublicKeyVerifier is Script {
         // -> Fails because 2 + 3 = 5
 
         // @todo Add pubKey to be lifted.
-        /*
         pubKeys.push(
             LibSecp256k1.Point({
                 x: 0x0000000000000000000000000000000000000000000000000000000000000001,
@@ -94,7 +93,6 @@ contract PublicKeyVerifier is Script {
             })
         );
         // ...
-        */
 
         return pubKeys;
     }

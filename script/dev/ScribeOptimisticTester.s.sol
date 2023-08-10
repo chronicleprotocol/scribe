@@ -117,7 +117,9 @@ contract ScribeOptimisticTesterScript is ScribeTesterScript {
     ///         -vvv \
     ///         script/dev/ScribeOptimisticTester.s.sol:ScribeOptimisticTesterScript
     ///      ```
-    function opPoke_invalid(address self, uint[] memory privKeys, uint128 val) public {
+    function opPoke_invalid(address self, uint[] memory privKeys, uint128 val)
+        public
+    {
         require(privKeys.length != 0, "No private keys given");
 
         // Setup feeds.
