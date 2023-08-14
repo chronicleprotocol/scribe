@@ -541,3 +541,15 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         return ok;
     }
 }
+
+/**
+ * @dev Contract overwrite to deploy contract instances with specific naming.
+ *
+ *      For more info, see docs/Deployment.md.
+ */
+contract Chronicle_BASE_QUOTE_COUNTER is ScribeOptimistic {
+    // @todo       ^^^^ ^^^^^ ^^^^^^^ Adjust name of Scribe instance.
+    constructor(address initialAuthed, bytes32 wat_)
+        ScribeOptimistic(initialAuthed, wat_)
+    {}
+}
