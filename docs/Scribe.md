@@ -26,15 +26,13 @@ The Scribe contract also allows the creation of an _optimistic-flavored_ oracle 
 
 Scribe implements _Chronicle Protocol_'s [`IChronicle`](https://github.com/chronicleprotocol/chronicle-std/blob/v1/src/IChronicle.sol) interface for reading the oracle's value.
 
-To protect authorized functions, Scribe uses `chronicle-std`'s [`Auth`](https://github.com/chronicleprotocol/chronicle-std/blob/v1/src/auth/Auth.sol) module. Functions to read the oracle's value are protected via `chronicle-std`'s [`Toll`](https://github.com/chronicleprotocol/chronicle-std/blob/v1/src/toll/Toll.sol) module.
-
+To protect authorized functions, Scribe uses `chronicle-std`'s [`Auth`](https://github.com/chronicleprotocol/chronicle-std/blob/v2/src/auth/Auth.sol) module. Functions to read the oracle's value are protected via `chronicle-std`'s [`Toll`](https://github.com/chronicleprotocol/chronicle-std/blob/v2/src/toll/Toll.sol) module.
 
 ## Schnorr Signature Scheme
 
 Scribe uses a custom Schnorr signature scheme. The scheme is specified in [docs/Schnorr.md](./Schnorr.md).
 
 The verification logic is implemented in [`LibSchnorr.sol`](../src/libs/LibSchnorr.sol). A Solidity library to (multi-) sign data is provided via [`script/libs/LibSchnorrExtended.sol`](../script/libs/LibSchnorrExtended.sol).
-
 
 ## Elliptic Curve Computations
 
@@ -48,7 +46,6 @@ This optimization allows Scribe to aggregate public keys, i.e. compute the sum o
 
 For more info, see [`LibSecp256k1::addAffinePoint()`](../src/libs/LibSecp256k1.sol).
 
-
 ## Encoding Participating Public Keys
 
 The `poke()` function has to receive the set of feeds, i.e. public keys, that participated in the Schnorr multi-signature.
@@ -57,15 +54,13 @@ To reduce the calldata load, Scribe does not use type `address`, which uses 20 b
 
 For more info, see [`LibSchnorrData.sol`](../src/libs/LibSchnorrData.sol).
 
-
 ## Lifting Feeds
 
-Feeds _must_ prove the integrity of their public key by proving the ownership of the corresponding private key. The `lift()` function therefore expects an ECDSA signed message derived from `IScribe::wat()`.
+Feeds _must_ prove the integrity of their public key by proving the ownership of the corresponding private key. The `lift()` function therefore expects an ECDSA signed message, for more info see [`IScribe.feedRegistrationMessage()`](../src/IScribe.sol).
 
 If public key's would not be verified, the Schnorr signature verification would be vulnerable to rogue-key attacks. For more info, see [`docs/Schnorr.md`](./Schnorr.md#key-aggregation-for-multisignatures).
 
 Also, the number of state-changing `lift()` executions is limited to `type(uint8).max-1`, i.e. 254. After reaching this limit, no further `lift()` calls can be executed. For more info, see [`IScribe.maxFeeds()`](../src/IScribe.sol).
-
 
 ## Chainlink Compatibility
 
@@ -74,7 +69,6 @@ Scribe aims to be partially Chainlink compatible by implementing the most widely
 The following `IChainlinkAggregatorV3` functions are provided:
 - `latestRoundData()`
 - `decimals()`
-
 
 ## Optimistic-Flavored Scribe
 
@@ -88,7 +82,6 @@ If an `opPoke()` is not challenged, its value finalizes after a specified period
 
 Monitoring optimistic pokes and, if necessary, challenging them can be incentivized via ETH rewards. For more info, see [`IScribeOptimistic::maxChallengeReward()`](../src/IScribeOptimistic.sol).
 
-
 ### About Bounded Gas Usage
 
 For all functions being executed during `opChallenge()`, it is of utmost importance to have bounded gas usage. These functions are marked with `@custom:invariant` specifications documenting their gas usage.
@@ -98,7 +91,6 @@ The gas usage _must_ be bounded to ensure an invalid `opPoke()` can always be su
 Two loops are executed during an `opChallenge()`:
 1. Inside `Scribe::_verifySchnorrSignature` - bounded by `bar`
 2. Inside `LibSecp256k1::_invMod` - computing the modular inverse of a Jacobian `z` coordinate of a secp256k1 point
-
 
 ### Verifying Optimistic Pokes
 

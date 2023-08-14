@@ -16,7 +16,6 @@ This document specifies invariants of the Scribe and ScribeOptimistic oracle con
         → postTx(_pokeData.age) == block.timestamp
     ```
 
-
 ## `ScribeOptimistic::_pokeData`
 
 * Only `poke`, `opPoke`, `opChallenge` and `_afterAuthedAction` protected auth'ed functions may mutate `_pokeData`:
@@ -37,7 +36,6 @@ This document specifies invariants of the Scribe and ScribeOptimistic oracle con
         → postTx(_pokeData) = preTx(_opPokeData) ⋀ preTx(readWithAge()) = preTx(_opPokeData)
     ```
 
-
 ## `{Scribe, ScribeOptimistic}::_pokeData`
 
 * `_pokeData.age` is strictly monotonically increasing:
@@ -47,7 +45,6 @@ This document specifies invariants of the Scribe and ScribeOptimistic oracle con
     ```
 
 * `_pokeData.val` can only be read by _toll'ed_ caller.
-
 
 ## `ScribeOptimistic::_opPokeData`
 
@@ -68,7 +65,6 @@ This document specifies invariants of the Scribe and ScribeOptimistic oracle con
     preTx(_opPokeData.age) != postTx(_opPokeData.age) ⋀ msg.sig ∊ {"opChallenge", "setBar", "drop", "setOpChallengePeriod"}
         → postTx(_opPokeData.val) == 0 ⋀ postTx(_opPokeData.age) == 0
     ```
-
 
 ## `{Scribe, ScribeOptimistic}::_pubKeys`
 
@@ -111,7 +107,6 @@ This document specifies invariants of the Scribe and ScribeOptimistic oracle con
     ∀x ∊ uint: preTx(_pubKeys[x]) != postTx(_pubKeys[x])
         → authed(msg.sender)
     ```
-
 
 ## `{Scribe, ScribeOptimistic}::_feeds`
 
