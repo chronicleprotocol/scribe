@@ -6,9 +6,9 @@ import {Vm} from "forge-std/Vm.sol";
 /**
  * @title LibOracleSuite
  *
- * @dev Wrapper library for oracle-suite's `schnorr` cli tool.
+ * @notice Wrapper library for oracle-suite's `schnorr` cli tool
  *
- *      Expects `schnorr` binary to be in the `bin/` directory.
+ * @dev Expects `schnorr` binary to be in the `bin/` directory.
  *
  *      For more info, see https://github.com/chronicleprotocol/oracle-suite.
  */
@@ -20,7 +20,7 @@ library LibOracleSuite {
     ///
     ///      Signed via:
     ///      ```bash
-    ///      ./bin/schnorr sign <message> <privKeys...>
+    ///      $ ./bin/schnorr sign <message> <privKeys...>
     ///      ```
     function sign(uint[] memory privKeys, bytes32 message)
         internal
@@ -46,7 +46,7 @@ library LibOracleSuite {
     ///
     ///      Constructed via:
     ///      ```bash
-    ///      ./bin/schnorr construct-poke-message <wat> <val> <age>
+    ///      $ ./bin/schnorr construct-poke-message <wat> <val> <age>
     ///      ```
     function constructPokeMessage(bytes32 wat, uint128 val, uint32 age)
         internal

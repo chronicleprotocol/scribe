@@ -9,9 +9,9 @@ import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
 /**
  * @title LibDissig
  *
- * @dev Wrapper library for the `dissig` cli tool.
+ * @notice Wrapper library for the `dissig` cli tool
  *
- *      Expects `dissig` binary to be in the `bin/` directory.
+ * @dev Expects `dissig` binary to be in the `bin/` directory.
  *
  *      For more info, see https://github.com/chronicleprotocol/dissig.
  */
@@ -23,13 +23,13 @@ library LibDissig {
     ///
     ///      Signed via:
     ///      ```bash
-    ///      ./bin/dissig                      \
-    ///         --scribe                       \
-    ///         --scribe-cmd=sign              \
-    ///         --scribe-message=<message>     \
-    ///         --scribe-privKeys=<privKey[0]> \
-    ///         --scribe-privKeys=<privKey[1]> |
-    ///         ...
+    ///      $ ./bin/dissig                      \
+    ///           --scribe                       \
+    ///           --scribe-cmd=sign              \
+    ///           --scribe-message=<message>     \
+    ///           --scribe-privKeys=<privKey[0]> \
+    ///           --scribe-privKeys=<privKey[1]> |
+    ///           ...
     ///      ```
     function sign(uint[] memory privKeys, bytes32 message)
         internal

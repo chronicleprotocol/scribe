@@ -32,12 +32,12 @@ contract ScribeOptimisticTesterScript is ScribeTesterScript {
     ///
     ///      ```bash
     ///      $ forge script \
-    ///         --private-key $PRIVATE_KEY \
-    ///         --broadcast \
-    ///         --rpc-url $RPC_URL \
-    ///         --sig $(cast calldata "opPoke(address,uint[],uint128)" $SCRIBE $TEST_FEED_SIGNERS_PRIVATE_KEYS $TEST_POKE_VAL) \
-    ///         -vvv \
-    ///         script/dev/ScribeOptimisticTester.s.sol:ScribeOptimisticTesterScript
+    ///           --private-key $PRIVATE_KEY \
+    ///           --broadcast \
+    ///           --rpc-url $RPC_URL \
+    ///           --sig $(cast calldata "opPoke(address,uint[],uint128)" $SCRIBE $TEST_FEED_SIGNERS_PRIVATE_KEYS $TEST_POKE_VAL) \
+    ///           -vvv \
+    ///           script/dev/ScribeOptimisticTester.s.sol:ScribeOptimisticTesterScript
     ///      ```
     function opPoke(address self, uint[] memory privKeys, uint128 val) public {
         require(privKeys.length != 0, "No private keys given");

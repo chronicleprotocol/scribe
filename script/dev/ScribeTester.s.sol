@@ -28,12 +28,12 @@ contract ScribeTesterScript is Script {
     ///
     ///      ```bash
     ///      $ forge script \
-    ///         --private-key $PRIVATE_KEY \
-    ///         --broadcast \
-    ///         --rpc-url $RPC_URL \
-    ///         --sig $(cast calldata "lift(address,uint[])" $SCRIBE $TEST_FEED_PRIVATE_KEYS) \
-    ///         -vvv \
-    ///         script/dev/ScribeTester.s.sol:ScribeTesterScript
+    ///           --private-key $PRIVATE_KEY \
+    ///           --broadcast \
+    ///           --rpc-url $RPC_URL \
+    ///           --sig $(cast calldata "lift(address,uint[])" $SCRIBE $TEST_FEED_PRIVATE_KEYS) \
+    ///           -vvv \
+    ///           script/dev/ScribeTester.s.sol:ScribeTesterScript
     ///      ```
     function lift(address self, uint[] memory privKeys) public {
         require(privKeys.length != 0, "No private keys given");
