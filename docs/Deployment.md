@@ -8,6 +8,9 @@ The following environment variables must be set:
 
 - `RPC_URL`: The RPC URL of an EVM node
 - `PRIVATE_KEY`: The private key to use
+- `ETHERSCAN_API_URL`: The Etherscan API URL for the Etherscan's chain instance
+    - Note that the API endpoint varies per Etherscan chain instance
+    - Note to point to actual API endpoint (e.g. `/api`) and not just host
 - `ETHERSCAN_API_KEY`: The Etherscan API key for the Etherscan's chain instance
 - `GREENHOUSE`: The `Greenhouse` instance to use for deployment
 - `SCRIBE_FLAVOUR`: The `Scribe` flavour to deploy
@@ -15,6 +18,7 @@ The following environment variables must be set:
 - `SALT`: The salt to deploy the `Scribe` instance to
     - Note to use the salt's string representation
     - Note that the salt must not exceed 32 bytes in length
+    - Note that the salt should match the name of the contract deployed!
 - `INITIAL_AUTHED`: The address being auth'ed on the newly deployed `Scribe` instance
 - `WAT`: The wat for `Scribe`
     - Note to use the wat's string representation
@@ -22,28 +26,48 @@ The following environment variables must be set:
 
 Note that an `.env.example` file is provided in the project root. To set all environment variables at once, create a copy of the file and rename the copy to `.env`, adjust the variables' values, and run `source .env`.
 
+To easily check the environment variables, run:
+
+```bash
+$ env | grep -e "RPC_URL" -e "PRIVATE_KEY" -e "ETHERSCAN_API_URL" -e "ETHERSCAN_API_KEY" -e "GREENHOUSE" -e "SALT" -e "INITIAL_AUTHED" -e "WAT"
+```
+
 ## Code Adjustments
 
-In order to have the `wat` in the name of the deployed instance, the code inside `Scribe.s.sol` or `ScribeOptimistic.s.sol` - depending on which `Scribe` flavour to deploy - must be adjusted.
+Two code adjustments are necessary to give each deployed contract instance a unique name:
 
-1. Adjust the name of the `Chronicle_BASE_QUOTE_COUNTER` contract
-2. Adjust the name of the contract inside the `deploy` function
-3. Remove both `@todo` comments
+1. Adjust the `Chronicle_BASE_QUOTE_COUNTER`'s name in `src/${SCRIBE_FLAVOUR}.sol` and remove the `@todo` comment
+2. Adjust the import of the `Chronicle_BASE_QUOTE_COUNTER` in `script/${SCRIBE_FLAVOUR}.s.sol` and remove the `@todo` comment
 
 ## Execution
 
-Run:
+The deployment process consists of two steps - the actual deployment and the subsequent Etherscan verification.
+
+Deployment:
 
 ```bash
 $ SALT_BYTES32=$(cast format-bytes32-string $SALT) && \
   WAT_BYTES32=$(cast format-bytes32-string $WAT) && \
   forge script \
-    --private-key $PRIVATE_KEY \
+    --private-key "$PRIVATE_KEY" \
     --broadcast \
-    --rpc-url $RPC_URL \
-    --etherscan-api-key $ETHERSCAN_API_KEY \
-    --verify \
-    --sig $(cast calldata "deploy(address,bytes32,address,bytes32)" $GREENHOUSE $SALT_BYTES32 $INITIAL_AUTHED $WAT_BYTES32) \
+    --rpc-url "$RPC_URL" \
+    --sig "$(cast calldata "deploy(address,bytes32,address,bytes32)" "$GREENHOUSE" "$SALT_BYTES32" "$INITIAL_AUTHED" "$WAT_BYTES32")" \
     -vvv \
     script/${SCRIBE_FLAVOUR}.s.sol:${SCRIBE_FLAVOUR}Script
+```
+
+The deployment command will log the address of the newly deployed contract address. Store this address in the `$SCRIBE` environment variable and continue with the verification.
+
+Verification:
+
+```bash
+$ WAT_BYTES32=$(cast format-bytes32-string $WAT) && \
+  forge verify-contract \
+    "$SCRIBE" \
+    --verifier-url "$ETHERSCAN_API_URL" \
+    --etherscan-api-key "$ETHERSCAN_API_KEY" \
+    --watch \
+    --constructor-args $(cast abi-encode "constructor(address,bytes32)" "$INITIAL_AUTHED" "$WAT_BYTES32") \
+    src/${SCRIBE_FLAVOUR}.sol:"$SALT"
 ```

@@ -30,6 +30,12 @@ The following environment variables must be set for all commands:
 
 Note that an `.env.example` file is provided in the project root. To set all environment variables at once, create a copy of the file and rename the copy to `.env`, adjust the variable's values', and run `source .env`.
 
+To easily check the environment variables, run:
+
+```bash
+$ env | grep -e "RPC_URL" -e "PRIVATE_KEY" -e "SCRIBE" -e "SCRIBE_FLAVOUR
+```
+
 ## Functions
 
 ### `IScribe::setBar`

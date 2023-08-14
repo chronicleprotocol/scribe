@@ -7,18 +7,12 @@ import {IGreenhouse} from "greenhouse/IGreenhouse.sol";
 
 import {IScribe} from "src/IScribe.sol";
 import {IScribeOptimistic} from "src/IScribeOptimistic.sol";
-import {ScribeOptimistic} from "src/ScribeOptimistic.sol";
+import {Chronicle_ETH_USD_101 as ScribeOptimistic} from
+    "src/ScribeOptimistic.sol";
 
 import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
 
 import {ScribeScript} from "./Scribe.s.sol";
-
-contract Chronicle_BASE_QUOTE_COUNTER is ScribeOptimistic {
-    // @todo Adjust name's BASE, QUOTE and COUNTER.
-    constructor(address initialAuthed, bytes32 wat_)
-        ScribeOptimistic(initialAuthed, wat_)
-    {}
-}
 
 /**
  * @title ScribeOptimistic Management Script
@@ -35,9 +29,7 @@ contract ScribeOptimisticScript is ScribeScript {
     ) public override(ScribeScript) {
         // Create creation code with constructor arguments.
         bytes memory creationCode = abi.encodePacked(
-            type(Chronicle_BASE_QUOTE_COUNTER).creationCode,
-            // @todo Adjust name's BASE, QUOTE and COUNTER.
-            abi.encode(initialAuthed, wat)
+            type(ScribeOptimistic).creationCode, abi.encode(initialAuthed, wat)
         );
 
         // Ensure salt not yet used.
@@ -51,6 +43,8 @@ contract ScribeOptimisticScript is ScribeScript {
 
         console2.log("Deployed at", deployed);
     }
+
+    // -- IScribeOptimistic Functions --
 
     /// @dev Sets the opChallengePeriod of `self` to `opChallengePeriod`.
     function setOpChallengePeriod(address self, uint16 opChallengePeriod)
