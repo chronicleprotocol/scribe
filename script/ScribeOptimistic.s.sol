@@ -7,7 +7,7 @@ import {IGreenhouse} from "greenhouse/IGreenhouse.sol";
 
 import {IScribe} from "src/IScribe.sol";
 import {IScribeOptimistic} from "src/IScribeOptimistic.sol";
-import {Chronicle_ETH_USD_101 as ScribeOptimistic} from
+import {Chronicle_BASE_QUOTE_COUNTER as ScribeOptimistic} from
     "src/ScribeOptimistic.sol";
 
 import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
