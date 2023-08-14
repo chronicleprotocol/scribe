@@ -564,15 +564,3 @@ contract Scribe is IScribe, Auth, Toll {
     /// @dev Defines authorization for IToll's authenticated functions.
     function toll_auth() internal override(Toll) auth {}
 }
-
-/**
- * @dev Contract overwrite to deploy contract instances with specific naming.
- *
- *      For more info, see docs/Deployment.md.
- */
-contract Chronicle_BASE_QUOTE_COUNTER is Scribe {
-    // @todo       ^^^^ ^^^^^ ^^^^^^^ Adjust name of Scribe instance.
-    constructor(address initialAuthed, bytes32 wat_)
-        Scribe(initialAuthed, wat_)
-    {}
-}
