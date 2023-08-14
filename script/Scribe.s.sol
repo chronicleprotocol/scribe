@@ -178,9 +178,14 @@ contract ScribeScript is Script {
     ///
     /// @dev Expected environment variables:
     ///      - PRIVATE_KEY
+    ///         - The private key to use
     ///      - RPC_URL
+    ///         - The RPC URL of an EVM node
     ///      - SCRIBE
+    ///         - The Scribe instance to deactivate
     ///      - SCRIBE_FLAVOUR
+    ///         - The Scribe instance's flavour, either "Scribe" or
+    ///           "ScribeOptimistic"
     ///
     /// @dev Run via:
     ///
@@ -271,9 +276,14 @@ contract ScribeScript is Script {
     ///
     /// @dev Expected environment variables:
     ///      - PRIVATE_KEY
+    ///         - The private key to use
     ///      - RPC_URL
+    ///         - The RPC URL of an EVM node
     ///      - SCRIBE
+    ///         - The Scribe instance to kill
     ///      - SCRIBE_FLAVOUR
+    ///         - The Scribe instance's flavour, either "Scribe" or
+    ///           "ScribeOptimistic"
     ///
     /// @dev Run via:
     ///
