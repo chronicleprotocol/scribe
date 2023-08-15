@@ -33,7 +33,7 @@ Note that an `.env.example` file is provided in the project root. To set all env
 To easily check the environment variables, run:
 
 ```bash
-$ env | grep -e "RPC_URL" -e "PRIVATE_KEY" -e "SCRIBE" -e "SCRIBE_FLAVOUR
+$ env | grep -e "RPC_URL" -e "PRIVATE_KEY" -e "SCRIBE" -e "SCRIBE_FLAVOUR"
 ```
 
 ## Functions
