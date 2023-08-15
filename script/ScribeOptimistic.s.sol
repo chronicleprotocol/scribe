@@ -9,6 +9,7 @@ import {IScribe} from "src/IScribe.sol";
 import {IScribeOptimistic} from "src/IScribeOptimistic.sol";
 import {Chronicle_BASE_QUOTE_COUNTER as ScribeOptimistic} from
     "src/ScribeOptimistic.sol";
+// @todo          ^^^^ ^^^^^ ^^^^^^^ Adjust name of Scribe instance.
 
 import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
 
