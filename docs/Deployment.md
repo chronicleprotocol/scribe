@@ -29,7 +29,7 @@ Note that an `.env.example` file is provided in the project root. To set all env
 To easily check the environment variables, run:
 
 ```bash
-$ env | grep -e "RPC_URL" -e "PRIVATE_KEY" -e "ETHERSCAN_API_URL" -e "ETHERSCAN_API_KEY" -e "GREENHOUSE" -e "SALT" -e "INITIAL_AUTHED" -e "WAT"
+$ env | grep -e "RPC_URL" -e "PRIVATE_KEY" -e "ETHERSCAN_API_URL" -e "ETHERSCAN_API_KEY" -e "GREENHOUSE" -e "SCRIBE_FLAVOUR" -e "SALT" -e "INITIAL_AUTHED" -e "WAT"
 ```
 
 ## Code Adjustments
