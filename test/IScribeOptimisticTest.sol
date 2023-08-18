@@ -142,6 +142,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         uint feedIndex;
         bool ok;
         uint val;
+        uint age;
         for (uint i; i < pokeDatas.length; i++) {
             // Select random feed signing opPoke.
             feedIndex = bound(feedIndexSeeds[i], 0, feeds.length - 1);
@@ -176,11 +177,11 @@ abstract contract IScribeOptimisticTest is IScribeTest {
             // Execute opPoke.
             opScribe.opPoke(pokeDatas[i], schnorrData, ecdsaData);
 
-            uint wantUpdatedAt = block.timestamp;
+            uint wantAge = block.timestamp;
             // Note to use variable before warp as --via-ir optimization may
             // optimize it away. solc doesn't know about vm.warp().
-            wantUpdatedAt++;
-            wantUpdatedAt--;
+            wantAge++;
+            wantAge--;
 
             // Wait until challenge period over and opPokeData finalizes.
             vm.warp(block.timestamp + opScribe.opChallengePeriod());
@@ -192,13 +193,26 @@ abstract contract IScribeOptimisticTest is IScribeTest {
             assertEq(val, pokeDatas[i].val);
             assertTrue(ok);
 
+            (val, age) = opScribe.readWithAge();
+            assertEq(val, pokeDatas[i].val);
+            assertEq(age, wantAge);
+
+            (ok, val, age) = opScribe.tryReadWithAge();
+            assertTrue(ok);
+            assertEq(val, pokeDatas[i].val);
+            assertEq(age, wantAge);
+
             (val, ok) = opScribe.peek();
+            assertEq(val, pokeDatas[i].val);
+            assertTrue(ok);
+
+            (val, ok) = opScribe.peep();
             assertEq(val, pokeDatas[i].val);
             assertTrue(ok);
 
             (, int answer,, uint updatedAt,) = opScribe.latestRoundData();
             assertEq(uint(answer), pokeDatas[i].val);
-            assertEq(updatedAt, wantUpdatedAt);
+            assertEq(updatedAt, wantAge);
         }
     }
 

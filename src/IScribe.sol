@@ -239,4 +239,10 @@ interface IScribe is IChronicle {
     /// @return value The oracle's current value if it exists, zero otherwise.
     /// @return isValid True if value exists, false otherwise.
     function peek() external view returns (uint value, bool isValid);
+
+    /// @notice Returns the oracle's current value.
+    /// @custom:deprecated Use `tryRead()(bool,uint)` instead.
+    /// @return value The oracle's current value if it exists, zero otherwise.
+    /// @return isValid True if value exists, false otherwise.
+    function peep() external view returns (uint value, bool isValid);
 }

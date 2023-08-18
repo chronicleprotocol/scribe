@@ -130,6 +130,12 @@ abstract contract IScribeTest is Test {
         assertEq(val, 0);
         assertFalse(ok);
 
+        // peep()(uint,bool) returns false.
+        // Note that peep()(uint,bool) is deprecated.
+        (val, ok) = scribe.peep();
+        assertEq(val, 0);
+        assertFalse(ok);
+
         // latestRound()(uint80,int,uint,uint,uint80) returns zero.
         uint80 roundId;
         int answer;
@@ -294,6 +300,10 @@ abstract contract IScribeTest is Test {
             assertEq(age, block.timestamp);
 
             (val, ok) = scribe.peek();
+            assertEq(val, pokeDatas[i].val);
+            assertTrue(ok);
+
+            (val, ok) = scribe.peep();
             assertEq(val, pokeDatas[i].val);
             assertTrue(ok);
 
@@ -864,6 +874,8 @@ abstract contract IScribeTest is Test {
 
     // -- Test: Toll Protected Functions --
 
+    // - IChronicle Functions
+
     function test_read_isTollProtected() public {
         vm.prank(address(0xbeef));
         vm.expectRevert(
@@ -872,11 +884,55 @@ abstract contract IScribeTest is Test {
         scribe.read();
     }
 
+    function test_tryRead_isTollProtected() public {
+        vm.prank(address(0xbeef));
+        vm.expectRevert(
+            abi.encodeWithSelector(IToll.NotTolled.selector, address(0xbeef))
+        );
+        scribe.tryRead();
+    }
+
+    function test_readWithAge_isTollProtected() public {
+        vm.prank(address(0xbeef));
+        vm.expectRevert(
+            abi.encodeWithSelector(IToll.NotTolled.selector, address(0xbeef))
+        );
+        scribe.readWithAge();
+    }
+
+    function test_tryReadWithAge_isTollProtected() public {
+        vm.prank(address(0xbeef));
+        vm.expectRevert(
+            abi.encodeWithSelector(IToll.NotTolled.selector, address(0xbeef))
+        );
+        scribe.tryReadWithAge();
+    }
+
+    // - MakerDAO Compatibility
+
     function test_peek_isTollProtected() public {
         vm.prank(address(0xbeef));
         vm.expectRevert(
             abi.encodeWithSelector(IToll.NotTolled.selector, address(0xbeef))
         );
         scribe.peek();
+    }
+
+    function test_peep_isTollProtected() public {
+        vm.prank(address(0xbeef));
+        vm.expectRevert(
+            abi.encodeWithSelector(IToll.NotTolled.selector, address(0xbeef))
+        );
+        scribe.peep();
+    }
+
+    // - Chainlink Compatibility
+
+    function test_latestRoundData_isTollProtected() public {
+        vm.prank(address(0xbeef));
+        vm.expectRevert(
+            abi.encodeWithSelector(IToll.NotTolled.selector, address(0xbeef))
+        );
+        scribe.latestRoundData();
     }
 }

@@ -375,6 +375,19 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         return (val, val != 0);
     }
 
+    /// @inheritdoc IScribe
+    /// @dev Only callable by toll'ed address.
+    function peep()
+        external
+        view
+        override(IScribe, Scribe)
+        toll
+        returns (uint, bool)
+    {
+        uint val = _currentPokeData().val;
+        return (val, val != 0);
+    }
+
     // - Chainlink Compatibility
 
     /// @inheritdoc IScribe

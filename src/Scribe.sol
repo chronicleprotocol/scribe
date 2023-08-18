@@ -294,6 +294,13 @@ contract Scribe is IScribe, Auth, Toll {
         return (val, val != 0);
     }
 
+    /// @inheritdoc IScribe
+    /// @dev Only callable by toll'ed address.
+    function peep() external view virtual toll returns (uint, bool) {
+        uint val = _pokeData.val;
+        return (val, val != 0);
+    }
+
     // - Chainlink Compatibility
 
     /// @inheritdoc IScribe
