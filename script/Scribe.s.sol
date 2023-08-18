@@ -304,12 +304,12 @@ contract ScribeScript is Script {
         // Get list of auth'ed addresses.
         address[] memory authed = IAuth(self).authed();
 
-        // Renounce auth for each address except tx.origin.
+        // Renounce auth for each address except msg.sender.
         //
-        // Note that tx.origin refers to the current script's caller, i.e. the
+        // Note that msg.sender refers to the current script's caller, i.e. the
         // address signing the actual txs.
         for (uint i; i < authed.length; i++) {
-            if (authed[i] == tx.origin) {
+            if (authed[i] == msg.sender) {
                 continue;
             }
 
@@ -318,9 +318,9 @@ contract ScribeScript is Script {
             vm.stopBroadcast();
         }
 
-        // Finally renounce auth for tx.origin.
+        // Finally renounce auth for msg.sender.
         vm.startBroadcast();
-        IAuth(self).deny(tx.origin);
+        IAuth(self).deny(msg.sender);
         vm.stopBroadcast();
     }
 }
