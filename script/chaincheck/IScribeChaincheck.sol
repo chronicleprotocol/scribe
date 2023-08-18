@@ -504,6 +504,10 @@ contract IScribeChaincheck is Chaincheck {
         if (valGot != valWant || isValidGot != isValidWant) {
             logs.push(log);
         }
+        (valGot, isValidGot) = self.peep();
+        if (valGot != valWant || isValidGot != isValidWant) {
+            logs.push(log);
+        }
     }
 
     // -- Dependency Checks --
