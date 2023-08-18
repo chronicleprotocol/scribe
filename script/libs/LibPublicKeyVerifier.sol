@@ -75,7 +75,15 @@ library LibPublicKeyVerifier {
             }
 
             // Otherwise add address (i.e. aggPubKey) to lookupTable.
-            self.lookupTable[addr] = signerSets[i];
+            //
+            // Note that copying memory structs with array fields to storage is
+            // not supported by solc if --via-ir is not used. To support non
+            // --via-ir compilation, the elements are copied manually.
+            //
+            // self.lookupTable[addr] = signerSets[i];
+            for (uint j; j < signerSets[i].pubKeys.length; j++) {
+                self.lookupTable[addr].pubKeys.push(signerSets[i].pubKeys[j]);
+            }
         }
 
         return (true, new LibSecp256k1.Point[](0), new LibSecp256k1.Point[](0));
