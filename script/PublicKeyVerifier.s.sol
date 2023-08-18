@@ -21,8 +21,8 @@ import {
  *      The script must _never_ fail for a set of lifted feeds!
  *
  * @dev Usage:
- *      1. Add the set of lifted feeds' public keys to `_setUpPubKeys()`
- *      2. Add the new feeds' public key to `_setUpPubKeys()`
+ *      1. Add the set of lifted feeds' public keys to `_pubKeys()`
+ *      2. Add the new feeds' public key to `_pubKeys()`
  *      3. Run script via:
  *
  *         ```bash
@@ -60,39 +60,42 @@ import {
  *      This script verifies that no two distinct subsets of public keys derive
  *      to the same aggregated public key.
  */
-contract PublicKeyVerifier is Script {
+contract PublicKeyVerifierScript is Script {
     using LibSecp256k1 for LibSecp256k1.Point;
     using LibSecp256k1Extended for uint;
     using LibPublicKeyVerifier for LibPublicKeyVerifier.PublicKeyVerifier;
 
-    LibSecp256k1.Point[] pubKeys;
-
     LibPublicKeyVerifier.PublicKeyVerifier verifier;
 
-    function _pubKeys() internal returns (LibSecp256k1.Point[] memory) {
+    function _pubKeys() internal pure returns (LibSecp256k1.Point[] memory) {
+        LibSecp256k1.Point[] memory pubKeys;
+        pubKeys = new LibSecp256k1.Point[](1_000);
+        uint ctr;
+
         // Use private keys during testing to see linear relationships easier.
-        //pubKeys.push(uint(2).derivePublicKey());
-        //pubKeys.push(uint(3).derivePublicKey());
-        //pubKeys.push(uint(4).derivePublicKey());
-        //pubKeys.push(uint(5).derivePublicKey());
+        //pubKeys[ctr++] = (uint(2).derivePublicKey());
+        //pubKeys[ctr++] = (uint(3).derivePublicKey());
+        //pubKeys[ctr++] = (uint(4).derivePublicKey());
+        //pubKeys[ctr++] = (uint(5).derivePublicKey());
         // -> Fails because 2 + 3 = 5
 
         // @todo Add pubKey to be lifted.
-        pubKeys.push(
-            LibSecp256k1.Point({
-                x: 0x0000000000000000000000000000000000000000000000000000000000000001,
-                y: 0x0000000000000000000000000000000000000000000000000000000000000000
-            })
-        );
+        pubKeys[ctr++] = LibSecp256k1.Point({
+            x: 0x0000000000000000000000000000000000000000000000000000000000000001,
+            y: 0x0000000000000000000000000000000000000000000000000000000000000000
+        });
 
         // @todo Add already lifted pubKeys.
-        pubKeys.push(
-            LibSecp256k1.Point({
-                x: 0x0000000000000000000000000000000000000000000000000000000000000000,
-                y: 0x0000000000000000000000000000000000000000000000000000000000000000
-            })
-        );
+        pubKeys[ctr++] = LibSecp256k1.Point({
+            x: 0x0000000000000000000000000000000000000000000000000000000000000000,
+            y: 0x0000000000000000000000000000000000000000000000000000000000000000
+        });
         // ...
+
+        // Set length of array to public keys actually added.
+        assembly ("memory-safe") {
+            mstore(pubKeys, ctr)
+        }
 
         return pubKeys;
     }
