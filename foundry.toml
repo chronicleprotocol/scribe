@@ -27,6 +27,11 @@ ignore = []
 [doc]
 out = "docs_generated" # Note to not overwrite own docs
 
+# Profile to compile without --via-ir
+# Run via `FOUNDRY_PROFILE=no-via-ir forge ...`
+[profile.no-via-ir]
+via_ir = false
+
 # Profile for intense testing
 # Run via `FOUNDRY_PROFILE=intense forge t`
 [profile.intense]
