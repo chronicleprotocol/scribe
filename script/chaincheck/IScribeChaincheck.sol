@@ -464,6 +464,7 @@ contract IScribeChaincheck is Chaincheck {
         uint valGot;
 
         // - IChronicle Functions
+
         if (isValidWant) {
             if (self.read() != valWant) {
                 logs.push(log);
@@ -491,6 +492,7 @@ contract IScribeChaincheck is Chaincheck {
         }
 
         // - Chainlink Compatibility Functions
+
         int answer;
         uint updatedAt;
         ( /*roundId*/ , answer, /*startedAt*/, updatedAt, /*answeredInRound*/ )
@@ -500,13 +502,20 @@ contract IScribeChaincheck is Chaincheck {
         }
 
         // - MakerDAO Compatibility Functions
+
         (valGot, isValidGot) = self.peek();
         if (valGot != valWant || isValidGot != isValidWant) {
             logs.push(log);
         }
-        (valGot, isValidGot) = self.peep();
-        if (valGot != valWant || isValidGot != isValidWant) {
-            logs.push(log);
+
+        // Note that peep()(uint,bool) was added in v1.1.0 and may not be
+        // supported by every deployed Scribe(Optimistic) instance.
+        try self.peep() returns (uint val, bool isValid) {
+            if (val != valWant || isValid != isValidWant) {
+                logs.push(log);
+            }
+        } catch {
+            // Scribe instance has version <v1.1.0.
         }
     }
 
