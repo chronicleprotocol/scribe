@@ -82,6 +82,48 @@ abstract contract IScribeTest is Test {
         return feeds;
     }
 
+    function _checkReadFunctions(uint wantVal, uint wantAge) internal {
+        bool ok;
+        uint gotVal;
+        uint gotAge;
+
+        assertEq(scribe.read(), wantVal);
+
+        (ok, gotVal) = scribe.tryRead();
+        assertEq(gotVal, wantVal);
+        assertTrue(ok);
+
+        (gotVal, gotAge) = scribe.readWithAge();
+        assertEq(gotVal, wantVal);
+        assertEq(gotAge, wantAge);
+
+        (ok, gotVal, gotAge) = scribe.tryReadWithAge();
+        assertTrue(ok);
+        assertEq(gotVal, wantVal);
+        assertEq(gotAge, wantAge);
+
+        (gotVal, ok) = scribe.peek();
+        assertEq(gotVal, wantVal);
+        assertTrue(ok);
+
+        (gotVal, ok) = scribe.peep();
+        assertEq(gotVal, wantVal);
+        assertTrue(ok);
+
+        (
+            uint80 roundId,
+            int answer,
+            uint startedAt,
+            uint updatedAt,
+            uint80 answeredInRound
+        ) = scribe.latestRoundData();
+        assertEq(uint(roundId), 1);
+        assertEq(uint(answer), wantVal);
+        assertEq(startedAt, 0);
+        assertEq(updatedAt, wantAge);
+        assertEq(uint(answeredInRound), 1);
+    }
+
     // -- Test: Deployment --
 
     function test_Deployment() public virtual {
@@ -266,9 +308,6 @@ abstract contract IScribeTest is Test {
 
         uint32 lastPokeTimestamp = 0;
         IScribe.SchnorrData memory schnorrData;
-        bool ok;
-        uint val;
-        uint age;
         for (uint i; i < pokeDatas.length; i++) {
             pokeDatas[i].val =
                 uint128(bound(pokeDatas[i].val, 1, type(uint128).max));
@@ -284,41 +323,7 @@ abstract contract IScribeTest is Test {
 
             scribe.poke(pokeDatas[i], schnorrData);
 
-            assertEq(scribe.read(), pokeDatas[i].val);
-
-            (ok, val) = scribe.tryRead();
-            assertTrue(ok);
-            assertEq(val, pokeDatas[i].val);
-
-            (val, age) = scribe.readWithAge();
-            assertEq(val, pokeDatas[i].val);
-            assertEq(age, block.timestamp);
-
-            (ok, val, age) = scribe.tryReadWithAge();
-            assertTrue(ok);
-            assertEq(val, pokeDatas[i].val);
-            assertEq(age, block.timestamp);
-
-            (val, ok) = scribe.peek();
-            assertEq(val, pokeDatas[i].val);
-            assertTrue(ok);
-
-            (val, ok) = scribe.peep();
-            assertEq(val, pokeDatas[i].val);
-            assertTrue(ok);
-
-            (
-                uint80 roundId,
-                int answer,
-                uint startedAt,
-                uint updatedAt,
-                uint80 answeredInRound
-            ) = scribe.latestRoundData();
-            assertEq(uint(roundId), 1);
-            assertEq(uint(answer), pokeDatas[i].val);
-            assertEq(startedAt, 0);
-            assertEq(updatedAt, block.timestamp);
-            assertEq(uint(answeredInRound), 1);
+            _checkReadFunctions(pokeDatas[i].val, block.timestamp);
 
             lastPokeTimestamp = uint32(block.timestamp);
             vm.warp(block.timestamp + 10 minutes);
