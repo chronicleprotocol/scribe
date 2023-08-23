@@ -10,6 +10,7 @@ This document describes how to manage deployed `Scribe` and `ScribeOptimistic` i
   - [Functions](#functions)
     - [`IScribe::setBar`](#iscribesetbar)
     - [`IScribe::lift`](#iscribelift)
+    - [`IScribe::lift multiple`](#iscribelift-multiple)
     - [`IScribe::drop`](#iscribedrop)
     - [`IScribeOptimistic::setOpChallengePeriod`](#iscribeoptimisticsetopchallengeperiod)
     - [`IScribeOptimistic::setMaxChallengeReward`](#iscribeoptimisticsetmaxchallengereward)
@@ -76,6 +77,32 @@ $ forge script \
     --broadcast \
     --rpc-url $RPC_URL \
     --sig $(cast calldata "lift(address,uint,uint,uint8,bytes32,bytes32)" $SCRIBE $PUBLIC_KEY_X_COORDINATE $PUBLIC_KEY_Y_COORDINATE $ECDSA_V $ECDSA_R $ECDSA_S) \
+    -vvv \
+    script/${SCRIBE_FLAVOUR}.s.sol:${SCRIBE_FLAVOUR}Script
+```
+
+### `IScribe::lift multiple`
+
+Set the following environment variables:
+
+- `PUBLIC_KEY_X_COORDINATES`: The feeds' public keys' `x` coordinates
+- `PUBLIC_KEY_Y_COORDINATES`: The feeds' public keys' `y` coordinates
+- `ECDSA_VS`: The feeds' `feedRegistrationMessage` ECDSA signatures' `v` fields
+- `ECDSA_RS`: The feeds' `feedRegistrationMessage` ECDSA signatures' `r` fields
+    - Note that the values must be provided as `bytes32`
+- `ECDSA_SS`: The feeds' `feedRegistrationMessage` ECDSA signatures' `s` fields
+    - Note that the values must be provided as `bytes32`
+
+Note to use the following format for lists: `"[<elem>,<elem>]"`
+
+Run:
+
+```bash
+$ forge script \
+    --private-key $PRIVATE_KEY \
+    --broadcast \
+    --rpc-url $RPC_URL \
+    --sig $(cast calldata "lift(address,uint[],uint[],uint8[],bytes32[],bytes32[])" $SCRIBE $PUBLIC_KEY_X_COORDINATES $PUBLIC_KEY_Y_COORDINATES $ECDSA_VS $ECDSA_RS $ECDSA_SS) \
     -vvv \
     script/${SCRIBE_FLAVOUR}.s.sol:${SCRIBE_FLAVOUR}Script
 ```
