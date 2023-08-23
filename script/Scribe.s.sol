@@ -96,11 +96,8 @@ contract ScribeScript is Script {
             recovered != address(0),
             "Invalid ECDSA signature: recovered address is zero"
         );
-
-        address expected =
-            LibSecp256k1.Point(pubKeyXCoordinate, pubKeyYCoordinate).toAddress();
         require(
-            expected == recovered,
+            pubKey.toAddress() == recovered,
             "Invalid ECDSA signature: does not recover to feed's address"
         );
 
@@ -109,6 +106,76 @@ contract ScribeScript is Script {
         vm.stopBroadcast();
 
         console2.log("Lifted", pubKey.toAddress());
+    }
+
+    /// @dev Lifts feeds with public keys `pubKeyXCoordinates` `pubKeyYCoordinates`.
+    ///      Note that the ECDSA signatures signing
+    ///      IScribe::feedRegistrationMessage() must be valid.
+    function lift(
+        address self,
+        uint[] memory pubKeyXCoordinates,
+        uint[] memory pubKeyYCoordinates,
+        uint8[] memory vs,
+        bytes32[] memory rs,
+        bytes32[] memory ss
+    ) public {
+        uint len = pubKeyXCoordinates.length;
+        require(
+            len == pubKeyYCoordinates.length,
+            "pubKeyYCoordinates length mismatch"
+        );
+        require(len == vs.length, "vs length mismatch");
+        require(len == rs.length, "rs length mismatch");
+        require(len == ss.length, "ss length mismatch");
+
+        LibSecp256k1.Point[] memory pubKeys = new LibSecp256k1.Point[](len);
+        for (uint i; i < len; i++) {
+            pubKeys[i].x = pubKeyXCoordinates[i];
+            pubKeys[i].y = pubKeyYCoordinates[i];
+
+            require(
+                !pubKeys[i].isZeroPoint(), "Public key cannot be zero point"
+            );
+            require(
+                pubKeys[i].isOnCurve(),
+                "Public key must be valid secp256k1 point"
+            );
+            bool isFeed;
+            (isFeed, /*feedIndex*/ ) =
+                IScribe(self).feeds(pubKeys[i].toAddress());
+            require(!isFeed, "Public key already lifted");
+        }
+
+        IScribe.ECDSAData[] memory ecdsaDatas = new IScribe.ECDSAData[](len);
+        for (uint i; i < len; i++) {
+            ecdsaDatas[i].v = vs[i];
+            ecdsaDatas[i].r = rs[i];
+            ecdsaDatas[i].s = ss[i];
+
+            address recovered = ecrecover(
+                IScribe(self).feedRegistrationMessage(),
+                ecdsaDatas[i].v,
+                ecdsaDatas[i].r,
+                ecdsaDatas[i].s
+            );
+            require(
+                recovered != address(0),
+                "Invalid ECDSA signature: recovered address is zero"
+            );
+            require(
+                pubKeys[i].toAddress() == recovered,
+                "Invalid ECDSA signature: does not recover to feed's address"
+            );
+        }
+
+        vm.startBroadcast();
+        IScribe(self).lift(pubKeys, ecdsaDatas);
+        vm.stopBroadcast();
+
+        console2.log("Lifted:");
+        for (uint i; i < len; i++) {
+            console2.log("  ", pubKeys[i].toAddress());
+        }
     }
 
     /// @dev Drops feed with index `feedIndex`.
