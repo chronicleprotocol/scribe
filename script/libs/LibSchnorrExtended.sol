@@ -23,7 +23,6 @@ library LibSchnorrExtended {
     ///      `message` via `privKey`.
     function signMessage(uint privKey, bytes32 message)
         internal
-        view
         returns (uint, address)
     {
         LibSecp256k1.Point memory pubKey = privKey.derivePublicKey();
@@ -63,7 +62,6 @@ library LibSchnorrExtended {
     ///      (signature, commitment) signing `message` via `privKeys`.
     function signMessage(uint[] memory privKeys, bytes32 message)
         internal
-        view
         returns (uint, address)
     {
         // 1. Collect list of pubKeys of signers.
@@ -183,7 +181,6 @@ library LibSchnorrExtended {
 
     function computeNoncePublicKey(uint nonce)
         internal
-        pure
         returns (LibSecp256k1.Point memory)
     {
         // R = [k]G

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.16;
 
+import {Vm} from "forge-std/Vm.sol";
+
 import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
 
 /**
@@ -12,6 +14,9 @@ library LibSecp256k1Extended {
     using LibSecp256k1 for LibSecp256k1.Point;
     using LibSecp256k1 for LibSecp256k1.JacobianPoint;
     using LibSecp256k1Extended for LibSecp256k1.JacobianPoint;
+
+    Vm private constant vm =
+        Vm(address(uint160(uint(keccak256("hevm cheat code")))));
 
     // -- Secp256k1 Constants --
     //
@@ -27,18 +32,34 @@ library LibSecp256k1Extended {
 
     function derivePublicKey(uint privKey)
         internal
-        pure
         returns (LibSecp256k1.Point memory)
     {
-        LibSecp256k1.JacobianPoint memory jacResult;
-        jacResult = LibSecp256k1.G().toJacobian().mul(privKey);
+        Vm.Wallet memory wallet = vm.createWallet(privKey);
 
-        uint z = invMod(jacResult.z);
+        return LibSecp256k1.Point({x: wallet.publicKeyX, y: wallet.publicKeyY});
 
-        return LibSecp256k1.Point({
-            x: mulmod(jacResult.x, z, P),
-            y: mulmod(jacResult.y, z, P)
-        });
+        // Note that the public key can also be computed manually.
+        //
+        // Manual computation was used before forge-std supported public key
+        // derivation, see https://github.com/foundry-rs/foundry/issues/4790.
+        //
+        // Note that using the vm cheatcode increases the test suite's
+        // performance by ~5x.
+        //
+        // The code is kept as documentation. Note that all other functions in
+        // this library are now unused.
+        //
+        // Manual computation of public key:
+        //
+        // LibSecp256k1.JacobianPoint memory jacResult;
+        // jacResult = LibSecp256k1.G().toJacobian().mul(privKey);
+        //
+        // uint z = invMod(jacResult.z);
+        //
+        // return LibSecp256k1.Point({
+        //     x: mulmod(jacResult.x, z, P),
+        //     y: mulmod(jacResult.y, z, P)
+        // });
     }
 
     function mul(LibSecp256k1.JacobianPoint memory self, uint scalar)

@@ -42,8 +42,6 @@ runs = 10_000
 
 # Profile for CI testing
 # Run via `FOUNDRY_PROFILE=ci forge t`
-# @todo Use intense profile once testsuite more performant.
-#       See https://github.com/foundry-rs/foundry/issues/4790
 [profile.ci]
 [profile.ci.fuzz]
 runs = 100
