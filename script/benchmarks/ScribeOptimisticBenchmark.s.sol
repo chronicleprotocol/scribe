@@ -156,7 +156,6 @@ contract ScribeOptimisticBenchmark is Script {
 
     function _createFeeds(uint amount)
         internal
-        pure
         returns (LibFeed.Feed[] memory)
     {
         uint startPrivKey = 2;
