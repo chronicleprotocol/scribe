@@ -20,6 +20,7 @@ import {LibFeed} from "../libs/LibFeed.sol";
  *      This script may only be used for dev deployments!
  */
 contract ScribeOptimisticTesterScript is ScribeTesterScript {
+/*
     using LibSecp256k1 for LibSecp256k1.Point;
     using LibFeed for LibFeed.Feed;
     using LibFeed for LibFeed.Feed[];
@@ -242,4 +243,5 @@ contract ScribeOptimisticTesterScript is ScribeTesterScript {
 
         console2.log(string.concat("OpChallenged, ok=", vm.toString(ok)));
     }
+    */
 }

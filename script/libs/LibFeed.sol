@@ -35,22 +35,14 @@ library LibFeed {
         uint8 index;
     }
 
-    /// @dev Returns a new feed instance with private key `privKey` and feed
-    ///      index 0. Note that 0 is never a valid index!
+    /// @dev Returns a new feed instance with private key `privKey`.
     function newFeed(uint privKey) internal returns (Feed memory) {
-        return newFeed(privKey, 0);
-    }
+        LibSecp256k1.Point memory pubKey = privKey.derivePublicKey();
 
-    /// @dev Returns a new feed instance with private key `privKey` and feed
-    ///      index `index` in a Scribe instance.
-    function newFeed(uint privKey, uint8 index)
-        internal
-        returns (Feed memory)
-    {
         return Feed({
             privKey: privKey,
-            pubKey: privKey.derivePublicKey(),
-            index: index
+            pubKey: pubKey,
+            index: uint8(uint(uint160(pubKey.toAddress())) >> 152)
         });
     }
 
@@ -94,11 +86,12 @@ library LibFeed {
         }
         (uint signature, address commitment) = privKeys.signMessage(message);
 
-        // Create signersBlob with sorted indexes.
+        // Create signersBlob from feed's indexes.
+        //
+        // @audit Note that signersBlob does not need to be sorted anymore.
         bytes memory signersBlob;
-        uint8[] memory sortedIndexes = selfs.getIndexesSortedByAddress();
-        for (uint i; i < sortedIndexes.length; i++) {
-            signersBlob = abi.encodePacked(signersBlob, sortedIndexes[i]);
+        for (uint i; i < selfs.length; i++) {
+            signersBlob = abi.encodePacked(signersBlob, selfs[i].index);
         }
 
         return IScribe.SchnorrData({
@@ -108,6 +101,8 @@ library LibFeed {
         });
     }
 
+    // @todo Not needed anymore.
+    /*
     /// @dev Returns a Schnorr multi-signature (aggregated signature) of type
     ///      IScribe.SchnorrData signing `message` via `selfs`' private keys.
     ///      Note that SchnorrData's signersBlob is not ordered and the signature
@@ -186,4 +181,5 @@ library LibFeed {
         // Return sorted list of indexes.
         return indexes;
     }
+    */
 }

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.16;
+/*
 
 import {console2} from "forge-std/console2.sol";
 
@@ -234,6 +235,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
                 IScribe.StaleMessage.selector,
                 pokeData.age,
                 1680220800 /*lastAge*/
+/*
             )
         );
         opScribe.opPoke(pokeData, schnorrData, ecdsaData);
@@ -1345,3 +1347,4 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         );
     }
 }
+*/

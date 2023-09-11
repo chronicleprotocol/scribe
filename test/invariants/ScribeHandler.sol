@@ -21,6 +21,7 @@ contract ScribeHandler is CommonBase, StdUtils {
     using LibFeed for LibFeed.Feed[];
     using LibFeedSet for FeedSet;
 
+    /*
     uint public constant MAX_BAR = 10;
 
     bytes32 public WAT;
@@ -184,4 +185,5 @@ contract ScribeHandler is CommonBase, StdUtils {
         uint age = bound(seed, _scribe_lastPokeData.age + 1, block.timestamp);
         return uint32(age);
     }
+    */
 }

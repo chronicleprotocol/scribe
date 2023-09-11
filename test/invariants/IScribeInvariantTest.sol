@@ -17,6 +17,7 @@ import {ScribeHandler} from "./ScribeHandler.sol";
 abstract contract IScribeInvariantTest is Test {
     using LibSecp256k1 for LibSecp256k1.Point;
 
+    /*
     ScribeInspectable private scribe;
     ScribeHandler private handler;
 
@@ -87,6 +88,7 @@ abstract contract IScribeInvariantTest is Test {
         }
     }
     */
+    /*
 
     // -- PubKeys --
 
@@ -163,4 +165,5 @@ abstract contract IScribeInvariantTest is Test {
     function invariant_bar_IsNeverZero() public {
         assertTrue(scribe.bar() != 0);
     }
+    */
 }

@@ -21,6 +21,7 @@ contract ScribeTesterScript is Script {
     using LibSecp256k1 for LibSecp256k1.Point;
     using LibFeed for LibFeed.Feed;
     using LibFeed for LibFeed.Feed[];
+    /*
 
     /// @dev Lifts set of private keys `privKeys` on `self`.
     ///
@@ -141,4 +142,5 @@ contract ScribeTesterScript is Script {
             )
         );
     }
+    */
 }

@@ -49,6 +49,7 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
 
     // -- Constructor and Receive Functionality --
 
+    // @todo Make constructor payable.
     constructor(address initialAuthed, bytes32 wat_)
         Scribe(initialAuthed, wat_)
     {
@@ -156,13 +157,17 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         );
 
         // Load signer's index.
-        uint signerIndex = _feeds[signer];
+        // @todo Compute signer index.
+        uint signerIndex = uint(uint160(signer)) >> 152;
+        //uint signerIndex = _feeds[signer];
 
         // Revert if signer not feed.
+        // @todo Use sloadPubKey(signerIndex).isZeroPoint()
         if (signerIndex == 0) {
             revert SignerNotFeed(signer);
         }
 
+        // @todo Make signerIndex directly uint8?
         // Store the signerIndex as opFeedIndex and bind them to their provided
         // schnorrData.
         //
@@ -198,6 +203,7 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         emit OpPoked(msg.sender, signer, schnorrData, pokeData);
     }
 
+    // @todo Make payable.
     /// @inheritdoc IScribeOptimistic
     function opChallenge(SchnorrData calldata schnorrData)
         external
@@ -244,6 +250,10 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         );
 
         if (ok) {
+            // @todo Remove this code path. Challenge may only delete invalid price and kick
+            //       feed. If you wanna update price, use poke. opPoke has new invariant of
+            //       only - but always if valid - finalized after opChallengePeriod.
+
             // Decide whether _opPokeData stale already.
             bool opPokeDataStale = opPokeData.age <= _pokeData.age;
 
@@ -433,6 +443,8 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
     }
 
     // -- Auth'ed Functionality --
+
+    // @todo Make all functions payable.
 
     /// @inheritdoc IScribeOptimistic
     function setOpChallengePeriod(uint16 opChallengePeriod_) external auth {

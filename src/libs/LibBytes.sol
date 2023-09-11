@@ -7,6 +7,8 @@ pragma solidity ^0.8.16;
  * @notice Library for common byte operations
  */
 library LibBytes {
+    // @todo Should return uint8.
+
     /// @dev Returns the `index`'s byte from `word`.
     ///
     ///      It is the caller's responsibility to ensure `index < 32`!

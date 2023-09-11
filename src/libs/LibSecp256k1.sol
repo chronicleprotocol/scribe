@@ -66,8 +66,6 @@ library LibSecp256k1 {
     ///      See "Appendix F: Signing Transactions" §134 in the Yellow Paper.
     function toAddress(Point memory self) internal pure returns (address) {
         address addr;
-        // Functionally equivalent Solidity code:
-        // addr = address(uint160(uint(keccak256(abi.encode(self.x, self.y)))));
         assembly ("memory-safe") {
             addr := and(keccak256(self, 0x40), ADDRESS_MASK)
         }
@@ -85,6 +83,9 @@ library LibSecp256k1 {
 
     /// @dev Returns whether `self` is the zero point.
     function isZeroPoint(Point memory self) internal pure returns (bool) {
+        // @todo Could be optimized to self.x == 0.
+        //       This is because there exists no _valid_ public key with
+        //       x coordinate of zero.
         return (self.x | self.y) == 0;
     }
 

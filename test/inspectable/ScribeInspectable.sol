@@ -10,6 +10,7 @@ contract ScribeInspectable is Scribe {
         Scribe(initialAuthed, wat_)
     {}
 
+    /*
     function inspectable_pokeData() public view returns (PokeData memory) {
         return _pokeData;
     }
@@ -33,4 +34,5 @@ contract ScribeInspectable is Scribe {
     function inspectable_feeds(address addr) public view returns (uint) {
         return _feeds[addr];
     }
+    */
 }

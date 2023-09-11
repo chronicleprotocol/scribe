@@ -46,6 +46,7 @@ import {LibFeed} from "script/libs/LibFeed.sol";
 contract ScribeOptimisticBenchmark is Script {
     using LibFeed for LibFeed.Feed;
     using LibFeed for LibFeed.Feed[];
+    /*
 
     /// @dev Anvil's default mnemonic.
     string internal constant ANVIL_MNEMONIC =
@@ -170,4 +171,5 @@ contract ScribeOptimisticBenchmark is Script {
 
         return feeds;
     }
+    */
 }
