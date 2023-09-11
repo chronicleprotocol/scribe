@@ -50,6 +50,7 @@ import {IScribeChaincheck} from "./IScribeChaincheck.sol";
  *              }
  *          },
  *          "IAuth": {
+ *              "disabled": <bool>,
  *              "legacy": <bool>,
  *              "authed": [
  *                  "<Ethereum address>",
@@ -57,6 +58,7 @@ import {IScribeChaincheck} from "./IScribeChaincheck.sol";
  *              ]
  *          },
  *          "IToll": {
+ *              "disabled": <bool>,
  *              "legacy": <bool>,
  *              "authed": [
  *                  "<Ethereum address>",

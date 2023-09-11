@@ -56,6 +56,7 @@ import {
  *              }
  *          },
  *          "IAuth": {
+ *              "disabled": <bool>,
  *              "legacy": <bool>,
  *              "authed": [
  *                  "<Ethereum address>",
@@ -63,6 +64,7 @@ import {
  *              ]
  *          },
  *          "IToll": {
+ *              "disabled": <bool>,
  *              "legacy": <bool>,
  *              "authed": [
  *                  "<Ethereum address>",
