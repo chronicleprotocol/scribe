@@ -53,6 +53,8 @@ contract ScribeScript is Script {
 
     // -- IScribe Functions --
 
+    // -- Mutating Functions
+
     /// @dev Sets bar of `self` to `bar`.
     function setBar(address self, uint8 bar) public {
         require(bar != 0, "Bar cannot be zero");
@@ -187,6 +189,51 @@ contract ScribeScript is Script {
         vm.stopBroadcast();
 
         console2.log("Dropped", feedIndex);
+    }
+
+    // -- View Functions
+
+    /// @dev Prints instance's `self` current price and age.
+    ///
+    ///      Note that RPC_URL env variable must be set!
+    function readWithAge(address self) public {
+        string memory rpc = vm.envString("RPC_URL");
+        require(bytes(rpc).length != 0, "No RPC_URL env variable set");
+
+        vm.createSelectFork(rpc);
+
+        address[] memory authed = IAuth(self).authed();
+        require(authed.length != 0, "No address auth'ed");
+
+        vm.prank(authed[0]);
+        IToll(self).kiss(address(0xcafe));
+
+        vm.startPrank(address(0xcafe));
+        bool ok;
+        uint price;
+        uint age;
+        (ok, price, age) = IScribe(self).tryReadWithAge();
+        require(ok, "Read failed");
+
+        // Print price with decimal point.
+        // Note that `cast to-fixed-point [DECIMALS] [VALUE]` is used.
+        // @todo Remove ffi call once forge-std supports fixed-point
+        //       formatting natively.
+        //       See https://github.com/foundry-rs/foundry/issues/5106#issuecomment-1589721658.
+        assert(IScribe(self).decimals() == 18);
+        string memory priceOut;
+        {
+            string[] memory inputs = new string[](4);
+            inputs[0] = "cast";
+            inputs[1] = "to-fixed-point";
+            inputs[2] = vm.toString(uint(18));
+            inputs[3] = vm.toString(price);
+            priceOut = string(vm.ffi(inputs));
+        }
+
+        console2.log(
+            string.concat("price=", priceOut, ", age=", vm.toString(age))
+        );
     }
 
     // -- IAuth Functions --
