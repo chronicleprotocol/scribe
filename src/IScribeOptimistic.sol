@@ -122,9 +122,9 @@ interface IScribeOptimistic is IScribe {
         SchnorrData calldata schnorrData
     ) external view returns (bytes32 opPokeMessage);
 
-    /// @notice Returns the feed index of the feed last opPoke'd.
-    /// @return opFeedIndex Feed index of the feed last opPoke'd.
-    function opFeedIndex() external view returns (uint8 opFeedIndex);
+    /// @notice Returns the id of the feed last opPoke'd.
+    /// @return opFeedId Feed id of the feed last opPoke'd.
+    function opFeedId() external view returns (uint8 opFeedId);
 
     /// @notice Returns the opChallengePeriod security parameter.
     /// @return opChallengePeriod The opChallengePeriod security parameter.

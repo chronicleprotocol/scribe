@@ -14,6 +14,12 @@ import {LibSecp256k1} from "./libs/LibSecp256k1.sol";
 import {LibSchnorrData} from "./libs/LibSchnorrData.sol";
 
 /**
+ Terminology:
+    - feed = address
+    - feedId = first byte of feed
+ */
+
+/**
  * @title Scribe
  * @custom:version 1.1.0
  *
@@ -24,9 +30,6 @@ contract Scribe is IScribe, Auth, Toll {
     using LibSecp256k1 for LibSecp256k1.Point;
     using LibSecp256k1 for LibSecp256k1.JacobianPoint;
     using LibSchnorrData for SchnorrData;
-
-    /// @inheritdoc IScribe
-    uint public constant maxFeeds = uint(type(uint8).max) + 1;
 
     /// @inheritdoc IScribe
     uint8 public constant decimals = 18;
@@ -156,45 +159,45 @@ contract Scribe is IScribe, Auth, Toll {
         bytes32 message,
         SchnorrData calldata schnorrData
     ) internal view returns (bool, bytes memory) {
-        LibSecp256k1.Point memory signerPubKey;
-        uint signerId;
+        LibSecp256k1.Point memory feedPubKey;
+        uint8 feedId;
         LibSecp256k1.JacobianPoint memory aggPubKey;
 
-        uint numberSigners = schnorrData.getSignerIndexLength();
-        if (numberSigners != bar) {
-            return (false, _errorBarNotReached(uint8(numberSigners), bar));
+        uint numberFeeds = schnorrData.numberFeeds();
+        if (numberFeeds != bar) {
+            return (false, _errorBarNotReached(uint8(numberFeeds), bar));
         }
 
-        signerId = schnorrData.getSignerIndex(0);
-        signerPubKey = sloadPubKey(signerId);
-        if (signerPubKey.isZeroPoint()) {
-            return (false, _errorSignerNotFeed(signerPubKey.toAddress()));
+        feedId = schnorrData.loadFeedId(0);
+        feedPubKey = sloadPubKey(feedId);
+        if (feedPubKey.isZeroPoint()) {
+            return (false, _errorSignerNotFeed(feedPubKey.toAddress()));
         }
 
-        uint bloom = 1 << signerId;
+        uint bloom = 1 << uint(feedId);
 
         // @audit Note that there exists no neutral element for addition.
-        aggPubKey = signerPubKey.toJacobian();
+        aggPubKey = feedPubKey.toJacobian();
 
         for (uint i = 1; i < bar;) {
-            signerId = schnorrData.getSignerIndex(i);
-            signerPubKey = sloadPubKey(signerId);
-            if (signerPubKey.isZeroPoint()) {
-                return (false, _errorSignerNotFeed(signerPubKey.toAddress()));
+            feedId = schnorrData.loadFeedId(i);
+            feedPubKey = sloadPubKey(feedId);
+            if (feedPubKey.isZeroPoint()) {
+                return (false, _errorSignerNotFeed(feedPubKey.toAddress()));
             }
 
             // @todo For own verification.
             // forgefmt: disable-next-item
-            { uint sl = uint(uint160(signerPubKey.toAddress())) >> 152; assert(sl == signerId); }
+            { uint sl = uint(uint160(feedPubKey.toAddress())) >> 152; assert(sl == feedId); }
 
             // Bloom filter for signer uniqueness.
-            if (bloom & (1 << signerId) != 0) {
+            if (bloom & (1 << uint(feedId)) != 0) {
                 // @todo Fix error type.
                 return (false, _errorSignersNotOrdered());
             }
-            bloom |= 1 << signerId;
+            bloom |= 1 << uint(feedId);
 
-            aggPubKey.addAffinePoint(signerPubKey);
+            aggPubKey.addAffinePoint(feedPubKey);
 
             // forgefmt: disable-next-item
             unchecked { ++i; }
@@ -296,15 +299,15 @@ contract Scribe is IScribe, Auth, Toll {
     // -- Public Read Functionality --
 
     function feeds(address who) external view returns (bool, uint) {
-        uint index = uint(uint160(who)) >> 152;
+        uint8 feedId = uint8(uint(uint160(who)) >> 152);
 
         // @todo Note that interface is changed slightly!
         //       Before, zero index was returned if not feed.
-        return (!sloadPubKey(index).isZeroPoint(), index);
+        return (!sloadPubKey(feedId).isZeroPoint(), feedId);
     }
 
-    function feeds(uint index) external view returns (bool, address) {
-        LibSecp256k1.Point memory pubKey = sloadPubKey(index);
+    function feeds(uint8 feedId) external view returns (bool, address) {
+        LibSecp256k1.Point memory pubKey = sloadPubKey(feedId);
 
         if (pubKey.isZeroPoint()) {
             return (false, address(0));
@@ -317,7 +320,7 @@ contract Scribe is IScribe, Auth, Toll {
     // @todo Make gas benchmarks to check whether paginated function necessary.
     function feeds() external view returns (address[] memory, uint[] memory) {
         // Initiate arrays with upper limit length.
-        address[] memory feeds = new address[](256);
+        address[] memory feeds_ = new address[](256);
         uint[] memory ids = new uint[](256);
 
         LibSecp256k1.Point memory pubKey;
@@ -326,13 +329,13 @@ contract Scribe is IScribe, Auth, Toll {
         uint ctr;
 
         for (uint i; i < 256;) {
-            pubKey = sloadPubKey(i);
+            pubKey = sloadPubKey(uint8(i));
 
             if (!pubKey.isZeroPoint()) {
                 feed = pubKey.toAddress();
                 id = uint(uint160(feed)) >> 152;
 
-                feeds[ctr] = feed;
+                feeds_[ctr] = feed;
                 ids[ctr] = id;
 
                 // forgefmt: disable-next-item
@@ -344,11 +347,11 @@ contract Scribe is IScribe, Auth, Toll {
         }
 
         assembly ("memory-safe") {
-            mstore(feeds, ctr)
+            mstore(feeds_, ctr)
             mstore(ids, ctr)
         }
 
-        return (feeds, ids);
+        return (feeds_, ids);
     }
 
     // -- Auth'ed Functionality --
@@ -356,7 +359,7 @@ contract Scribe is IScribe, Auth, Toll {
     function lift(LibSecp256k1.Point memory pubKey, ECDSAData memory ecdsaData)
         external
         auth
-        returns (uint)
+        returns (uint8)
     {
         return _lift(pubKey, ecdsaData);
     }
@@ -364,10 +367,10 @@ contract Scribe is IScribe, Auth, Toll {
     function lift(
         LibSecp256k1.Point[] memory pubKeys,
         ECDSAData[] memory ecdsaDatas
-    ) external auth returns (uint[] memory) {
+    ) external auth returns (uint8[] memory) {
         require(pubKeys.length == ecdsaDatas.length);
 
-        uint[] memory indexes = new uint[](pubKeys.length);
+        uint8[] memory indexes = new uint8[](pubKeys.length);
         for (uint i; i < pubKeys.length;) {
             indexes[i] = _lift(pubKeys[i], ecdsaDatas[i]);
 
@@ -380,7 +383,7 @@ contract Scribe is IScribe, Auth, Toll {
 
     function _lift(LibSecp256k1.Point memory pubKey, ECDSAData memory ecdsaData)
         internal
-        returns (uint)
+        returns (uint8)
     {
         address feed = pubKey.toAddress();
         // assert(feed != address(0));
@@ -398,44 +401,42 @@ contract Scribe is IScribe, Auth, Toll {
         //       However, currently not used.
         assert(pubKey.x != 0);
 
-        uint index = uint(uint160(feed)) >> 152;
+        uint8 feedId = uint8(uint(uint160(feed)) >> 152);
 
-        LibSecp256k1.Point memory sPubKey = sloadPubKey(index);
+        LibSecp256k1.Point memory sPubKey = sloadPubKey(feedId);
         if (sPubKey.isZeroPoint()) {
             // invariant: lift can only _pubKeys[index] == zero -> _pubKeys[index] != zero
-            sstorePubKey(index, pubKey);
+            sstorePubKey(feedId, pubKey);
 
-            emit FeedLifted(msg.sender, feed, index);
+            emit FeedLifted(msg.sender, feed, feedId);
         } else {
             // Note to make sure to be idempotent. However, disallow updating an
             // id's feed via lifting without dropping the previous feed.
             require(feed == sPubKey.toAddress());
         }
 
-        return index;
+        return feedId;
     }
 
-    function drop(uint index) external auth {
-        _drop(msg.sender, index);
+    function drop(uint8 feedId) external auth {
+        _drop(msg.sender, feedId);
     }
 
-    function drop(uint[] memory indexes) external auth {
-        for (uint i; i < indexes.length;) {
-            _drop(msg.sender, indexes[i]);
+    function drop(uint8[] memory feedIds) external auth {
+        for (uint i; i < feedIds.length;) {
+            _drop(msg.sender, feedIds[i]);
 
             // forgefmt: disable-next-item
             unchecked { ++i; }
         }
     }
 
-    function _drop(address caller, uint index) internal virtual {
-        require(index <= maxFeeds);
-
-        LibSecp256k1.Point memory pubKey = sloadPubKey(index);
+    function _drop(address caller, uint8 feedId) internal virtual {
+        LibSecp256k1.Point memory pubKey = sloadPubKey(feedId);
         if (!pubKey.isZeroPoint()) {
-            sstorePubKey(index, LibSecp256k1.ZERO_POINT());
+            sstorePubKey(feedId, LibSecp256k1.ZERO_POINT());
 
-            emit FeedDropped(caller, pubKey.toAddress(), index);
+            emit FeedDropped(caller, pubKey.toAddress(), feedId);
         }
     }
 
@@ -455,16 +456,14 @@ contract Scribe is IScribe, Auth, Toll {
 
     // -- Internal Helpers --
 
-    function sloadPubKey(uint index)
+    function sloadPubKey(uint8 index)
         internal
         view
         returns (LibSecp256k1.Point memory)
     {
-        LibSecp256k1.Point memory pubKey;
+        //LibSecp256k1.Point memory pubKey;
 
         // @todo shl(index, 1) = index * 2 = index * size of point
-
-        assert(index <= maxFeeds);
 
         // @todo Get rid of index out of bounds check.
         return _pubKeys[index];
@@ -491,16 +490,15 @@ contract Scribe is IScribe, Auth, Toll {
         */
     }
 
-    function sstorePubKey(uint index, LibSecp256k1.Point memory pubKey)
+    function sstorePubKey(uint8 index, LibSecp256k1.Point memory pubKey)
         internal
     {
-        assert(index <= maxFeeds);
         assert(
             pubKey.isZeroPoint()
-                || uint(uint160(pubKey.toAddress())) >> 152 == index
+                || uint(uint160(pubKey.toAddress())) >> 152 == uint(index)
         );
 
-        _pubKeys[index] = pubKey;
+        _pubKeys[uint(index)] = pubKey;
 
         /*
         assembly ("memory-safe") {

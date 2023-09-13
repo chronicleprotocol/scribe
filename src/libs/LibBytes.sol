@@ -7,8 +7,6 @@ pragma solidity ^0.8.16;
  * @notice Library for common byte operations
  */
 library LibBytes {
-    // @todo Should return uint8.
-
     /// @dev Returns the `index`'s byte from `word`.
     ///
     ///      It is the caller's responsibility to ensure `index < 32`!
@@ -17,14 +15,12 @@ library LibBytes {
     function getByteAtIndex(uint word, uint index)
         internal
         pure
-        returns (uint)
+        returns (uint8)
     {
-        uint result;
+        uint8 result;
         assembly ("memory-safe") {
             result := byte(sub(31, index), word)
         }
-
-        // Note that the resulting byte is returned as word.
         return result;
     }
 }

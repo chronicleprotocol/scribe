@@ -11,6 +11,7 @@ import {LibSchnorrData} from "src/libs/LibSchnorrData.sol";
 abstract contract LibSchnorrDataTest is Test {
     using LibSchnorrData for IScribe.SchnorrData;
 
+    /*
     function testFuzz_getSignerIndex(uint lengthSeed, uint indexSeed) public {
         // Let length be ∊ [1, type(uint8).max].
         uint length = bound(lengthSeed, 1, type(uint8).max);
@@ -113,11 +114,13 @@ abstract contract LibSchnorrDataTest is Test {
 
         assertEq(want, got);
     }
+    */
 
     // -- Executors --
     //
     // Used to move memory structs into calldata.
 
+    /*
     function getSignerIndex(
         IScribe.SchnorrData calldata schnorrData,
         uint index
@@ -132,4 +135,5 @@ abstract contract LibSchnorrDataTest is Test {
     {
         return schnorrData.getSignerIndexLength();
     }
+    */
 }

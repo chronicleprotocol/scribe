@@ -10,7 +10,7 @@ abstract contract LibBytesTest is Test {
 
     function testFuzz_getByteAtIndex(uint8 wantByte, uint indexSeed) public {
         // Let index ∊ [0, 32).
-        uint index = bound(indexSeed, 0, 31);
+        uint index = _bound(indexSeed, 0, 31);
 
         // Create word with wantByte at byte index.
         uint word = uint(wantByte) << (index * 8);
@@ -23,8 +23,8 @@ abstract contract LibBytesTest is Test {
     function test_getByteAtIndex() public {
         uint word;
         uint index;
-        uint want;
-        uint got;
+        uint8 want;
+        uint8 got;
 
         // Most significant byte.
         word =

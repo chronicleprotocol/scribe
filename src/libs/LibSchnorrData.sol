@@ -16,30 +16,32 @@ library LibSchnorrData {
     /// @dev Size of a word is 32 bytes, i.e. 256 bits.
     uint private constant WORD_SIZE = 32;
 
-    /// @dev Returns the signer index from schnorrData.signersBlob with index
-    ///      `index`.
+    uint private constant BYTE_BOUNDARY_MASK = type(uint).max >> (256 - 5);
+
+    // @todo Docs
+    /// @dev Returns the feedId from schnorrData.feedIds with index `index`.
     ///
-    /// @dev Note that schnorrData.signersBlob is big-endian encoded and
-    ///      counting starts at the highest order byte, i.e. the signer index 0
-    ///      is the highest order byte of schnorrData.signersBlob.
+    /// @dev Note that schnorrData.feedIds is big-endian encoded and
+    ///      counting starts at the highest order byte, i.e. the feedId 0 is
+    ///      the highest order byte of schnorrData.feedIds.
     ///
-    /// @custom:example SignersBlob encoding via Solidity:
+    /// @custom:example FeedIds encoding via Solidity:
     ///
     ///      ```solidity
-    ///      bytes memory signersBlob;
+    ///      bytes memory feedIds;
     ///      uint8[] memory indexes = someFuncReturningUint8Array();
     ///      for (uint i; i < indexes.length; i++) {
-    ///          signersBlob = abi.encodePacked(signersBlob, indexes[i]);
+    ///          feedIds = abi.encodePacked(feedIds, indexes[i]);
     ///      }
     ///      ```
     ///
     /// @dev Calldata layout for `schnorrData`:
     ///
-    ///      [schnorrData]        signature             -> schnorrData.signature
-    ///      [schnorrData + 0x20] commitment            -> schnorrData.commitment
-    ///      [schnorrData + 0x40] offset(signersBlob)
-    ///      [schnorrData + 0x60] len(signersBlob)      -> schnorrData.signersBlob.length
-    ///      [schnorrData + 0x80] signersBlob[0]        -> schnorrData.signersBlob[0]
+    ///      [schnorrData]        signature        -> schnorrData.signature
+    ///      [schnorrData + 0x20] commitment       -> schnorrData.commitment
+    ///      [schnorrData + 0x40] offset(feedIds)
+    ///      [schnorrData + 0x60] len(feedIds)     -> schnorrData.feedIds.length
+    ///      [schnorrData + 0x80] feedIds[0]       -> schnorrData.feedIds[0]
     ///      ...
     ///
     ///      Note that the `schnorrData` variable holds the offset to the
@@ -53,14 +55,14 @@ library LibSchnorrData {
     ///      assert(signature == schnorrData.signature)
     ///      ```
     ///
-    ///      Note that `offset(signersBlob)` is the offset to `signersBlob[0]`
-    ///      from the index `offset(signersBlob)`.
+    ///      Note that `offset(feedIds)` is the offset to `feedIds[0]` from the
+    ///      index `offset(feedIds)`.
     ///
     /// @custom:invariant Reverts iff out of gas.
-    function getSignerIndex(
+    function loadFeedId(
         IScribe.SchnorrData calldata schnorrData,
         uint index
-    ) internal pure returns (uint) {
+    ) internal pure returns (uint8) {
         uint word;
         assembly ("memory-safe") {
             let wordIndex := mul(div(index, WORD_SIZE), WORD_SIZE)
@@ -75,28 +77,23 @@ library LibSchnorrData {
             word := calldataload(add(start, wordIndex))
         }
 
-        // Unchecked because the subtrahend is guaranteed to be less than or
-        // equal to 31 due to being a (mod 32) result.
-        uint byteIndex;
-        unchecked {
-            byteIndex = 31 - (index % WORD_SIZE);
-        }
+        uint byteIndex = (~index) & BYTE_BOUNDARY_MASK;
 
         return word.getByteAtIndex(byteIndex);
     }
 
-    /// @dev Returns the number of signers encoded in schnorrData.signersBlob.
-    function getSignerIndexLength(IScribe.SchnorrData calldata schnorrData)
+    /// @dev Returns the number of feed ids' encoded in schnorrData.feedIds.
+    function numberFeeds(IScribe.SchnorrData calldata schnorrData)
         internal
         pure
-        returns (uint)
+        returns (uint8)
     {
-        uint index;
+        uint8 result;
         assembly ("memory-safe") {
-            // Calldata index for schnorrData.signersBlob.length is
+            // Calldata index for schnorrData.feedIds.length is
             // schnorrData's offset plus 3 words, i.e. 0x60.
-            index := calldataload(add(schnorrData, 0x60))
+            result := calldataload(add(schnorrData, 0x60))
         }
-        return index;
+        return result;
     }
 }

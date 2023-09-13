@@ -28,11 +28,11 @@ library LibFeed {
         Vm(address(uint160(uint(keccak256("hevm cheat code")))));
 
     /// @dev Feed encapsulates a private key, derived public key, and the
-    ///      public keys index in a Scribe instance.
+    ///      corresponding feed id.
     struct Feed {
         uint privKey;
         LibSecp256k1.Point pubKey;
-        uint8 index;
+        uint8 id;
     }
 
     /// @dev Returns a new feed instance with private key `privKey`.
@@ -42,7 +42,7 @@ library LibFeed {
         return Feed({
             privKey: privKey,
             pubKey: pubKey,
-            index: uint8(uint(uint160(pubKey.toAddress())) >> 152)
+            id: uint8(uint(uint160(pubKey.toAddress())) >> 152)
         });
     }
 
@@ -69,7 +69,7 @@ library LibFeed {
         return IScribe.SchnorrData({
             signature: bytes32(signature),
             commitment: commitment,
-            signersBlob: abi.encodePacked(self.index)
+            feedIds: abi.encodePacked(self.id)
         });
     }
 
@@ -86,18 +86,16 @@ library LibFeed {
         }
         (uint signature, address commitment) = privKeys.signMessage(message);
 
-        // Create signersBlob from feed's indexes.
-        //
-        // @audit Note that signersBlob does not need to be sorted anymore.
-        bytes memory signersBlob;
+        // Create blob of feedIds.
+        bytes memory feedIds;
         for (uint i; i < selfs.length; i++) {
-            signersBlob = abi.encodePacked(signersBlob, selfs[i].index);
+            feedIds = abi.encodePacked(feedIds, selfs[i].id);
         }
 
         return IScribe.SchnorrData({
             signature: bytes32(signature),
             commitment: commitment,
-            signersBlob: signersBlob
+            feedIds: feedIds
         });
     }
 

@@ -22,6 +22,7 @@ import {LibFeed} from "./libs/LibFeed.sol";
  * @notice Scribe Management Script
  */
 contract ScribeScript is Script {
+    /*
     using LibSecp256k1 for LibSecp256k1.Point;
     using LibFeed for LibFeed.Feed;
 
@@ -87,7 +88,7 @@ contract ScribeScript is Script {
         require(!pubKey.isZeroPoint(), "Public key cannot be zero point");
         require(pubKey.isOnCurve(), "Public key must be valid secp256k1 point");
         bool isFeed;
-        (isFeed, /*feedIndex*/ ) = IScribe(self).feeds(pubKey.toAddress());
+        (isFeed, /*feedIndex*//* ) = IScribe(self).feeds(pubKey.toAddress());
         require(!isFeed, "Public key already lifted");
 
         address recovered =
@@ -141,7 +142,7 @@ contract ScribeScript is Script {
                 "Public key must be valid secp256k1 point"
             );
             bool isFeed;
-            (isFeed, /*feedIndex*/ ) =
+            (isFeed, /*feedIndex*//* ) =
                 IScribe(self).feeds(pubKeys[i].toAddress());
             require(!isFeed, "Public key already lifted");
         }
@@ -269,7 +270,7 @@ contract ScribeScript is Script {
     function deactivate(address self) public {
         // Get current feeds' indexes.
         uint[] memory feedIndexes;
-        ( /*feeds*/ , feedIndexes) = IScribe(self).feeds();
+        ( /*feeds*//* , feedIndexes) = IScribe(self).feeds();
 
         // Drop all feeds.
         vm.startBroadcast();
@@ -390,4 +391,5 @@ contract ScribeScript is Script {
         IAuth(self).deny(msg.sender);
         vm.stopBroadcast();
     }
+    */
 }

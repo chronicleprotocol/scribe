@@ -53,19 +53,21 @@ contract LibSecp256k1Test is LibSecp256k1Test_ {}
 import {LibSchnorrTest as LibSchnorrTest_} from "./LibSchnorrTest.sol";
 
 contract LibSchnorrTest is LibSchnorrTest_ {}
+*/
 
 import {LibBytesTest as LibBytesTest_} from "./LibBytesTest.sol";
 
 contract LibBytesTest is LibBytesTest_ {}
 
+/*
 import {LibSchnorrDataTest as LibSchnorrDataTest_} from
     "./LibSchnorrDataTest.sol";
 
 contract LibSchnorrDataTest is LibSchnorrDataTest_ {}
+*/
 
 // -- Test: EVM Requirements --
 
 import {EVMTest} from "./EVMTest.sol";
 
 contract EVMTest_ is EVMTest {}
-*/

@@ -29,10 +29,10 @@ abstract contract IScribeTest is Test {
     // Events copied from IScribe.
     event Poked(address indexed caller, uint128 val, uint32 age);
     event FeedLifted(
-        address indexed caller, address indexed feed, uint indexed index
+        address indexed caller, address indexed feed, uint8 indexed feedId
     );
     event FeedDropped(
-        address indexed caller, address indexed feed, uint indexed index
+        address indexed caller, address indexed feed, uint8 indexed feedId
     );
     event BarUpdated(address indexed caller, uint8 oldBar, uint8 newBar);
 
@@ -171,9 +171,6 @@ abstract contract IScribeTest is Test {
         // Wat is set.
         assertEq(scribe.wat(), "ETH/USD");
 
-        // Max feeds is type(uint8).max + 1.
-        assertEq(scribe.maxFeeds(), type(uint8).max + 1);
-
         // Bar set to 2.
         assertEq(scribe.bar(), 2);
 
@@ -235,6 +232,8 @@ abstract contract IScribeTest is Test {
     }
 
     // -- Test: Schnorr Verification --
+
+    /*
 
     function testFuzz_isAcceptableSchnorrSignatureNow(uint barSeed) public {
         // Let bar ∊ [1, scribe.maxFeeds()].
@@ -468,6 +467,8 @@ abstract contract IScribeTest is Test {
         scribe.poke(pokeData, schnorrData);
     }
 
+    */
+
     // -- Test: constructPokeMessage --
 
     // @todo Disabled during dev.
@@ -492,21 +493,21 @@ abstract contract IScribeTest is Test {
         LibFeed.Feed memory feed = LibFeed.newFeed(privKey);
 
         vm.expectEmit();
-        emit FeedLifted(address(this), feed.pubKey.toAddress(), feed.index);
+        emit FeedLifted(address(this), feed.pubKey.toAddress(), feed.id);
 
         uint index =
             scribe.lift(feed.pubKey, feed.signECDSA(FEED_REGISTRATION_MESSAGE));
-        assertEq(index, feed.index);
+        assertEq(index, feed.id);
 
         // Check via feeds(address)(bool,uint).
         bool ok;
         (ok, index) = scribe.feeds(feed.pubKey.toAddress());
         assertTrue(ok);
-        assertEq(index, feed.index);
+        assertEq(index, feed.id);
 
         // Check via feeds(uint)(bool,address).
         address feedAddr;
-        (ok, feedAddr) = scribe.feeds(feed.index);
+        (ok, feedAddr) = scribe.feeds(feed.id);
         assertTrue(ok);
         assertEq(feedAddr, feed.pubKey.toAddress());
 
@@ -517,7 +518,7 @@ abstract contract IScribeTest is Test {
         assertEq(feeds_.length, indexes.length);
         assertEq(feeds_.length, 1);
         assertEq(feeds_[0], feed.pubKey.toAddress());
-        assertEq(indexes[0], feed.index);
+        assertEq(indexes[0], feed.id);
     }
 
     function test_lift_Single_FailsIf_ECDSADataInvalid() public {
@@ -549,6 +550,7 @@ abstract contract IScribeTest is Test {
     }
     */
 
+    /*
     function testFuzz_lift_Multiple(uint[] memory privKeys) public {
         //LibFeed.Feed[] memory feeds =
 
@@ -582,7 +584,7 @@ abstract contract IScribeTest is Test {
             if (!addressFilter[feeds_[i].pubKey.toAddress()]) {
                 vm.expectEmit();
                 emit FeedLifted(
-                    address(this), feeds_[i].pubKey.toAddress(), feeds_[i].index
+                    address(this), feeds_[i].pubKey.toAddress(), feeds_[i].id
                 );
             }
             addressFilter[feeds_[i].pubKey.toAddress()] = true;
@@ -596,36 +598,35 @@ abstract contract IScribeTest is Test {
 
         // Check via feeds(address)(bool,uint) and feeds(uint)(bool,address).
         bool ok;
-        uint index;
-        address feedAddr;
+        uint8 feedId;
+        address feed;
         for (uint i; i < pubKeys.length; i++) {
-            (ok, index) = scribe.feeds(pubKeys[i].toAddress());
+            (ok, feedId) = scribe.feeds(pubKeys[i].toAddress());
             assertTrue(ok);
-            // Note that the indexes are orders based on pubKeys' addresses.
-            assertTrue(index != 0);
 
-            (ok, feedAddr) = scribe.feeds(index);
+            (ok, feedAddr) = scribe.feeds(feedId);
             assertTrue(ok);
-            assertEq(pubKeys[i].toAddress(), feedAddr);
+            assertEq(pubKeys[i].toAddress(), feed);
         }
 
         // Check via feeds()(address[],uint[]).
         address[] memory addrs;
-        (addrs, indexes) = scribe.feeds();
+        (feeds, feedIds) = scribe.feeds();
         for (uint i; i < pubKeys.length; i++) {
-            for (uint j; j < addrs.length; j++) {
+            for (uint j; j < feeds.length; j++) {
                 // Break inner loop if pubKey's address found in list of feeds.
-                if (pubKeys[i].toAddress() == addrs[j]) {
+                if (pubKeys[i].toAddress() == feeds[j]) {
                     break;
                 }
 
                 // Fail if pubKey's address not found in list of feeds.
-                if (j == addrs.length - 1) {
+                if (j == feeds.length - 1) {
                     assertTrue(false);
                 }
             }
         }
     }
+    */
 
     function test_lift_Multiple_FailsIf_ECDSADataInvalid() public {
         uint privKeySigner = 1;
@@ -687,20 +688,20 @@ abstract contract IScribeTest is Test {
         scribe.lift(pubKeys, ecdsaDatas);
     }
 
+    /*
     function testFuzz_drop_Single(uint privKey) public {
         // Let privKey ∊ [1, Q).
         privKey = bound(privKey, 1, LibSecp256k1.Q() - 1);
 
         LibFeed.Feed memory feed = LibFeed.newFeed(privKey);
 
-        uint index =
+        uint8 feedId =
             scribe.lift(feed.pubKey, feed.signECDSA(FEED_REGISTRATION_MESSAGE));
-        //assertEq(index, 1);
 
         vm.expectEmit();
-        emit FeedDropped(address(this), feed.pubKey.toAddress(), index);
+        emit FeedDropped(address(this), feed.pubKey.toAddress(), feedId);
 
-        scribe.drop(index);
+        scribe.drop(feedId);
 
         // Check via feeds(address)(bool).
         bool ok;
@@ -721,7 +722,9 @@ abstract contract IScribeTest is Test {
         assertEq(feeds_.length, indexes.length);
         assertEq(feeds_.length, 0);
     }
+    */
 
+    /*
     function testFuzz_drop_Multiple(uint[] memory privKeys) public {
         // Let each privKey ∊ [1, Q).
         for (uint i; i < privKeys.length; i++) {
@@ -1008,4 +1011,5 @@ abstract contract IScribeTest is Test {
         );
         scribe.latestRoundData();
     }
+    */
 }

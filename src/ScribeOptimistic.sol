@@ -30,7 +30,7 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
     uint16 public opChallengePeriod;
 
     /// @inheritdoc IScribeOptimistic
-    uint8 public opFeedIndex;
+    uint8 public opFeedId;
 
     /// @dev The truncated hash of the schnorrData provided in last opPoke.
     ///      Binds the opFeed to their schnorrData.
@@ -55,6 +55,8 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
     {
         // Note to have a non-zero challenge period.
         _setOpChallengePeriod(_INITIAL_OP_CHALLENGE_PERIOD);
+
+        // @todo Set maxChallengeReward to type(uint).max?
     }
 
     receive() external payable {}
@@ -156,31 +158,23 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
             ecdsaData.s
         );
 
-        // Load signer's index.
-        // @todo Compute signer index.
-        uint signerIndex = uint(uint160(signer)) >> 152;
-        //uint signerIndex = _feeds[signer];
+        uint8 id = uint8(uint(uint160(signer)) >> 152);
 
         // Revert if signer not feed.
-        // @todo Use sloadPubKey(signerIndex).isZeroPoint()
-        if (signerIndex == 0) {
+        if (sloadPubKey(id).isZeroPoint()) {
             revert SignerNotFeed(signer);
         }
 
-        // @todo Make signerIndex directly uint8?
-        // Store the signerIndex as opFeedIndex and bind them to their provided
+        // Store the feed's id as opFeedId and bind them to their provided
         // schnorrData.
-        //
-        // Note that cast is safe as _feed's image is [0, _pubKeys.length) and
-        // _pubKeys' length is bounded by maxFeeds, i.e. type(uint8).max - 1.
-        opFeedIndex = uint8(signerIndex);
+        opFeedId = id;
         _schnorrDataCommitment = uint160(
             uint(
                 keccak256(
                     abi.encodePacked(
                         schnorrData.signature,
                         schnorrData.commitment,
-                        schnorrData.signersBlob
+                        schnorrData.feedIds
                     )
                 )
             )
@@ -203,7 +197,6 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         emit OpPoked(msg.sender, signer, schnorrData, pokeData);
     }
 
-    // @todo Make payable.
     /// @inheritdoc IScribeOptimistic
     function opChallenge(SchnorrData calldata schnorrData)
         external
@@ -228,7 +221,7 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
                     abi.encodePacked(
                         schnorrData.signature,
                         schnorrData.commitment,
-                        schnorrData.signersBlob
+                        schnorrData.feedIds
                     )
                 )
             )
@@ -270,7 +263,7 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
             // Drop opFeed and delete invalid _opPokeData.
             // Note to use address(this) as caller to indicate self-governed
             // drop of feed.
-            _drop(address(this), opFeedIndex);
+            _drop(address(this), opFeedId);
 
             // Pay ETH reward to challenger.
             uint reward = challengeReward();
@@ -307,7 +300,7 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
                         pokeData.age,
                         schnorrData.signature,
                         schnorrData.commitment,
-                        schnorrData.signersBlob
+                        schnorrData.feedIds
                     )
                 )
             )
@@ -464,8 +457,8 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         _afterAuthedAction();
     }
 
-    function _drop(address caller, uint feedIndex) internal override(Scribe) {
-        super._drop(caller, feedIndex);
+    function _drop(address caller, uint8 feedId) internal override(Scribe) {
+        super._drop(caller, feedId);
 
         _afterAuthedAction();
     }
