@@ -13,25 +13,30 @@ import {LibBytes} from "./LibBytes.sol";
 library LibSchnorrData {
     using LibBytes for uint;
 
-    /// @dev Size of a word is 32 bytes, i.e. 256 bits.
-    uint private constant WORD_SIZE = 32;
+    /// @dev Mask to compute word index of an array index.
+    ///
+    /// @dev Equals `type(uint).max << 5`.
+    uint private constant WORD_MASK =
+        0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0;
 
-    uint private constant BYTE_BOUNDARY_MASK = type(uint).max >> (256 - 5);
+    /// @dev Mask to compute byte index of an array index.
+    ///
+    /// @dev Equals `type(uint).max >> (256 - 5)`.
+    uint private constant BYTE_MASK = 31;
 
-    // @todo Docs
     /// @dev Returns the feedId from schnorrData.feedIds with index `index`.
     ///
     /// @dev Note that schnorrData.feedIds is big-endian encoded and
-    ///      counting starts at the highest order byte, i.e. the feedId 0 is
-    ///      the highest order byte of schnorrData.feedIds.
+    ///      counting starts at the highest order byte, i.e. the feedId with
+    ///      index 0 is the highest order byte of schnorrData.feedIds.
     ///
-    /// @custom:example FeedIds encoding via Solidity:
+    /// @custom:example Encoding feedIds via Solidity:
     ///
     ///      ```solidity
     ///      bytes memory feedIds;
-    ///      uint8[] memory indexes = someFuncReturningUint8Array();
-    ///      for (uint i; i < indexes.length; i++) {
-    ///          feedIds = abi.encodePacked(feedIds, indexes[i]);
+    ///      uint8[] memory ids = someFuncReturningUint8Array();
+    ///      for (uint i; i < ids.length; i++) {
+    ///          feedIds = abi.encodePacked(feedIds, ids[i]);
     ///      }
     ///      ```
     ///
@@ -59,25 +64,23 @@ library LibSchnorrData {
     ///      index `offset(feedIds)`.
     ///
     /// @custom:invariant Reverts iff out of gas.
-    function loadFeedId(
-        IScribe.SchnorrData calldata schnorrData,
-        uint index
-    ) internal pure returns (uint8) {
+    function loadFeedId(IScribe.SchnorrData calldata schnorrData, uint8 index)
+        internal
+        pure
+        returns (uint8)
+    {
+        uint wordIndex = index & WORD_MASK;
+        uint byteIndex = (~index) & BYTE_MASK;
+
         uint word;
         assembly ("memory-safe") {
-            let wordIndex := mul(div(index, WORD_SIZE), WORD_SIZE)
-
-            // Calldata index for schnorrData.signersBlob[0] is schnorrData's
-            // offset plus 4 words, i.e. 0x80.
-            let start := add(schnorrData, 0x80)
+            // Calldata index for schnorrData.feedIds[0] is schnorrData's offset
+            // plus 4 words, i.e. 0x80.
+            let feedIdsOffset := add(schnorrData, 0x80)
 
             // Note that reading non-existing calldata returns zero.
-            // Note that overflow is no concern because index's upper limit is
-            // bounded by bar, which is of type uint8.
-            word := calldataload(add(start, wordIndex))
+            word := calldataload(add(feedIdsOffset, wordIndex))
         }
-
-        uint byteIndex = (~index) & BYTE_BOUNDARY_MASK;
 
         return word.getByteAtIndex(byteIndex);
     }
@@ -86,9 +89,9 @@ library LibSchnorrData {
     function numberFeeds(IScribe.SchnorrData calldata schnorrData)
         internal
         pure
-        returns (uint8)
+        returns (uint)
     {
-        uint8 result;
+        uint result;
         assembly ("memory-safe") {
             // Calldata index for schnorrData.feedIds.length is
             // schnorrData's offset plus 3 words, i.e. 0x60.

@@ -14,9 +14,16 @@ import {LibSecp256k1} from "./libs/LibSecp256k1.sol";
 import {LibSchnorrData} from "./libs/LibSchnorrData.sol";
 
 /**
- Terminology:
-    - feed = address
-    - feedId = first byte of feed
+ * Terminology:
+ *     - feed = address
+ *     - feedId = first byte of feed
+ *
+ *  Important numbers expected to be known:
+ *     - 256 = the number of supported feed ids
+ *
+ *  Important expressions expected to be known:
+ *     - @todo To feed id bit shifting
+ *     - @todo bloom filter bit shifting
  */
 
 /**
@@ -179,12 +186,14 @@ contract Scribe is IScribe, Auth, Toll {
         // @audit Note that there exists no neutral element for addition.
         aggPubKey = feedPubKey.toJacobian();
 
-        for (uint i = 1; i < bar;) {
+        for (uint8 i = 1; i < bar;) {
             feedId = schnorrData.loadFeedId(i);
             feedPubKey = sloadPubKey(feedId);
             if (feedPubKey.isZeroPoint()) {
                 return (false, _errorSignerNotFeed(feedPubKey.toAddress()));
             }
+
+            // @todo Remove unnecessary feedId's uint() castings?
 
             // @todo For own verification.
             // forgefmt: disable-next-item

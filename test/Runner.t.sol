@@ -59,12 +59,10 @@ import {LibBytesTest as LibBytesTest_} from "./LibBytesTest.sol";
 
 contract LibBytesTest is LibBytesTest_ {}
 
-/*
 import {LibSchnorrDataTest as LibSchnorrDataTest_} from
     "./LibSchnorrDataTest.sol";
 
 contract LibSchnorrDataTest is LibSchnorrDataTest_ {}
-*/
 
 // -- Test: EVM Requirements --
 

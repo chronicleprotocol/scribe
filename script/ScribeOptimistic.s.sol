@@ -19,7 +19,7 @@ import {ScribeScript} from "./Scribe.s.sol";
  * @title ScribeOptimistic Management Script
  */
 contract ScribeOptimisticScript is ScribeScript {
-    /*
+/*
     /// @dev Deploys a new ScribeOptimistic instance via Greenhouse instance
     ///      `greenhouse` and salt `salt` with `initialAuthed` being the address
     ///      initially auth'ed.
