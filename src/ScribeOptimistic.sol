@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.16;
 
+// @todo Remove
+import {console2} from "forge-std/console2.sol";
+
 import {IChronicle} from "chronicle-std/IChronicle.sol";
 
 import {IScribeOptimistic} from "./IScribeOptimistic.sol";
@@ -69,6 +72,7 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
     {
         // Load current age from storage.
         uint32 age = _currentPokeData().age;
+        console2.log("age", age);
 
         // Revert if pokeData stale.
         if (pokeData.age <= age) {
@@ -278,6 +282,7 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         return !ok;
     }
 
+    // @todo Why not single public function?
     /// @inheritdoc IScribeOptimistic
     function constructOpPokeMessage(
         PokeData calldata pokeData,
@@ -352,6 +357,8 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         return (pokeData.val, pokeData.age);
     }
 
+    /// @inheritdoc IChronicle
+    /// @dev Only callable by toll'ed address.
     function tryReadWithAge()
         external
         view
@@ -484,6 +491,8 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
     function _afterAuthedAction() internal {
         // Do nothing during deployment.
         if (address(this).code.length == 0) return;
+
+        console2.log("WHAAAT");
 
         // Load _opPokeData from storage.
         PokeData memory opPokeData = _opPokeData;

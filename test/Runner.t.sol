@@ -30,7 +30,6 @@ contract ScribeInvariantTest is IScribeInvariantTest {
 
 // -- Test: Optimistic Scribe --
 
-/*
 import {ScribeOptimistic} from "src/ScribeOptimistic.sol";
 import {IScribeOptimistic} from "src/IScribeOptimistic.sol";
 
@@ -41,11 +40,9 @@ contract ScribeOptimisticTest is IScribeOptimisticTest {
         setUp(address(new ScribeOptimistic(address(this), "ETH/USD")));
     }
 }
-*/
 
 // -- Test: Libraries --
 
-/*
 import {LibSecp256k1Test as LibSecp256k1Test_} from "./LibSecp256k1Test.sol";
 
 contract LibSecp256k1Test is LibSecp256k1Test_ {}
@@ -53,7 +50,6 @@ contract LibSecp256k1Test is LibSecp256k1Test_ {}
 import {LibSchnorrTest as LibSchnorrTest_} from "./LibSchnorrTest.sol";
 
 contract LibSchnorrTest is LibSchnorrTest_ {}
-*/
 
 import {LibBytesTest as LibBytesTest_} from "./LibBytesTest.sol";
 

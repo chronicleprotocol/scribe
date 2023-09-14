@@ -77,9 +77,9 @@ abstract contract LibSchnorrDataTest is Test {
 
     // -- Optimizations --
 
-    function testFuzzOptimization_loadFeedId_WordIndexComputation(
-        uint index
-    ) public {
+    function testFuzzOptimization_loadFeedId_WordIndexComputation(uint index)
+        public
+    {
         // Previous implementation:
         uint want;
         assembly ("memory-safe") {
@@ -93,9 +93,9 @@ abstract contract LibSchnorrDataTest is Test {
         assertEq(want, got);
     }
 
-    function testFuzzOptimization_loadFeedId_ByteIndexComputation(
-        uint index
-    ) public {
+    function testFuzzOptimization_loadFeedId_ByteIndexComputation(uint index)
+        public
+    {
         // Previous implementation:
         uint want;
         unchecked {

@@ -27,6 +27,10 @@ import {LibSchnorrData} from "./libs/LibSchnorrData.sol";
  */
 
 /**
+ * Note that while 256 feeds can be lifted, bar can max be 255!
+ */
+
+/**
  * @title Scribe
  * @custom:version 1.1.0
  *
@@ -49,11 +53,7 @@ contract Scribe is IScribe, Auth, Toll {
         )
     );
 
-    // @todo Use uint8 for feed id.
-    //
     // @todo Add specific testGas for snapshots and benchmarks.
-    //
-    // @todo Use _bound instead of bound.
 
     /// @inheritdoc IChronicle
     bytes32 public immutable wat;
@@ -181,7 +181,7 @@ contract Scribe is IScribe, Auth, Toll {
             return (false, _errorSignerNotFeed(feedPubKey.toAddress()));
         }
 
-        uint bloom = 1 << uint(feedId);
+        uint bloom = 1 << feedId;
 
         // @audit Note that there exists no neutral element for addition.
         aggPubKey = feedPubKey.toJacobian();
@@ -193,18 +193,12 @@ contract Scribe is IScribe, Auth, Toll {
                 return (false, _errorSignerNotFeed(feedPubKey.toAddress()));
             }
 
-            // @todo Remove unnecessary feedId's uint() castings?
-
-            // @todo For own verification.
-            // forgefmt: disable-next-item
-            { uint sl = uint(uint160(feedPubKey.toAddress())) >> 152; assert(sl == feedId); }
-
             // Bloom filter for signer uniqueness.
-            if (bloom & (1 << uint(feedId)) != 0) {
+            if (bloom & (1 << feedId) != 0) {
                 // @todo Fix error type.
                 return (false, _errorSignersNotOrdered());
             }
-            bloom |= 1 << uint(feedId);
+            bloom |= 1 << feedId;
 
             aggPubKey.addAffinePoint(feedPubKey);
 
@@ -307,7 +301,7 @@ contract Scribe is IScribe, Auth, Toll {
 
     // -- Public Read Functionality --
 
-    function feeds(address who) external view returns (bool, uint) {
+    function feeds(address who) external view returns (bool, uint8) {
         uint8 feedId = uint8(uint(uint160(who)) >> 152);
 
         // @todo Note that interface is changed slightly!
@@ -327,22 +321,23 @@ contract Scribe is IScribe, Auth, Toll {
 
     // @todo Warning that this function should be called from offchain.
     // @todo Make gas benchmarks to check whether paginated function necessary.
-    function feeds() external view returns (address[] memory, uint[] memory) {
+    function feeds() external view returns (address[] memory, uint8[] memory) {
         // Initiate arrays with upper limit length.
         address[] memory feeds_ = new address[](256);
-        uint[] memory ids = new uint[](256);
+        uint8[] memory ids = new uint8[](256);
 
         LibSecp256k1.Point memory pubKey;
         address feed;
-        uint id;
+        uint8 id;
         uint ctr;
 
-        for (uint i; i < 256;) {
-            pubKey = sloadPubKey(uint8(i));
+        /*
+        for (uint8 i; i < 256;) {
+            pubKey = sloadPubKey(i);
 
             if (!pubKey.isZeroPoint()) {
                 feed = pubKey.toAddress();
-                id = uint(uint160(feed)) >> 152;
+                id = uint8(uint(uint160(feed)) >> 152);
 
                 feeds_[ctr] = feed;
                 ids[ctr] = id;
@@ -354,6 +349,7 @@ contract Scribe is IScribe, Auth, Toll {
             // forgefmt: disable-next-item
             unchecked { ++i; }
         }
+        */
 
         assembly ("memory-safe") {
             mstore(feeds_, ctr)
@@ -390,6 +386,7 @@ contract Scribe is IScribe, Auth, Toll {
         return indexes;
     }
 
+    // invariant: lift can only _pubKeys[index] == zero -> _pubKeys[index] != zero
     function _lift(LibSecp256k1.Point memory pubKey, ECDSAData memory ecdsaData)
         internal
         returns (uint8)
@@ -406,21 +403,16 @@ contract Scribe is IScribe, Auth, Toll {
         );
         require(feed == recovered);
 
-        // @todo Allows optimization by only loading one storage slot.
-        //       However, currently not used.
-        assert(pubKey.x != 0);
-
         uint8 feedId = uint8(uint(uint160(feed)) >> 152);
 
         LibSecp256k1.Point memory sPubKey = sloadPubKey(feedId);
         if (sPubKey.isZeroPoint()) {
-            // invariant: lift can only _pubKeys[index] == zero -> _pubKeys[index] != zero
             sstorePubKey(feedId, pubKey);
 
             emit FeedLifted(msg.sender, feed, feedId);
         } else {
-            // Note to make sure to be idempotent. However, disallow updating an
-            // id's feed via lifting without dropping the previous feed.
+            // Note to be idempotent. However, disallow updating an id's feed
+            // via lifting without dropping the previous feed.
             require(feed == sPubKey.toAddress());
         }
 
@@ -470,20 +462,9 @@ contract Scribe is IScribe, Auth, Toll {
         view
         returns (LibSecp256k1.Point memory)
     {
-        //LibSecp256k1.Point memory pubKey;
-
-        // @todo shl(index, 1) = index * 2 = index * size of point
-
-        // @todo Get rid of index out of bounds check.
-        return _pubKeys[index];
-
-        /*
-        if (!pubKey.isZeroPoint()) {
-            assert(uint(uint160(pubKey.toAddress())) >> 152 == index);
-        }
-
+        LibSecp256k1.Point memory pubKey;
         assembly ("memory-safe") {
-            let slot := add(_pubKeys.slot, shl(index, 1))
+            let slot := add(_pubKeys.slot, shl(1, index))
 
             let x := sload(slot)
             let y := sload(add(slot, 1))
@@ -492,31 +473,31 @@ contract Scribe is IScribe, Auth, Toll {
             mstore(add(pubKey, 32), y)
         }
 
-        require(_pubKeys[index].x == pubKey.x, "mmmhhh1");
-        require(_pubKeys[index].y == pubKey.y, "mmmhhh2");
+        // assert(
+        //     pubKey.isZeroPoint()
+        //         || uint(uint160(pubKey.toAddress())) >> 152 == uint(index)
+        // );
 
         return pubKey;
-        */
     }
 
     function sstorePubKey(uint8 index, LibSecp256k1.Point memory pubKey)
         internal
     {
-        assert(
-            pubKey.isZeroPoint()
-                || uint(uint160(pubKey.toAddress())) >> 152 == uint(index)
-        );
+        // assert(
+        //     pubKey.isZeroPoint()
+        //         || uint(uint160(pubKey.toAddress())) >> 152 == uint(index)
+        // );
 
-        _pubKeys[uint(index)] = pubKey;
-
-        /*
         assembly ("memory-safe") {
-            let slot := add(_pubKeys.slot, shl(index, 1))
+            let slot := add(_pubKeys.slot, shl(1, index))
 
-            sstore(slot, pubKey)
-            sstore(add(slot, 1), pubKey)
+            let pubKey_x := mload(pubKey)
+            let pubKey_y := mload(add(pubKey, 32))
+
+            sstore(slot, pubKey_x)
+            sstore(add(slot, 1), pubKey_y)
         }
-        */
     }
 
     /// @dev Halts execution by reverting with `err`.

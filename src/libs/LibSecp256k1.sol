@@ -83,9 +83,6 @@ library LibSecp256k1 {
 
     /// @dev Returns whether `self` is the zero point.
     function isZeroPoint(Point memory self) internal pure returns (bool) {
-        // @todo Could be optimized to self.x == 0.
-        //       This is because there exists no _valid_ public key with
-        //       x coordinate of zero.
         return (self.x | self.y) == 0;
     }
 

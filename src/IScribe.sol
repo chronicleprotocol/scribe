@@ -154,11 +154,11 @@ interface IScribe is IChronicle {
     /// @dev The message is defined as:
     ///         H(tag ‖ H(wat ‖ pokeData)), where H() is the keccak256 function.
     /// @param pokeData The pokeData to create the message for.
-    /// @return Message for `pokeData`.
+    /// @return pokeMessage Message for `pokeData`.
     function constructPokeMessage(PokeData calldata pokeData)
         external
         view
-        returns (bytes32);
+        returns (bytes32 pokeMessage);
 
     /// @notice Returns whether address `who` is a feed and its feed id.
     /// @param who The address to check.
@@ -167,7 +167,7 @@ interface IScribe is IChronicle {
     function feeds(address who)
         external
         view
-        returns (bool isFeed, uint feedId);
+        returns (bool isFeed, uint8 feedId);
 
     /// @notice Returns whether feed id `feedId` is a feed and, if so, the
     ///         feed's address.
@@ -180,13 +180,13 @@ interface IScribe is IChronicle {
         view
         returns (bool isFeed, address feed);
 
-    /// @notice Returns list of feed addresses and their index identifiers.
+    /// @notice Returns list of feed addresses and corresponding feed ids.
     /// @return feeds List of feed addresses.
-    /// @return feedIndexes List of feed's indexes.
+    /// @return feedIds List of feed ids.
     function feeds()
         external
         view
-        returns (address[] memory feeds, uint[] memory feedIndexes);
+        returns (address[] memory feeds, uint8[] memory feedIds);
 
     /// @notice Lifts public key `pubKey` to being a feed.
     /// @dev Only callable by auth'ed address.
@@ -194,10 +194,10 @@ interface IScribe is IChronicle {
     ///      `feedRegistrationMessage()(bytes32)` function.
     /// @param pubKey The public key of the feed.
     /// @param ecdsaData ECDSA signed message by the feed's public key.
-    /// @return The id of the newly lifted feed.
+    /// @return feedId The id of the newly lifted feed.
     function lift(LibSecp256k1.Point memory pubKey, ECDSAData memory ecdsaData)
         external
-        returns (uint8);
+        returns (uint8 feedId);
 
     /// @notice Lifts public keys `pubKeys` to being feeds.
     /// @dev Only callable by auth'ed address.

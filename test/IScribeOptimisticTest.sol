@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.16;
-/*
 
 import {console2} from "forge-std/console2.sol";
 
@@ -60,8 +59,8 @@ abstract contract IScribeOptimisticTest is IScribeTest {
     function test_Deployment() public override(IScribeTest) {
         super.test_Deployment();
 
-        // opFeedIndex not set.
-        assertEq(opScribe.opFeedIndex(), 0);
+        // opFeedId set to zero.
+        assertEq(opScribe.opFeedId(), 0);
 
         // OpChallengePeriod set to 1 hour.
         assertEq(opScribe.opChallengePeriod(), 1 hours);
@@ -73,7 +72,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         uint val;
         uint age;
 
-        LibFeed.Feed[] memory feeds = _createAndLiftFeeds(opScribe.bar());
+        LibFeed.Feed[] memory feeds = _liftFeeds(opScribe.bar());
 
         // Execute opPoke.
         IScribe.PokeData memory opPokeData;
@@ -112,6 +111,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
     }
 
     // -- Test: opPoke --
+/*
 
     function testFuzz_opPoke(
         IScribe.PokeData[] memory pokeDatas,
@@ -1346,5 +1346,5 @@ abstract contract IScribeOptimisticTest is IScribeTest {
             "afterAuthedAction: {_pokeData=Non-NULL, _opPokeData=Finalized} + setOpChallengePeriod() => {value=_opPokeData, age=block.timestamp}"
         );
     }
+    */
 }
-*/
