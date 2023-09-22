@@ -29,16 +29,13 @@ contract ScribeHandler is CommonBase, StdUtils {
     IScribe public scribe;
 
     IScribe.PokeData internal _scribe_lastPokeData;
-    uint public scribe_lastPubKeysLength;
 
-    uint internal nextPrivKey = 2;
-    FeedSet internal feedSet;
+    uint internal _nextPrivKey = 2;
+    FeedSet internal _feedSet;
 
     modifier cacheScribeState() {
         // forgefmt: disable-next-item
         _scribe_lastPokeData = ScribeInspectable(address(scribe)).inspectable_pokeData();
-        // forgefmt: disable-next-item
-        //scribe_lastPubKeysLength = ScribeInspectable(address(scribe)).inspectable_pubKeys().length;
         _;
     }
 
@@ -64,29 +61,31 @@ contract ScribeHandler is CommonBase, StdUtils {
             // Lift feeds until bar is reached.
             uint missing = bar - feeds.length;
             LibFeed.Feed memory feed;
-            for (uint i; i < missing; i++) {
-                feed = LibFeed.newFeed(nextPrivKey++);
+            while (missing != 0) {
+                feed = LibFeed.newFeed(_nextPrivKey++);
 
-                // Lift feed and set its index.
-                uint index = scribe.lift(
+                // Continue if feed's id already lifted.
+                (bool isFeed,) = scribe.feeds(feed.id);
+                if (isFeed) continue;
+
+                // Otherwise lift feed and add to feedSet.
+                scribe.lift(
                     feed.pubKey, feed.signECDSA(FEED_REGISTRATION_MESSAGE)
                 );
-                //feed.index = uint8(index);
+                _feedSet.add({feed: feed, lifted: true});
 
-                // Store feed in feedSet.
-                feedSet.add(feed, true);
+                missing--;
             }
         }
     }
 
     // -- Target Functions --
 
-    function warp(uint seed) external {
+    function warp(uint seed) external cacheScribeState {
         uint amount = _bound(seed, 1, 1 hours);
         vm.warp(block.timestamp + amount);
     }
 
-    /*
     function poke(uint valSeed, uint ageSeed) external cacheScribeState {
         _ensureBarFeedsLifted();
 
@@ -99,7 +98,7 @@ contract ScribeHandler is CommonBase, StdUtils {
         }
 
         // Get set of bar many feeds from feedSet.
-        LibFeed.Feed[] memory feeds = feedSet.liftedFeeds(scribe.bar());
+        LibFeed.Feed[] memory feeds = _feedSet.liftedFeeds(scribe.bar());
 
         // Create pokeData.
         IScribe.PokeData memory pokeData = IScribe.PokeData({
@@ -124,33 +123,30 @@ contract ScribeHandler is CommonBase, StdUtils {
             );
         }
     }
-    */
 
     function lift() external cacheScribeState {
         // Create new feed.
-        LibFeed.Feed memory feed = LibFeed.newFeed(nextPrivKey++);
+        LibFeed.Feed memory feed = LibFeed.newFeed(_nextPrivKey++);
 
         // Return if feed's id already lifted.
         (bool isFeed,) = scribe.feeds(feed.id);
         if (isFeed) return;
 
-        // Lift feed.
+        // Lift feed and add to feedSet.
         scribe.lift(feed.pubKey, feed.signECDSA(FEED_REGISTRATION_MESSAGE));
-
-        // Store feed in feedSet.
-        feedSet.add({feed: feed, lifted: true});
+        _feedSet.add({feed: feed, lifted: true});
     }
 
     function drop(uint seed) external cacheScribeState {
+        if (_feedSet.count() == 0) return;
+
         // Get random feed from feedSet.
         // Note that feed may not be lifted.
-        LibFeed.Feed memory feed = LibFeedSet.rand(feedSet, seed);
+        LibFeed.Feed memory feed = _feedSet.rand(seed);
 
-        // Drop feed.
+        // Drop feed and mark as non-lifted in feedSet.
         scribe.drop(feed.id);
-
-        // Mark feed as non-lifted in feedSet.
-        feedSet.updateLifted({feed: feed, lifted: false});
+        _feedSet.updateLifted({feed: feed, lifted: false});
     }
 
     function setBar(uint barSeed) external cacheScribeState {
@@ -171,9 +167,9 @@ contract ScribeHandler is CommonBase, StdUtils {
     }
 
     function ghost_feedAddresses() external view returns (address[] memory) {
-        address[] memory addrs = new address[](feedSet.feeds.length);
+        address[] memory addrs = new address[](_feedSet.feeds.length);
         for (uint i; i < addrs.length; i++) {
-            addrs[i] = feedSet.feeds[i].pubKey.toAddress();
+            addrs[i] = _feedSet.feeds[i].pubKey.toAddress();
         }
         return addrs;
     }

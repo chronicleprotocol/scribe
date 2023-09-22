@@ -27,17 +27,6 @@ ignore = []
 [doc]
 out = "docs_generated" # Note to not overwrite own docs
 
-# Used for Scribe monitoring scripts.
-# @todo Keep like this?
-[rpc_endpoints]
-# Dev networks:
-anvil = "http://127.0.0.1:8545"
-# Test networks:
-sep = "${RPC_URL_SEPOLIA}" # Sepolia
-# Production networks:
-eth = "${RPC_URL_ETHEREUM}"        # Ethereum
-zkevm = "${RPC_URL_POLYGON_ZKEVM}" # Polygon zkEVM
-
 # Profile to compile without --via-ir
 # Run via `FOUNDRY_PROFILE=no-via-ir forge ...`
 [profile.no-via-ir]

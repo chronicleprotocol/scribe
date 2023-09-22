@@ -42,20 +42,18 @@ abstract contract IScribeInvariantTest is Test {
     }
 
     function _targetSelectors() internal virtual returns (bytes4[] memory) {
-        bytes4[] memory selectors = new bytes4[](4);
+        bytes4[] memory selectors = new bytes4[](5);
         selectors[0] = ScribeHandler.warp.selector;
-        //selectors[1] = ScribeHandler.poke.selector;
-        selectors[1] = ScribeHandler.setBar.selector;
-        selectors[2] = ScribeHandler.lift.selector;
-        selectors[3] = ScribeHandler.drop.selector;
+        selectors[1] = ScribeHandler.poke.selector;
+        selectors[2] = ScribeHandler.setBar.selector;
+        selectors[3] = ScribeHandler.lift.selector;
+        selectors[4] = ScribeHandler.drop.selector;
 
         return selectors;
     }
 
     // -- Poke --
 
-    // @todo Not useful yet. Need to make sure feeds are lifted.
-    /*
     function invariant_poke_PokeTimestampsAreStrictlyMonotonicallyIncreasing()
         public
     {
@@ -68,24 +66,6 @@ abstract contract IScribeInvariantTest is Test {
 
         assertTrue(beforePokeData.age <= currentPokeData.age);
     }
-    */
-
-    /*
-    function invariant_poke_PokeTimestampIsOnlyMutatedToCurrentTimestamp()
-        public
-    {
-        // Get scribe's pokeData before the execution.
-        IScribe.PokeData memory beforePokeData = handler.scribe_lastPokeData();
-
-        // Get scribe's current pokeData.
-        IScribe.PokeData memory currentPokeData;
-        currentPokeData = scribe.inspectable_pokeData();
-
-        if (beforePokeData.age != currentPokeData.age) {
-            assertEq(currentPokeData.age, uint32(block.timestamp));
-        }
-    }
-    */
 
     // -- PubKeys --
 

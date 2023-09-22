@@ -71,4 +71,8 @@ library LibFeedSet {
 
         return s.feeds[seed % s.feeds.length];
     }
+
+    function count(FeedSet storage s) internal view returns (uint) {
+        return s.feeds.length;
+    }
 }
