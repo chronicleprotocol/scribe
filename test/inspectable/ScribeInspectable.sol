@@ -10,29 +10,15 @@ contract ScribeInspectable is Scribe {
         Scribe(initialAuthed, wat_)
     {}
 
-    /*
     function inspectable_pokeData() public view returns (PokeData memory) {
         return _pokeData;
     }
 
-    function inspectable_pubKeys()
-        public
-        view
-        returns (LibSecp256k1.Point[] memory)
-    {
-        return _pubKeys;
-    }
-
-    function inspectable_pubKeys(uint index)
+    function inspectable_sloadPubKey(uint8 feedId)
         public
         view
         returns (LibSecp256k1.Point memory)
     {
-        return _unsafeLoadPubKeyAt(index);
+        return _sloadPubKey(feedId);
     }
-
-    function inspectable_feeds(address addr) public view returns (uint) {
-        return _feeds[addr];
-    }
-    */
 }

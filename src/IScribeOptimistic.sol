@@ -19,6 +19,8 @@ interface IScribeOptimistic is IScribe {
     ///                 argument.
     error SchnorrDataMismatch(uint160 gotHash, uint160 wantHash);
 
+    error SignerNotFeed(address signer);
+
     /// @notice Emitted when oracles was successfully opPoked.
     /// @param caller The caller's address.
     /// @param opFeed The feed that signed the opPoke.

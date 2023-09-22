@@ -45,13 +45,13 @@ interface IScribe is IChronicle {
     /// @param bar The bar security parameter.
     error BarNotReached(uint8 numberSigners, uint8 bar);
 
-    /// @notice Thrown if signature signed by non-feed.
-    /// @param signer The signer's address not being a feed.
-    error SignerNotFeed(address signer);
+    /// @notice Thrown if given feed id invalid.
+    /// @param feedId The invalid feed id.
+    error InvalidFeedId(uint8 feedId);
 
-    /// @notice Thrown if signer indexes are not encoded so that their
-    ///         addresses are in ascending order.
-    error SignersNotOrdered();
+    /// @notice Thrown if double signing attempted.
+    /// @param feedId The id of the feed attempting to double sign.
+    error DoubleSigningAttempted(uint8 feedId);
 
     /// @notice Thrown if Schnorr signature verification failed.
     error SchnorrSignatureInvalid();

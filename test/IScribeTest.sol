@@ -260,7 +260,7 @@ abstract contract IScribeTest is Test {
         assertFalse(ok);
     }
 
-    function testFuzz_isAcceptableSchnorrSignatureNow_FailsIf_SignerNotFeed(
+    function testFuzz_isAcceptableSchnorrSignatureNow_FailsIf_InvalidFeedId(
         uint barSeed,
         uint privKeySeed,
         uint indexSeed
@@ -275,6 +275,10 @@ abstract contract IScribeTest is Test {
 
         // Note to not lift feed.
         LibFeed.Feed memory feed = LibFeed.newFeed({privKey: privKey});
+
+        // Don't run test if bad luck and feed already lifted.
+        (bool isFeed, /*feedAddr*/ ) = scribe.feeds(feed.id);
+        if (isFeed) return;
 
         // Let index ∊ [0, bar).
         uint index = _bound(indexSeed, 0, bar - 1);
@@ -314,13 +318,8 @@ abstract contract IScribeTest is Test {
 
     // -- Test: Poke --
 
-    function testFuzz_poke(uint barSeed, IScribe.PokeData[] memory pokeDatas)
-        public
-    {
-        // Let bar ∊ [1, 256).
-        uint8 bar = uint8(_bound(barSeed, 1, 256 - 1));
-        scribe.setBar(bar);
-        LibFeed.Feed[] memory feeds = _liftFeeds(bar);
+    function testFuzz_poke(IScribe.PokeData[] memory pokeDatas) public {
+        LibFeed.Feed[] memory feeds = _liftFeeds(scribe.bar());
 
         // Note to stay reasonable in favor of runtime.
         vm.assume(pokeDatas.length < 50);
@@ -349,14 +348,8 @@ abstract contract IScribeTest is Test {
         }
     }
 
-    function testFuzz_poke_Initial_FailsIf_AgeIsZero(uint barSeed) public {
-        // Let bar ∊ [1, 256).
-        uint8 bar = uint8(_bound(barSeed, 1, 256 - 1));
-
-        bar = 1;
-
-        scribe.setBar(bar);
-        LibFeed.Feed[] memory feeds = _liftFeeds(bar);
+    function test_poke_Initial_FailsIf_AgeIsZero() public {
+        LibFeed.Feed[] memory feeds = _liftFeeds(scribe.bar());
 
         IScribe.PokeData memory pokeData;
         pokeData.val = 1;
@@ -371,14 +364,10 @@ abstract contract IScribeTest is Test {
         scribe.poke(pokeData, schnorrData);
     }
 
-    function testFuzz_poke_FailsIf_AgeIsStale(
-        uint barSeed,
-        IScribe.PokeData memory pokeData
-    ) public {
-        // Let bar ∊ [1, 256).
-        uint8 bar = uint8(_bound(barSeed, 1, 256 - 1));
-        scribe.setBar(bar);
-        LibFeed.Feed[] memory feeds = _liftFeeds(bar);
+    function testFuzz_poke_FailsIf_AgeIsStale(IScribe.PokeData memory pokeData)
+        public
+    {
+        LibFeed.Feed[] memory feeds = _liftFeeds(scribe.bar());
 
         vm.assume(pokeData.val != 0);
         // Let pokeData's age ∊ [1, block.timestamp].
@@ -408,13 +397,9 @@ abstract contract IScribeTest is Test {
     }
 
     function testFuzz_poke_FailsIf_AgeIsInTheFuture(
-        uint barSeed,
         IScribe.PokeData memory pokeData
     ) public {
-        // Let bar ∊ [1, 256).
-        uint8 bar = uint8(_bound(barSeed, 1, 256 - 1));
-        scribe.setBar(bar);
-        LibFeed.Feed[] memory feeds = _liftFeeds(bar);
+        LibFeed.Feed[] memory feeds = _liftFeeds(scribe.bar());
 
         vm.assume(pokeData.val != 0);
         // Let pokeData's age ∊ [block.timestamp + 1, type(uint32).max].
@@ -435,13 +420,9 @@ abstract contract IScribeTest is Test {
     }
 
     function testFuzz_poke_FailsIf_SignatureInvalid(
-        uint barSeed,
         IScribe.PokeData memory pokeData
     ) public {
-        // Let bar ∊ [1, 256).
-        uint8 bar = uint8(_bound(barSeed, 1, 256 - 1));
-        scribe.setBar(bar);
-        LibFeed.Feed[] memory feeds = _liftFeeds(bar);
+        LibFeed.Feed[] memory feeds = _liftFeeds(scribe.bar());
 
         // Let pokeData's val ∊ [1, type(uint128).max].
         // Let pokeData's age ∊ [1, block.timestamp].
@@ -502,8 +483,6 @@ abstract contract IScribeTest is Test {
         assertEq(feedAddr, feed.pubKey.toAddress());
 
         // Check via feeds()(address[],uint8[]).
-        // @todo feeds() test
-        /*
         address[] memory feeds_;
         uint8[] memory feedIds;
         (feeds_, feedIds) = scribe.feeds();
@@ -511,7 +490,6 @@ abstract contract IScribeTest is Test {
         assertEq(feedIds.length, 1);
         assertEq(feeds_[0], feed.pubKey.toAddress());
         assertEq(feedIds[0], feed.id);
-        */
     }
 
     function test_lift_Single_FailsIf_ECDSADataInvalid() public {
@@ -604,8 +582,6 @@ abstract contract IScribeTest is Test {
         }
 
         // Check via feeds()(address[],uint8[]).
-        // @todo feeds() test.
-        /*
         address[] memory feedAddrs;
         (feedAddrs, feedIds) = scribe.feeds();
         assertEq(feedAddrs.length, feedIds.length);
@@ -623,7 +599,6 @@ abstract contract IScribeTest is Test {
                 }
             }
         }
-        */
     }
 
     function test_lift_Multiple_FailsIf_ECDSADataInvalid() public {
@@ -684,14 +659,11 @@ abstract contract IScribeTest is Test {
         assertEq(feedAddr, address(0));
 
         // Check via feeds()(address[],uint8[]).
-        // @todo feeds() test.
-        /*
         address[] memory feeds_;
-        uint[] memory indexes;
-        (feeds_, indexes) = scribe.feeds();
-        assertEq(feeds_.length, indexes.length);
+        uint8[] memory feedIds;
+        (feeds_, feedIds) = scribe.feeds();
         assertEq(feeds_.length, 0);
-        */
+        assertEq(feedIds.length, 0);
     }
 
     function testFuzz_drop_Multiple(uint[] memory privKeys) public {
@@ -773,14 +745,11 @@ abstract contract IScribeTest is Test {
         }
 
         // Check via feeds()(address[],uint8[]).
-        // @todo Test feeds().
-        /*
         address[] memory feedAddresses;
-        uint[] memory feedIndexes;
-        (feedAddresses, feedIndexes) = scribe.feeds();
-        assertEq(feedAddresses.length, feedIndexes.length);
+        uint8[] memory feedIds_;
+        (feedAddresses, feedIds) = scribe.feeds();
         assertEq(feedAddresses.length, 0);
-        */
+        assertEq(feedIds_.length, 0);
     }
 
     function testFuzz_setBar(uint8 bar) public {

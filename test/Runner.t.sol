@@ -17,7 +17,6 @@ contract ScribeTest is IScribeTest {
     }
 }
 
-/*
 contract ScribeInvariantTest is IScribeInvariantTest {
     function setUp() public {
         setUp(
@@ -26,7 +25,6 @@ contract ScribeInvariantTest is IScribeInvariantTest {
         );
     }
 }
-*/
 
 // -- Test: Optimistic Scribe --
 

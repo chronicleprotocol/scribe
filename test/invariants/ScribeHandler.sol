@@ -21,7 +21,6 @@ contract ScribeHandler is CommonBase, StdUtils {
     using LibFeed for LibFeed.Feed[];
     using LibFeedSet for FeedSet;
 
-    /*
     uint public constant MAX_BAR = 10;
 
     bytes32 public WAT;
@@ -39,7 +38,7 @@ contract ScribeHandler is CommonBase, StdUtils {
         // forgefmt: disable-next-item
         _scribe_lastPokeData = ScribeInspectable(address(scribe)).inspectable_pokeData();
         // forgefmt: disable-next-item
-        scribe_lastPubKeysLength = ScribeInspectable(address(scribe)).inspectable_pubKeys().length;
+        //scribe_lastPubKeysLength = ScribeInspectable(address(scribe)).inspectable_pubKeys().length;
         _;
     }
 
@@ -50,8 +49,12 @@ contract ScribeHandler is CommonBase, StdUtils {
         WAT = scribe.wat();
         FEED_REGISTRATION_MESSAGE = scribe.feedRegistrationMessage();
 
-        _ensureBarFeedsLifted();
+        //_ensureBarFeedsLifted();
     }
+
+    /*
+     * @todo Cache how many feeds lifted. Ensure always bar lifted.
+     */
 
     function _ensureBarFeedsLifted() internal {
         uint bar = scribe.bar();
@@ -68,7 +71,7 @@ contract ScribeHandler is CommonBase, StdUtils {
                 uint index = scribe.lift(
                     feed.pubKey, feed.signECDSA(FEED_REGISTRATION_MESSAGE)
                 );
-                feed.index = uint8(index);
+                //feed.index = uint8(index);
 
                 // Store feed in feedSet.
                 feedSet.add(feed, true);
@@ -79,10 +82,11 @@ contract ScribeHandler is CommonBase, StdUtils {
     // -- Target Functions --
 
     function warp(uint seed) external {
-        uint amount = bound(seed, 1, 1 hours);
+        uint amount = _bound(seed, 1, 1 hours);
         vm.warp(block.timestamp + amount);
     }
 
+    /*
     function poke(uint valSeed, uint ageSeed) external cacheScribeState {
         _ensureBarFeedsLifted();
 
@@ -120,18 +124,21 @@ contract ScribeHandler is CommonBase, StdUtils {
             );
         }
     }
+    */
 
     function lift() external cacheScribeState {
         // Create new feed.
         LibFeed.Feed memory feed = LibFeed.newFeed(nextPrivKey++);
 
-        // Lift feed and set its index.
-        uint index =
-            scribe.lift(feed.pubKey, feed.signECDSA(FEED_REGISTRATION_MESSAGE));
-        feed.index = uint8(index);
+        // Return if feed's id already lifted.
+        (bool isFeed,) = scribe.feeds(feed.id);
+        if (isFeed) return;
+
+        // Lift feed.
+        scribe.lift(feed.pubKey, feed.signECDSA(FEED_REGISTRATION_MESSAGE));
 
         // Store feed in feedSet.
-        feedSet.add(feed, true);
+        feedSet.add({feed: feed, lifted: true});
     }
 
     function drop(uint seed) external cacheScribeState {
@@ -139,18 +146,15 @@ contract ScribeHandler is CommonBase, StdUtils {
         // Note that feed may not be lifted.
         LibFeed.Feed memory feed = LibFeedSet.rand(feedSet, seed);
 
-        // Receive index of feed. Index is zero if not lifted.
-        (, uint index) = scribe.feeds(feed.pubKey.toAddress());
-
         // Drop feed.
-        scribe.drop(index);
+        scribe.drop(feed.id);
 
         // Mark feed as non-lifted in feedSet.
-        feedSet.updateLifted(feed, false);
+        feedSet.updateLifted({feed: feed, lifted: false});
     }
 
     function setBar(uint barSeed) external cacheScribeState {
-        uint8 newBar = uint8(bound(barSeed, 0, MAX_BAR));
+        uint8 newBar = uint8(_bound(barSeed, 0, MAX_BAR));
 
         // Should revert if newBar is 0.
         try scribe.setBar(newBar) {} catch {}
@@ -176,14 +180,13 @@ contract ScribeHandler is CommonBase, StdUtils {
 
     // -- Helpers --
 
-    function _randPokeDataVal(uint seed) internal view returns (uint128) {
-        uint val = bound(seed, 0, type(uint128).max);
+    function _randPokeDataVal(uint seed) internal pure returns (uint128) {
+        uint val = _bound(seed, 0, type(uint128).max);
         return uint128(val);
     }
 
     function _randPokeDataAge(uint seed) internal view returns (uint32) {
-        uint age = bound(seed, _scribe_lastPokeData.age + 1, block.timestamp);
+        uint age = _bound(seed, _scribe_lastPokeData.age + 1, block.timestamp);
         return uint32(age);
     }
-    */
 }

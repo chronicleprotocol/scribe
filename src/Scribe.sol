@@ -166,46 +166,67 @@ contract Scribe is IScribe, Auth, Toll {
         bytes32 message,
         SchnorrData calldata schnorrData
     ) internal view returns (bool, bytes memory) {
+        // Let feedPubKey be the currently processed feed's public key.
         LibSecp256k1.Point memory feedPubKey;
+        // Let feedId be the currently processed feed's id.
         uint8 feedId;
+        // Let aggPubKey be the sum of processed feeds' public keys.
+        // Note that Jacobian coordinates are used.
         LibSecp256k1.JacobianPoint memory aggPubKey;
+        // Let bloom be a bloom filter to check for double signing attempts.
+        uint bloom;
 
+        // Fail if number feeds unequal to bar.
+        //
+        // Note that requiring equality constrains the verification's runtime
+        // from Ω(bar) to Θ(bar).
         uint numberFeeds = schnorrData.numberFeeds();
         if (numberFeeds != bar) {
             return (false, _errorBarNotReached(uint8(numberFeeds), bar));
         }
 
+        // Initiate feed variables with schnorrData's 0's feed index.
         feedId = schnorrData.loadFeedId(0);
-        feedPubKey = sloadPubKey(feedId);
+        feedPubKey = _sloadPubKey(feedId);
+
+        // Fail if feed not lifted.
         if (feedPubKey.isZeroPoint()) {
-            return (false, _errorSignerNotFeed(feedPubKey.toAddress()));
+            return (false, _errorInvalidFeedId(feedId));
         }
 
-        uint bloom = 1 << feedId;
+        // Initiate bloom filter with feedId set.
+        bloom = 1 << feedId;
 
-        // @audit Note that there exists no neutral element for addition.
+        // Initiate aggPubKey with value of first feed's public key.
         aggPubKey = feedPubKey.toJacobian();
 
         for (uint8 i = 1; i < bar;) {
+            // Update feed variables.
             feedId = schnorrData.loadFeedId(i);
-            feedPubKey = sloadPubKey(feedId);
+            feedPubKey = _sloadPubKey(feedId);
+
+            // Fail if feed not lifted.
             if (feedPubKey.isZeroPoint()) {
-                return (false, _errorSignerNotFeed(feedPubKey.toAddress()));
+                return (false, _errorInvalidFeedId(feedId));
             }
 
-            // Bloom filter for signer uniqueness.
+            // Fail if double signing attempted.
             if (bloom & (1 << feedId) != 0) {
-                // @todo Fix error type.
-                return (false, _errorSignersNotOrdered());
+                return (false, _errorDoubleSigningAttempted(feedId));
             }
+            // Update bloom filter.
             bloom |= 1 << feedId;
 
+            assert(aggPubKey.x != feedPubKey.x); // Indicates rogue-key attack
+
+            // Add feedPubKey to already aggregated public keys.
             aggPubKey.addAffinePoint(feedPubKey);
 
             // forgefmt: disable-next-item
             unchecked { ++i; }
         }
 
+        // Fail if signature verification fails.
         bool ok = aggPubKey.toAffine().verifySignature(
             message, schnorrData.signature, schnorrData.commitment
         );
@@ -213,6 +234,7 @@ contract Scribe is IScribe, Auth, Toll {
             return (false, _errorSchnorrSignatureInvalid());
         }
 
+        // Otherwise Schnorr signature is valid.
         return (true, new bytes(0));
     }
 
@@ -255,6 +277,7 @@ contract Scribe is IScribe, Auth, Toll {
     {
         uint val = _pokeData.val;
         uint age = _pokeData.age;
+        // @todo MUST return age=0 if val=0.
         return (val != 0, val, age);
     }
 
@@ -293,7 +316,7 @@ contract Scribe is IScribe, Auth, Toll {
     {
         roundId = 1;
         answer = int(uint(_pokeData.val));
-        // assert(uint(answer) == uint(_pokeData.val));
+        assert(uint(answer) == uint(_pokeData.val));
         startedAt = 0;
         updatedAt = _pokeData.age;
         answeredInRound = roundId;
@@ -306,11 +329,11 @@ contract Scribe is IScribe, Auth, Toll {
 
         // @todo Note that interface is changed slightly!
         //       Before, zero index was returned if not feed.
-        return (!sloadPubKey(feedId).isZeroPoint(), feedId);
+        return (!_sloadPubKey(feedId).isZeroPoint(), feedId);
     }
 
     function feeds(uint8 feedId) external view returns (bool, address) {
-        LibSecp256k1.Point memory pubKey = sloadPubKey(feedId);
+        LibSecp256k1.Point memory pubKey = _sloadPubKey(feedId);
 
         if (pubKey.isZeroPoint()) {
             return (false, address(0));
@@ -331,9 +354,8 @@ contract Scribe is IScribe, Auth, Toll {
         uint8 id;
         uint ctr;
 
-        /*
-        for (uint8 i; i < 256;) {
-            pubKey = sloadPubKey(i);
+        for (uint i; i < 256;) {
+            pubKey = _sloadPubKey(uint8(i));
 
             if (!pubKey.isZeroPoint()) {
                 feed = pubKey.toAddress();
@@ -349,7 +371,6 @@ contract Scribe is IScribe, Auth, Toll {
             // forgefmt: disable-next-item
             unchecked { ++i; }
         }
-        */
 
         assembly ("memory-safe") {
             mstore(feeds_, ctr)
@@ -392,7 +413,7 @@ contract Scribe is IScribe, Auth, Toll {
         returns (uint8)
     {
         address feed = pubKey.toAddress();
-        // assert(feed != address(0));
+        assert(feed != address(0));
 
         // forgefmt: disable-next-item
         address recovered = ecrecover(
@@ -405,9 +426,9 @@ contract Scribe is IScribe, Auth, Toll {
 
         uint8 feedId = uint8(uint(uint160(feed)) >> 152);
 
-        LibSecp256k1.Point memory sPubKey = sloadPubKey(feedId);
+        LibSecp256k1.Point memory sPubKey = _sloadPubKey(feedId);
         if (sPubKey.isZeroPoint()) {
-            sstorePubKey(feedId, pubKey);
+            _sstorePubKey(feedId, pubKey);
 
             emit FeedLifted(msg.sender, feed, feedId);
         } else {
@@ -433,9 +454,9 @@ contract Scribe is IScribe, Auth, Toll {
     }
 
     function _drop(address caller, uint8 feedId) internal virtual {
-        LibSecp256k1.Point memory pubKey = sloadPubKey(feedId);
+        LibSecp256k1.Point memory pubKey = _sloadPubKey(feedId);
         if (!pubKey.isZeroPoint()) {
-            sstorePubKey(feedId, LibSecp256k1.ZERO_POINT());
+            _sstorePubKey(feedId, LibSecp256k1.ZERO_POINT());
 
             emit FeedDropped(caller, pubKey.toAddress(), feedId);
         }
@@ -457,7 +478,7 @@ contract Scribe is IScribe, Auth, Toll {
 
     // -- Internal Helpers --
 
-    function sloadPubKey(uint8 index)
+    function _sloadPubKey(uint8 index)
         internal
         view
         returns (LibSecp256k1.Point memory)
@@ -473,21 +494,21 @@ contract Scribe is IScribe, Auth, Toll {
             mstore(add(pubKey, 32), y)
         }
 
-        // assert(
-        //     pubKey.isZeroPoint()
-        //         || uint(uint160(pubKey.toAddress())) >> 152 == uint(index)
-        // );
+        assert(
+            pubKey.isZeroPoint()
+                || uint(uint160(pubKey.toAddress())) >> 152 == index
+        );
 
         return pubKey;
     }
 
-    function sstorePubKey(uint8 index, LibSecp256k1.Point memory pubKey)
+    function _sstorePubKey(uint8 index, LibSecp256k1.Point memory pubKey)
         internal
     {
-        // assert(
-        //     pubKey.isZeroPoint()
-        //         || uint(uint160(pubKey.toAddress())) >> 152 == uint(index)
-        // );
+        assert(
+            pubKey.isZeroPoint()
+                || uint(uint160(pubKey.toAddress())) >> 152 == index
+        );
 
         assembly ("memory-safe") {
             let slot := add(_pubKeys.slot, shl(1, index))
@@ -500,9 +521,8 @@ contract Scribe is IScribe, Auth, Toll {
         }
     }
 
-    /// @dev Halts execution by reverting with `err`.
     function _revert(bytes memory err) internal pure {
-        // assert(err.length != 0);
+        assert(err.length != 0);
         assembly ("memory-safe") {
             let size := mload(err)
             let offset := add(err, 0x20)
@@ -515,21 +535,27 @@ contract Scribe is IScribe, Auth, Toll {
         pure
         returns (bytes memory)
     {
-        // assert(got != want);
+        assert(got != want);
         return abi.encodeWithSelector(IScribe.BarNotReached.selector, got, want);
     }
 
-    function _errorSignerNotFeed(address signer)
+    function _errorInvalidFeedId(uint8 feedId)
+        internal
+        view
+        returns (bytes memory)
+    {
+        assert(_sloadPubKey(feedId).isZeroPoint());
+        return abi.encodeWithSelector(IScribe.InvalidFeedId.selector, feedId);
+    }
+
+    function _errorDoubleSigningAttempted(uint8 feedId)
         internal
         pure
         returns (bytes memory)
     {
-        // assert(_feeds[signer] == 0);
-        return abi.encodeWithSelector(IScribe.SignerNotFeed.selector, signer);
-    }
-
-    function _errorSignersNotOrdered() internal pure returns (bytes memory) {
-        return abi.encodeWithSelector(IScribe.SignersNotOrdered.selector);
+        return abi.encodeWithSelector(
+            IScribe.DoubleSigningAttempted.selector, feedId
+        );
     }
 
     function _errorSchnorrSignatureInvalid()

@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.16;
 
-// @todo Remove
-import {console2} from "forge-std/console2.sol";
-
 import {IChronicle} from "chronicle-std/IChronicle.sol";
 
 import {IScribeOptimistic} from "./IScribeOptimistic.sol";
@@ -72,7 +69,6 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
     {
         // Load current age from storage.
         uint32 age = _currentPokeData().age;
-        console2.log("age", age);
 
         // Revert if pokeData stale.
         if (pokeData.age <= age) {
@@ -162,16 +158,18 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
             ecdsaData.s
         );
 
-        uint8 id = uint8(uint(uint160(signer)) >> 152);
+        // Compute feed id of signer.
+        uint8 feedId = uint8(uint(uint160(signer)) >> 152);
 
         // Revert if signer not feed.
-        if (sloadPubKey(id).isZeroPoint()) {
+        // assert(_sloadPubKey(id).toAddress() != address(0));
+        if (_sloadPubKey(feedId).toAddress() != signer) {
             revert SignerNotFeed(signer);
         }
 
         // Store the feed's id as opFeedId and bind them to their provided
         // schnorrData.
-        opFeedId = id;
+        opFeedId = feedId;
         _schnorrDataCommitment = uint160(
             uint(
                 keccak256(
@@ -367,6 +365,7 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         returns (bool, uint, uint)
     {
         PokeData memory pokeData = _currentPokeData();
+        // @todo MUST return age=0 if val=0.
         return (pokeData.val != 0, pokeData.val, pokeData.age);
     }
 
@@ -444,8 +443,6 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
 
     // -- Auth'ed Functionality --
 
-    // @todo Make all functions payable.
-
     /// @inheritdoc IScribeOptimistic
     function setOpChallengePeriod(uint16 opChallengePeriod_) external auth {
         _setOpChallengePeriod(opChallengePeriod_);
@@ -491,8 +488,6 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
     function _afterAuthedAction() internal {
         // Do nothing during deployment.
         if (address(this).code.length == 0) return;
-
-        console2.log("WHAAAT");
 
         // Load _opPokeData from storage.
         PokeData memory opPokeData = _opPokeData;
