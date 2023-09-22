@@ -60,7 +60,7 @@ abstract contract IScribeTest is Test {
         uint privKey = 2;
         uint bloom;
         uint ctr;
-        while (true) {
+        while (ctr != numberFeeds) {
             LibFeed.Feed memory feed = LibFeed.newFeed({privKey: privKey});
 
             // Check whether feed with id already created, if not create and
@@ -72,11 +72,6 @@ abstract contract IScribeTest is Test {
                 scribe.lift(
                     feed.pubKey, feed.signECDSA(FEED_REGISTRATION_MESSAGE)
                 );
-            }
-
-            // Break if feed for each id created and lifted.
-            if (ctr == numberFeeds) {
-                break;
             }
 
             privKey++;

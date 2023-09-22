@@ -2,14 +2,16 @@
 
 The benchmark for `Scribe` is based on the `poke()` function while the benchmark for `ScribeOptimistic` being based on the `opPoke()` function.
 
-| `bar` | `Scribe::poke()`   | `ScribeOptimistic::opPoke()` |
-|-------|--------------------|------------------------------|
-|     5 |             79,428 |                       66,462 |
-|    10 |            106,862 |                       66,534 |
-|    15 |            131,834 |                       66,603 |
-|    20 |            158,263 |                       66,663 |
-|    50 |            315,655 |                       67,437 |
-|   100 |            577,919 |                       68,845 |
+| `bar` | `Scribe::poke()` | `ScribeOptimistic::opPoke()` |
+| ----- | ---------------- | ---------------------------- |
+| 5     | 80,280           | 68,815                       |
+| 10    | 105,070          | 68,887                       |
+| 15    | 132,414          | 68,944                       |
+| 20    | 156,983          | 69,004                       |
+| 50    | 314,455          | 69,791                       |
+| 100   | 574,227          | 71,186                       |
+| 200   | 1,096,599        | 73,630                       |
+| 255   | 1,382,810        | 74,735                       |
 
 The following visualization shows the gas usage for different numbers of `bar`:
 

@@ -6,9 +6,9 @@ ffi = true
 
 # Compilation
 solc_version = "0.8.16"
-optimizer = false
+optimizer = true
 optimizer_runs = 10_000
-via_ir = false
+via_ir = true
 extra_output_files = ["metadata", "irOptimized"]
 
 # Testing

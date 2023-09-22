@@ -78,6 +78,8 @@ run_Scribe 15
 run_Scribe 20
 run_Scribe 50
 run_Scribe 100
+run_Scribe 200
+run_Scribe 255
 
 echo "=== Scribe Optimistic Benchmarks (Printing cost of non-initial opPoke())"
 run_ScribeOptimistic 5
@@ -86,3 +88,5 @@ run_ScribeOptimistic 15
 run_ScribeOptimistic 20
 run_ScribeOptimistic 50
 run_ScribeOptimistic 100
+run_ScribeOptimistic 200
+run_ScribeOptimistic 255

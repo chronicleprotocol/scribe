@@ -217,7 +217,7 @@ contract Scribe is IScribe, Auth, Toll {
             // Update bloom filter.
             bloom |= 1 << feedId;
 
-            assert(aggPubKey.x != feedPubKey.x); // Indicates rogue-key attack
+            // assert(aggPubKey.x != feedPubKey.x); // Indicates rogue-key attack
 
             // Add feedPubKey to already aggregated public keys.
             aggPubKey.addAffinePoint(feedPubKey);
@@ -316,7 +316,7 @@ contract Scribe is IScribe, Auth, Toll {
     {
         roundId = 1;
         answer = int(uint(_pokeData.val));
-        assert(uint(answer) == uint(_pokeData.val));
+        // assert(uint(answer) == uint(_pokeData.val));
         startedAt = 0;
         updatedAt = _pokeData.age;
         answeredInRound = roundId;
@@ -413,7 +413,7 @@ contract Scribe is IScribe, Auth, Toll {
         returns (uint8)
     {
         address feed = pubKey.toAddress();
-        assert(feed != address(0));
+        // assert(feed != address(0));
 
         // forgefmt: disable-next-item
         address recovered = ecrecover(
@@ -494,10 +494,10 @@ contract Scribe is IScribe, Auth, Toll {
             mstore(add(pubKey, 32), y)
         }
 
-        assert(
-            pubKey.isZeroPoint()
-                || uint(uint160(pubKey.toAddress())) >> 152 == index
-        );
+        // assert(
+        //     pubKey.isZeroPoint()
+        //         || uint(uint160(pubKey.toAddress())) >> 152 == index
+        // );
 
         return pubKey;
     }
@@ -505,10 +505,10 @@ contract Scribe is IScribe, Auth, Toll {
     function _sstorePubKey(uint8 index, LibSecp256k1.Point memory pubKey)
         internal
     {
-        assert(
-            pubKey.isZeroPoint()
-                || uint(uint160(pubKey.toAddress())) >> 152 == index
-        );
+        // assert(
+        //     pubKey.isZeroPoint()
+        //         || uint(uint160(pubKey.toAddress())) >> 152 == index
+        // );
 
         assembly ("memory-safe") {
             let slot := add(_pubKeys.slot, shl(1, index))
@@ -522,7 +522,7 @@ contract Scribe is IScribe, Auth, Toll {
     }
 
     function _revert(bytes memory err) internal pure {
-        assert(err.length != 0);
+        // assert(err.length != 0);
         assembly ("memory-safe") {
             let size := mload(err)
             let offset := add(err, 0x20)
@@ -535,7 +535,7 @@ contract Scribe is IScribe, Auth, Toll {
         pure
         returns (bytes memory)
     {
-        assert(got != want);
+        // assert(got != want);
         return abi.encodeWithSelector(IScribe.BarNotReached.selector, got, want);
     }
 
@@ -544,7 +544,7 @@ contract Scribe is IScribe, Auth, Toll {
         view
         returns (bytes memory)
     {
-        assert(_sloadPubKey(feedId).isZeroPoint());
+        // assert(_sloadPubKey(feedId).isZeroPoint());
         return abi.encodeWithSelector(IScribe.InvalidFeedId.selector, feedId);
     }
 

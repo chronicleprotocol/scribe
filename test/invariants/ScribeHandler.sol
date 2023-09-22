@@ -45,13 +45,7 @@ contract ScribeHandler is CommonBase, StdUtils {
         // Cache constants.
         WAT = scribe.wat();
         FEED_REGISTRATION_MESSAGE = scribe.feedRegistrationMessage();
-
-        //_ensureBarFeedsLifted();
     }
-
-    /*
-     * @todo Cache how many feeds lifted. Ensure always bar lifted.
-     */
 
     function _ensureBarFeedsLifted() internal {
         uint bar = scribe.bar();

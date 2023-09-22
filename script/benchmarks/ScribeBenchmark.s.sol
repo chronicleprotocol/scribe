@@ -37,7 +37,6 @@ import {LibFeed} from "script/libs/LibFeed.sol";
 contract ScribeBenchmark is Script {
     using LibFeed for LibFeed.Feed;
     using LibFeed for LibFeed.Feed[];
-    /*
 
     /// @dev Anvil's default mnemonic.
     string internal constant ANVIL_MNEMONIC =
@@ -108,21 +107,34 @@ contract ScribeBenchmark is Script {
         scribe.poke(pokeData, schnorrData);
     }
 
-    function _createFeeds(uint amount)
+    function _createFeeds(uint numberFeeds)
         internal
         returns (LibFeed.Feed[] memory)
     {
-        uint startPrivKey = 2;
+        LibFeed.Feed[] memory feeds = new LibFeed.Feed[](numberFeeds);
 
-        LibFeed.Feed[] memory feeds = new LibFeed.Feed[](amount);
-        for (uint i; i < amount; i++) {
-            feeds[i] = LibFeed.newFeed({
-                privKey: startPrivKey + i,
-                index: uint8(i + 1)
-            });
+        // Note to not start with privKey=1. This is because the sum of public
+        // keys would evaluate to:
+        //   pubKeyOf(1) + pubKeyOf(2) + pubKeyOf(3) + ...
+        // = pubKeyOf(3)               + pubKeyOf(3) + ...
+        // Note that pubKeyOf(3) would be doubled. Doubling is not supported by
+        // LibSecp256k1 as this would indicate a double-signing attack.
+        uint privKey = 2;
+        uint bloom;
+        uint ctr;
+        while (ctr != numberFeeds) {
+            LibFeed.Feed memory feed = LibFeed.newFeed({privKey: privKey});
+
+            // Check whether feed with id already created, if not create.
+            if (bloom & (1 << feed.id) == 0) {
+                bloom |= 1 << feed.id;
+
+                feeds[ctr++] = feed;
+            }
+
+            privKey++;
         }
 
         return feeds;
     }
-    */
 }
