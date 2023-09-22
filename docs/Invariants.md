@@ -68,67 +68,24 @@ This document specifies invariants of the Scribe and ScribeOptimistic oracle con
 
 ## `{Scribe, ScribeOptimistic}::_pubKeys`
 
-* `_pubKeys[0]` is the zero point:
+* `_pubKeys`' length is 256:
     ```
-    _pubKeys[0].isZeroPoint()
-    ```
-
-* A non-zero public key exists at most once:
-    ```
-    ∀x ∊ PublicKeys: x.isZeroPoint() ∨ count(x in _pubKeys) <= 1
+    _pubKeys.length == 256
     ```
 
-* Length is strictly monotonically increasing:
+* Public keys are stored at the index of their address' first byte:
     ```
-    preTx(_pubKeys.length) != postTx(_pubKeys.length)
-        → preTx(_pubKeys.length) < posTx(_pubKeys.length)
-    ```
-
-* Existing public key may only be deleted, never mutated:
-    ```
-    ∀x ∊ uint: x < _pubKeys.length ⋀ preTx(_pubKeys[x]) != postTx(_pubKeys[x])
-        → postTx(_pubKeys[x].isZeroPoint())
-    ```
-
-* Newly added public key is non-zero:
-    ```
-    preTx(_pubKeys.length) != postTx(_pubKeys.length)
-        → postTx(!_pubKeys[_pubKeys.length-1].isZeroPoint())
+    ∀id ∊ Uint8: _pubKeys[id].isZeroPoint() ∨ (_pubKeys[id].toAddress() >> 152) == id
     ```
 
 * Only functions `lift` and `drop` may mutate the array's state:
     ```
-    ∀x ∊ uint: preTx(_pubKeys[x]) != postTx(_pubKeys[x])
+    ∀id ∊ Uint8: preTx(_pubKeys[id]) != postTx(_pubKeys[id])
         → msg.sig ∊ {"lift", "drop"}
     ```
 
 * Array's state may only be mutated by auth'ed caller:
     ```
-    ∀x ∊ uint: preTx(_pubKeys[x]) != postTx(_pubKeys[x])
-        → authed(msg.sender)
-    ```
-
-## `{Scribe, ScribeOptimistic}::_feeds`
-
-* Image of mapping is `[0, _pubKeys.length)`:
-    ```
-    ∀x ∊ Address: _feeds[x] ∊ [0, _pubKeys.length)
-    ```
-
-* Image of mapping links to feed's public key in `_pubKeys`:
-    ```
-    ∀x ∊ Address: _feeds[x] = y ⋀ y != 0
-        → _pubKeys[y].toAddress() == x
-    ```
-
-* Only functions `lift` and `drop` may mutate the mapping's state:
-    ```
-    ∀x ∊ Address: preTx(_feeds[x]) != postTx(_feeds[x])
-        → msg.sig ∊ {"lift", "drop"}
-    ```
-
-* Mapping's state may only be mutated by auth'ed caller:
-    ```
-    ∀x ∊ Address: preTx(_feeds[x]) != postTx(_feeds[x])
+    ∀id ∊ Uint8: preTx(_pubKeys[id]) != postTx(_pubKeys[id])
         → authed(msg.sender)
     ```

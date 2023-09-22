@@ -69,8 +69,6 @@ abstract contract IScribeInvariantTest is Test {
 
     // -- PubKeys --
 
-    // @todo Invariant: V id \in Uint8: V pubKey \in sloadPubKey(id): pubKey.isZeroPoint() || pubKey.id() == id
-
     function invariant_pubKeys_IndexedViaFeedId() public {
         LibSecp256k1.Point memory pubKey;
         uint8 feedId;
