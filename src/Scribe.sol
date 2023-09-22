@@ -541,7 +541,7 @@ contract Scribe is IScribe, Auth, Toll {
 
     function _errorInvalidFeedId(uint8 feedId)
         internal
-        view
+        pure
         returns (bytes memory)
     {
         // assert(_sloadPubKey(feedId).isZeroPoint());
