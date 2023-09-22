@@ -40,10 +40,6 @@ import {
  *                  "<Ethereum address>",
  *                  ...
  *              ],
- *              "feedIndexes": [
- *                  0,
- *                  ...
- *              ],
  *              "feedPublicKeys": {
  *                  "xCoordinates": [
  *                      <uint>,
@@ -117,7 +113,6 @@ contract IScribeChaincheck is Chaincheck {
         check_bar();
         check_feeds_AllExpectedFeedsAreLifted();
         check_feeds_OnlyExpectedFeedsAreLifted();
-        check_feeds_AllExpectedFeedIndexesLinkToCorrectFeed();
         check_feeds_AllPublicKeysAreLifted();
         check_feeds_PublicKeysCorrectlyOrdered();
 
@@ -143,23 +138,12 @@ contract IScribeChaincheck is Chaincheck {
 
     function check_feeds_ConfigSanity() internal {
         address[] memory feeds = config.readAddressArray(".IScribe.feeds");
-        uint[] memory feedIndexes = config.readUintArray(".IScribe.feedIndexes");
         uint[] memory feedPublicKeysXCoordinates =
             config.readUintArray(".IScribe.feedPublicKeys.xCoordinates");
         uint[] memory feedPublicKeysYCoordinates =
             config.readUintArray(".IScribe.feedPublicKeys.yCoordinates");
 
         uint wantLen = feeds.length;
-
-        if (feedIndexes.length != wantLen) {
-            logs.push(
-                string.concat(
-                    StdStyle.red(
-                        "Config error: IScribe.feeds.length != IScribe.feedIndexes.length"
-                    )
-                )
-            );
-        }
 
         if (feedPublicKeysXCoordinates.length != wantLen) {
             logs.push(
@@ -246,7 +230,7 @@ contract IScribeChaincheck is Chaincheck {
             wantFeed = wantFeeds[i];
 
             bool isFeed;
-            (isFeed, /*feedIndex*/ ) = self.feeds(wantFeed);
+            (isFeed, /*feedId*/ ) = self.feeds(wantFeed);
 
             if (!isFeed) {
                 logs.push(
@@ -266,7 +250,7 @@ contract IScribeChaincheck is Chaincheck {
 
         // Check that only expected feeds are lifted.
         address[] memory gotFeeds;
-        (gotFeeds, /*feedIndexes*/ ) = self.feeds();
+        (gotFeeds, /*feedId*/ ) = self.feeds();
         for (uint i; i < gotFeeds.length; i++) {
             for (uint j; j < wantFeeds.length; j++) {
                 if (gotFeeds[i] == wantFeeds[j]) {
@@ -284,39 +268,6 @@ contract IScribeChaincheck is Chaincheck {
                         )
                     );
                 }
-            }
-        }
-    }
-
-    function check_feeds_AllExpectedFeedIndexesLinkToCorrectFeed() internal {
-        address[] memory wantFeeds = config.readAddressArray(".IScribe.feeds");
-        uint[] memory wantFeedIndexes =
-            config.readUintArray(".IScribe.feedIndexes");
-
-        // Check that each feed index links to correct feed.
-        address wantFeed;
-        uint wantFeedIndex;
-        for (uint i; i < wantFeeds.length; i++) {
-            wantFeed = wantFeeds[i];
-            wantFeedIndex = wantFeedIndexes[i];
-
-            bool isFeed;
-            uint gotFeedIndex;
-            (isFeed, gotFeedIndex) = self.feeds(wantFeed);
-
-            if (wantFeedIndex != gotFeedIndex) {
-                logs.push(
-                    string.concat(
-                        StdStyle.red("Expected feed index does not match:"),
-                        " feed=",
-                        vm.toString(wantFeed),
-                        ", expectedIndex=",
-                        vm.toString(wantFeedIndex),
-                        ", actualIndex=",
-                        vm.toString(gotFeedIndex)
-                    )
-                );
-                continue;
             }
         }
     }
@@ -346,7 +297,7 @@ contract IScribeChaincheck is Chaincheck {
         // Check that each address derived from public key is lifted.
         for (uint i; i < addrs.length; i++) {
             bool isFeed;
-            (isFeed, /*feedIndex*/ ) = self.feeds(addrs[i]);
+            (isFeed, /*feedId*/ ) = self.feeds(addrs[i]);
 
             if (!isFeed) {
                 logs.push(
