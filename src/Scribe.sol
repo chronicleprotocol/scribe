@@ -14,25 +14,8 @@ import {LibSecp256k1} from "./libs/LibSecp256k1.sol";
 import {LibSchnorrData} from "./libs/LibSchnorrData.sol";
 
 /**
- * Terminology:
- *     - feed = address
- *     - feedId = first byte of feed
- *
- *  Important numbers expected to be known:
- *     - 256 = the number of supported feed ids
- *
- *  Important expressions expected to be known:
- *     - @todo To feed id bit shifting
- *     - @todo bloom filter bit shifting
- */
-
-/**
- * Note that while 256 feeds can be lifted, bar can max be 255!
- */
-
-/**
  * @title Scribe
- * @custom:version 1.1.0
+ * @custom:version 2.0.0
  *
  * @notice Efficient Schnorr multi-signature based Oracle
  */
@@ -53,8 +36,6 @@ contract Scribe is IScribe, Auth, Toll {
         )
     );
 
-    // @todo Add specific testGas for snapshots and benchmarks.
-
     /// @inheritdoc IChronicle
     bytes32 public immutable wat;
 
@@ -72,7 +53,10 @@ contract Scribe is IScribe, Auth, Toll {
 
     // -- Constructor --
 
-    constructor(address initialAuthed, bytes32 wat_) Auth(initialAuthed) {
+    constructor(address initialAuthed, bytes32 wat_)
+        payable
+        Auth(initialAuthed)
+    {
         require(wat_ != 0);
 
         // Set wat immutable.
@@ -161,7 +145,7 @@ contract Scribe is IScribe, Auth, Toll {
     }
 
     /// @custom:invariant Reverts iff out of gas.
-    /// @custom:invariant Runtime is Θ(bar).
+    /// @custom:invariant Runtime is O(bar).
     function _verifySchnorrSignature(
         bytes32 message,
         SchnorrData calldata schnorrData
@@ -277,8 +261,7 @@ contract Scribe is IScribe, Auth, Toll {
     {
         uint val = _pokeData.val;
         uint age = _pokeData.age;
-        // @todo MUST return age=0 if val=0.
-        return (val != 0, val, age);
+        return val != 0 ? (true, val, age) : (false, 0, 0);
     }
 
     // - MakerDAO Compatibility
@@ -324,26 +307,26 @@ contract Scribe is IScribe, Auth, Toll {
 
     // -- Public Read Functionality --
 
+    /// @inheritdoc IScribe
     function feeds(address who) external view returns (bool, uint8) {
         uint8 feedId = uint8(uint(uint160(who)) >> 152);
 
-        // @todo Note that interface is changed slightly!
-        //       Before, zero index was returned if not feed.
-        return (!_sloadPubKey(feedId).isZeroPoint(), feedId);
+        LibSecp256k1.Point memory pubKey = _sloadPubKey(feedId);
+        bool isFeed = !pubKey.isZeroPoint() && pubKey.toAddress() == who;
+
+        return (isFeed, feedId);
     }
 
+    /// @inheritdoc IScribe
     function feeds(uint8 feedId) external view returns (bool, address) {
         LibSecp256k1.Point memory pubKey = _sloadPubKey(feedId);
 
-        if (pubKey.isZeroPoint()) {
-            return (false, address(0));
-        } else {
-            return (true, pubKey.toAddress());
-        }
+        return pubKey.isZeroPoint()
+            ? (false, address(0))
+            : (true, pubKey.toAddress());
     }
 
-    // @todo Warning that this function should be called from offchain.
-    // @todo Make gas benchmarks to check whether paginated function necessary.
+    /// @inheritdoc IScribe
     function feeds() external view returns (address[] memory, uint8[] memory) {
         // Initiate arrays with upper limit length.
         address[] memory feeds_ = new address[](256);
@@ -382,6 +365,7 @@ contract Scribe is IScribe, Auth, Toll {
 
     // -- Auth'ed Functionality --
 
+    /// @inheritdoc IScribe
     function lift(LibSecp256k1.Point memory pubKey, ECDSAData memory ecdsaData)
         external
         auth
@@ -390,24 +374,24 @@ contract Scribe is IScribe, Auth, Toll {
         return _lift(pubKey, ecdsaData);
     }
 
+    /// @inheritdoc IScribe
     function lift(
         LibSecp256k1.Point[] memory pubKeys,
         ECDSAData[] memory ecdsaDatas
     ) external auth returns (uint8[] memory) {
         require(pubKeys.length == ecdsaDatas.length);
 
-        uint8[] memory indexes = new uint8[](pubKeys.length);
+        uint8[] memory feedIds = new uint8[](pubKeys.length);
         for (uint i; i < pubKeys.length;) {
-            indexes[i] = _lift(pubKeys[i], ecdsaDatas[i]);
+            feedIds[i] = _lift(pubKeys[i], ecdsaDatas[i]);
 
             // forgefmt: disable-next-item
             unchecked { ++i; }
         }
 
-        return indexes;
+        return feedIds;
     }
 
-    // invariant: lift can only _pubKeys[index] == zero -> _pubKeys[index] != zero
     function _lift(LibSecp256k1.Point memory pubKey, ECDSAData memory ecdsaData)
         internal
         returns (uint8)
@@ -440,10 +424,12 @@ contract Scribe is IScribe, Auth, Toll {
         return feedId;
     }
 
+    /// @inheritdoc IScribe
     function drop(uint8 feedId) external auth {
         _drop(msg.sender, feedId);
     }
 
+    /// @inheritdoc IScribe
     function drop(uint8[] memory feedIds) external auth {
         for (uint i; i < feedIds.length;) {
             _drop(msg.sender, feedIds[i]);

@@ -434,7 +434,7 @@ abstract contract IScribeTest is Test {
 
     // -- Test: constructPokeMessage --
 
-    // @todo Disabled during dev.
+    // @todo Schnorr cli test disabled.
     /*
     function testFuzzDifferentialOracleSuite_constructPokeMessage(
         IScribe.PokeData memory pokeData

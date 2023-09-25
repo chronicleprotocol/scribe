@@ -125,6 +125,7 @@ interface IScribe is IChronicle {
     /// @notice Pokes the oracle.
     /// @dev Expects `pokeData`'s age to be greater than the timestamp of the
     ///      last successful poke.
+    /// @dev Expects `pokeData`'s age to not be greater than the current time.
     /// @dev Expects `schnorrData` to prove `pokeData`'s integrity.
     ///      See `isAcceptableSchnorrSignatureNow(bytes32,SchnorrData)(bool)`.
     /// @param pokeData The PokeData being poked.
@@ -137,7 +138,7 @@ interface IScribe is IChronicle {
     ///         currently acceptable for message `message`.
     /// @dev Note that a valid Schnorr signature is only acceptable if the
     ///      signature was signed by exactly bar many feeds.
-    ///      For more info, see `bar()(uint8)` and `feeds()(address[],uint[])`.
+    ///      For more info, see `bar()(uint8)` and `feeds()(address[],uint8[])`.
     /// @dev Note that bar and feeds are configurable, meaning a once acceptable
     ///      Schnorr signature may become unacceptable in the future.
     /// @param message The message expected to be signed via `schnorrData`.
@@ -181,6 +182,8 @@ interface IScribe is IChronicle {
         returns (bool isFeed, address feed);
 
     /// @notice Returns list of feed addresses and corresponding feed ids.
+    /// @dev Note that this function has a high gas consumption and is not
+    ///      intended to be called onchain.
     /// @return feeds List of feed addresses.
     /// @return feedIds List of feed ids.
     function feeds()
@@ -190,8 +193,8 @@ interface IScribe is IChronicle {
 
     /// @notice Lifts public key `pubKey` to being a feed.
     /// @dev Only callable by auth'ed address.
-    /// @dev The message expected to be signed by `ecdsaData` is defined as via
-    ///      `feedRegistrationMessage()(bytes32)` function.
+    /// @dev The message expected to be signed by `ecdsaData` is defined via
+    ///      `feedRegistrationMessage()(bytes32)`.
     /// @param pubKey The public key of the feed.
     /// @param ecdsaData ECDSA signed message by the feed's public key.
     /// @return feedId The id of the newly lifted feed.
@@ -201,8 +204,8 @@ interface IScribe is IChronicle {
 
     /// @notice Lifts public keys `pubKeys` to being feeds.
     /// @dev Only callable by auth'ed address.
-    /// @dev The message expected to be signed by `ecdsaDatas` is defined as via
-    ///      `feedRegistrationMessage()(bytes32)` function.
+    /// @dev The message expected to be signed by `ecdsaDatas` is defined via
+    ///      `feedRegistrationMessage()(bytes32)`.
     /// @param pubKeys The public keys of the feeds.
     /// @param ecdsaDatas ECDSA signed message by the feeds' public keys.
     /// @return List of feed ids of the newly lifted feeds.

@@ -64,6 +64,9 @@ abstract contract IScribeOptimisticTest is IScribeTest {
 
         // OpChallengePeriod set to 1 hour.
         assertEq(opScribe.opChallengePeriod(), 1 hours);
+
+        // MaxChallengeRewards set to type(uint).max.
+        assertEq(opScribe.maxChallengeReward(), type(uint).max);
     }
 
     // -- Test: Poke --

@@ -21,9 +21,6 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
     using LibSecp256k1 for LibSecp256k1.Point;
     using LibSecp256k1 for LibSecp256k1.Point[];
 
-    /// @dev The initial opChallengePeriod set during construction.
-    uint16 private constant _INITIAL_OP_CHALLENGE_PERIOD = 1 hours;
-
     // -- Storage --
 
     /// @inheritdoc IScribeOptimistic
@@ -49,14 +46,15 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
 
     // -- Constructor and Receive Functionality --
 
-    // @todo Make constructor payable.
     constructor(address initialAuthed, bytes32 wat_)
+        payable
         Scribe(initialAuthed, wat_)
     {
         // Note to have a non-zero challenge period.
-        _setOpChallengePeriod(_INITIAL_OP_CHALLENGE_PERIOD);
+        _setOpChallengePeriod(1 hours);
 
-        // @todo Set maxChallengeReward to type(uint).max?
+        // Set maxChallengeReward to type(uint).max.
+        _setMaxChallengeRewards(type(uint).max);
     }
 
     receive() external payable {}
@@ -245,10 +243,6 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         );
 
         if (ok) {
-            // @todo Remove this code path. Challenge may only delete invalid price and kick
-            //       feed. If you wanna update price, use poke. opPoke has new invariant of
-            //       only - but always if valid - finalized after opChallengePeriod.
-
             // Decide whether _opPokeData stale already.
             bool opPokeDataStale = opPokeData.age <= _pokeData.age;
 
@@ -365,8 +359,9 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         returns (bool, uint, uint)
     {
         PokeData memory pokeData = _currentPokeData();
-        // @todo MUST return age=0 if val=0.
-        return (pokeData.val != 0, pokeData.val, pokeData.age);
+        return pokeData.val != 0
+            ? (true, pokeData.val, pokeData.age)
+            : (false, 0, 0);
     }
 
     // - MakerDAO Compatibility
@@ -547,6 +542,10 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
 
     /// @inheritdoc IScribeOptimistic
     function setMaxChallengeReward(uint maxChallengeReward_) external auth {
+        _setMaxChallengeRewards(maxChallengeReward_);
+    }
+
+    function _setMaxChallengeRewards(uint maxChallengeReward_) internal {
         if (maxChallengeReward != maxChallengeReward_) {
             emit MaxChallengeRewardUpdated(
                 msg.sender, maxChallengeReward, maxChallengeReward_

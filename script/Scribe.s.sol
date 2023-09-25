@@ -143,8 +143,7 @@ contract ScribeScript is Script {
                 "Public key must be valid secp256k1 point"
             );
             bool isFeed;
-            (isFeed, /*feedId*/ ) =
-                IScribe(self).feeds(pubKeys[i].toAddress());
+            (isFeed, /*feedId*/ ) = IScribe(self).feeds(pubKeys[i].toAddress());
             require(!isFeed, "Public key already lifted");
         }
 

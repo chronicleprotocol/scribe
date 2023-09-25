@@ -252,22 +252,24 @@ contract IScribeChaincheck is Chaincheck {
         address[] memory gotFeeds;
         (gotFeeds, /*feedId*/ ) = self.feeds();
         for (uint i; i < gotFeeds.length; i++) {
+            bool found = false;
+
             for (uint j; j < wantFeeds.length; j++) {
                 if (gotFeeds[i] == wantFeeds[j]) {
-                    // Feed is expected, break inner loop.
-                    break;
+                    found = true;
+                    break; // Found feed. Continue with outer loop.
                 }
+            }
 
-                if (j == wantFeeds.length - 1) {
-                    // Feed not found.
-                    logs.push(
-                        string.concat(
-                            StdStyle.red("Unknown feed lifted:"),
-                            " feed=",
-                            vm.toString(gotFeeds[i])
-                        )
-                    );
-                }
+            if (!found) {
+                // Feed not found.
+                logs.push(
+                    string.concat(
+                        StdStyle.red("Unknown feed lifted:"),
+                        " feed=",
+                        vm.toString(gotFeeds[i])
+                    )
+                );
             }
         }
     }
