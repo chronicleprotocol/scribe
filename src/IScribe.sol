@@ -17,7 +17,7 @@ interface IScribe is IChronicle {
     struct SchnorrData {
         bytes32 signature;
         address commitment;
-        bytes signersBlob;
+        bytes feedIds;
     }
 
     /// @dev ECDSAData encapsulates an ECDSA signature.
@@ -45,13 +45,13 @@ interface IScribe is IChronicle {
     /// @param bar The bar security parameter.
     error BarNotReached(uint8 numberSigners, uint8 bar);
 
-    /// @notice Thrown if signature signed by non-feed.
-    /// @param signer The signer's address not being a feed.
-    error SignerNotFeed(address signer);
+    /// @notice Thrown if given feed id invalid.
+    /// @param feedId The invalid feed id.
+    error InvalidFeedId(uint8 feedId);
 
-    /// @notice Thrown if signer indexes are not encoded so that their
-    ///         addresses are in ascending order.
-    error SignersNotOrdered();
+    /// @notice Thrown if double signing attempted.
+    /// @param feedId The id of the feed attempting to double sign.
+    error DoubleSigningAttempted(uint8 feedId);
 
     /// @notice Thrown if Schnorr signature verification failed.
     error SchnorrSignatureInvalid();
@@ -65,17 +65,17 @@ interface IScribe is IChronicle {
     /// @notice Emitted when new feed lifted.
     /// @param caller The caller's address.
     /// @param feed The feed address lifted.
-    /// @param index The feed's index identifier.
+    /// @param feedId The feed's id.
     event FeedLifted(
-        address indexed caller, address indexed feed, uint indexed index
+        address indexed caller, address indexed feed, uint8 indexed feedId
     );
 
     /// @notice Emitted when feed dropped.
     /// @param caller The caller's address.
     /// @param feed The feed address dropped.
-    /// @param index The feed's index identifier.
+    /// @param feedId The feed's id.
     event FeedDropped(
-        address indexed caller, address indexed feed, uint indexed index
+        address indexed caller, address indexed feed, uint8 indexed feedId
     );
 
     /// @notice Emitted when bar updated.
@@ -92,12 +92,6 @@ interface IScribe is IChronicle {
         external
         view
         returns (bytes32 feedRegistrationMessage);
-
-    /// @notice The maximum number of feed lifts supported.
-    /// @dev Note that the constraint comes from feed's indexes being encoded as
-    ///      uint8 in SchnorrData.signersBlob.
-    /// @return maxFeeds The maximum number of feed lifts supported.
-    function maxFeeds() external view returns (uint maxFeeds);
 
     /// @notice Returns the bar security parameter.
     /// @return bar The bar security parameter.
@@ -138,6 +132,7 @@ interface IScribe is IChronicle {
     /// @notice Pokes the oracle.
     /// @dev Expects `pokeData`'s age to be greater than the timestamp of the
     ///      last successful poke.
+    /// @dev Expects `pokeData`'s age to not be greater than the current time.
     /// @dev Expects `schnorrData` to prove `pokeData`'s integrity.
     ///      See `isAcceptableSchnorrSignatureNow(bytes32,SchnorrData)(bool)`.
     /// @param pokeData The PokeData being poked.
@@ -150,7 +145,7 @@ interface IScribe is IChronicle {
     ///         currently acceptable for message `message`.
     /// @dev Note that a valid Schnorr signature is only acceptable if the
     ///      signature was signed by exactly bar many feeds.
-    ///      For more info, see `bar()(uint8)` and `feeds()(address[],uint[])`.
+    ///      For more info, see `bar()(uint8)` and `feeds()(address[],uint8[])`.
     /// @dev Note that bar and feeds are configurable, meaning a once acceptable
     ///      Schnorr signature may become unacceptable in the future.
     /// @param message The message expected to be signed via `schnorrData`.
@@ -167,73 +162,74 @@ interface IScribe is IChronicle {
     /// @dev The message is defined as:
     ///         H(tag ‖ H(wat ‖ pokeData)), where H() is the keccak256 function.
     /// @param pokeData The pokeData to create the message for.
-    /// @return Message for `pokeData`.
+    /// @return pokeMessage Message for `pokeData`.
     function constructPokeMessage(PokeData calldata pokeData)
         external
         view
-        returns (bytes32);
+        returns (bytes32 pokeMessage);
 
-    /// @notice Returns whether address `who` is a feed and its feed index
-    ///         identifier.
+    /// @notice Returns whether address `who` is a feed and its feed id.
     /// @param who The address to check.
     /// @return isFeed True if `who` is feed, false otherwise.
-    /// @return feedIndex Non-zero if `who` is feed, zero otherwise.
+    /// @return feedId The feed id for address `who`.
     function feeds(address who)
         external
         view
-        returns (bool isFeed, uint feedIndex);
+        returns (bool isFeed, uint8 feedId);
 
-    /// @notice Returns whether feedIndex `index` maps to a feed and, if so,
-    ///         the feed's address.
-    /// @param index The feedIndex to check.
-    /// @return isFeed True if `index` maps to a feed, false otherwise.
-    /// @return feed Address of the feed with feedIndex `index` if `index` maps
-    ///              to feed, zero-address otherwise.
-    function feeds(uint index)
+    /// @notice Returns whether feed id `feedId` is a feed and, if so, the
+    ///         feed's address.
+    /// @param feedId The feed id to check.
+    /// @return isFeed True if `feedId` is a feed, false otherwise.
+    /// @return feed Address of the feed with id `feedId` if `feedId` is a feed,
+    ///              zero-address otherwise.
+    function feeds(uint8 feedId)
         external
         view
         returns (bool isFeed, address feed);
 
-    /// @notice Returns list of feed addresses and their index identifiers.
+    /// @notice Returns list of feed addresses and corresponding feed ids.
+    /// @dev Note that this function has a high gas consumption and is not
+    ///      intended to be called onchain.
     /// @return feeds List of feed addresses.
-    /// @return feedIndexes List of feed's indexes.
+    /// @return feedIds List of feed ids.
     function feeds()
         external
         view
-        returns (address[] memory feeds, uint[] memory feedIndexes);
+        returns (address[] memory feeds, uint8[] memory feedIds);
 
     /// @notice Lifts public key `pubKey` to being a feed.
     /// @dev Only callable by auth'ed address.
-    /// @dev The message expected to be signed by `ecdsaData` is defined as via
-    ///      `feedRegistrationMessage()(bytes32)` function.
+    /// @dev The message expected to be signed by `ecdsaData` is defined via
+    ///      `feedRegistrationMessage()(bytes32)`.
     /// @param pubKey The public key of the feed.
     /// @param ecdsaData ECDSA signed message by the feed's public key.
-    /// @return The feed index of the newly lifted feed.
+    /// @return feedId The id of the newly lifted feed.
     function lift(LibSecp256k1.Point memory pubKey, ECDSAData memory ecdsaData)
         external
-        returns (uint);
+        returns (uint8 feedId);
 
     /// @notice Lifts public keys `pubKeys` to being feeds.
     /// @dev Only callable by auth'ed address.
-    /// @dev The message expected to be signed by `ecdsaDatas` is defined as via
-    ///      `feedRegistrationMessage()(bytes32)` function.
+    /// @dev The message expected to be signed by `ecdsaDatas` is defined via
+    ///      `feedRegistrationMessage()(bytes32)`.
     /// @param pubKeys The public keys of the feeds.
     /// @param ecdsaDatas ECDSA signed message by the feeds' public keys.
-    /// @return List of feed indexes of the newly lifted feeds.
+    /// @return List of feed ids of the newly lifted feeds.
     function lift(
         LibSecp256k1.Point[] memory pubKeys,
         ECDSAData[] memory ecdsaDatas
-    ) external returns (uint[] memory);
+    ) external returns (uint8[] memory);
 
-    /// @notice Drops feed with index `feedIndex` from being a feed.
+    /// @notice Drops feed with id `feedId`.
     /// @dev Only callable by auth'ed address.
-    /// @param feedIndex The feed index identifier of the feed to drop.
-    function drop(uint feedIndex) external;
+    /// @param feedId The feed id to drop.
+    function drop(uint8 feedId) external;
 
-    /// @notice Drops feeds with indexes `feedIndexes` from being feeds.
+    /// @notice Drops feeds with ids' `feedIds`.
     /// @dev Only callable by auth'ed address.
-    /// @param feedIndexes The feed's index identifiers of the feeds to drop.
-    function drop(uint[] memory feedIndexes) external;
+    /// @param feedIds The feed ids to drop.
+    function drop(uint8[] memory feedIds) external;
 
     /// @notice Updates the bar security parameters to `bar`.
     /// @dev Only callable by auth'ed address.

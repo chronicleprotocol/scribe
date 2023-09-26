@@ -17,7 +17,7 @@ abstract contract LibSecp256k1Test is Test {
 
     function testFuzzDifferential_toAddress(uint privKeySeed) public {
         // Let privKey ∊ [1, Q).
-        uint privKey = bound(privKeySeed, 1, LibSecp256k1.Q() - 1);
+        uint privKey = _bound(privKeySeed, 1, LibSecp256k1.Q() - 1);
 
         address want = vm.addr(privKey);
         address got = privKey.derivePublicKey().toAddress();
@@ -43,7 +43,7 @@ abstract contract LibSecp256k1Test is Test {
 
     function testFuzz_isOnCurve(uint privKeySeed) public {
         // Let privKey ∊ [1, Q).
-        uint privKey = bound(privKeySeed, 1, LibSecp256k1.Q() - 1);
+        uint privKey = _bound(privKeySeed, 1, LibSecp256k1.Q() - 1);
 
         assertTrue(privKey.derivePublicKey().isOnCurve());
     }
@@ -56,7 +56,7 @@ abstract contract LibSecp256k1Test is Test {
         vm.assume(maskX != 0 || maskY != 0);
 
         // Let privKey ∊ [1, Q).
-        uint privKey = bound(privKeySeed, 1, LibSecp256k1.Q() - 1);
+        uint privKey = _bound(privKeySeed, 1, LibSecp256k1.Q() - 1);
 
         // Compute and mutate point.
         LibSecp256k1.Point memory p = privKey.derivePublicKey();
@@ -93,7 +93,7 @@ abstract contract LibSecp256k1Test is Test {
 
     function testFuzz_toJacobian_toAffine(uint privKeySeed) public {
         // Let privKey ∊ [1, Q).
-        uint privKey = bound(privKeySeed, 1, LibSecp256k1.Q() - 1);
+        uint privKey = _bound(privKeySeed, 1, LibSecp256k1.Q() - 1);
 
         LibSecp256k1.Point memory want = privKey.derivePublicKey();
         LibSecp256k1.Point memory got = want.toJacobian().toAffine();

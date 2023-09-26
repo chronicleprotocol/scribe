@@ -89,7 +89,7 @@ contract ScribeScript is Script {
         require(!pubKey.isZeroPoint(), "Public key cannot be zero point");
         require(pubKey.isOnCurve(), "Public key must be valid secp256k1 point");
         bool isFeed;
-        (isFeed, /*feedIndex*/ ) = IScribe(self).feeds(pubKey.toAddress());
+        (isFeed, /*feedId*/ ) = IScribe(self).feeds(pubKey.toAddress());
         require(!isFeed, "Public key already lifted");
 
         address recovered =
@@ -143,8 +143,7 @@ contract ScribeScript is Script {
                 "Public key must be valid secp256k1 point"
             );
             bool isFeed;
-            (isFeed, /*feedIndex*/ ) =
-                IScribe(self).feeds(pubKeys[i].toAddress());
+            (isFeed, /*feedId*/ ) = IScribe(self).feeds(pubKeys[i].toAddress());
             require(!isFeed, "Public key already lifted");
         }
 
@@ -180,15 +179,13 @@ contract ScribeScript is Script {
         }
     }
 
-    /// @dev Drops feed with index `feedIndex`.
-    function drop(address self, uint feedIndex) public {
-        require(feedIndex != 0, "Feed index cannot be zero");
-
+    /// @dev Drops feed with id `feedId`.
+    function drop(address self, uint8 feedId) public {
         vm.startBroadcast();
-        IScribe(self).drop(feedIndex);
+        IScribe(self).drop(feedId);
         vm.stopBroadcast();
 
-        console2.log("Dropped", feedIndex);
+        console2.log("Dropped", feedId);
     }
 
     // -- View Functions
@@ -314,13 +311,13 @@ contract ScribeScript is Script {
     ///          script/${SCRIBE_FLAVOUR}.s.sol:${SCRIBE_FLAVOUR}Script
     ///      ```
     function deactivate(address self) public {
-        // Get current feeds' indexes.
-        uint[] memory feedIndexes;
-        ( /*feeds*/ , feedIndexes) = IScribe(self).feeds();
+        // Get lifted feed ids.
+        uint8[] memory feedIds;
+        ( /*feeds*/ , feedIds) = IScribe(self).feeds();
 
         // Drop all feeds.
         vm.startBroadcast();
-        IScribe(self).drop(feedIndexes);
+        IScribe(self).drop(feedIds);
         vm.stopBroadcast();
 
         // Create new random private key.
@@ -336,11 +333,8 @@ contract ScribeScript is Script {
 
         // Lift feed.
         vm.startBroadcast();
-        uint feedIndex = IScribe(self).lift(feed.pubKey, ecdsaData);
+        IScribe(self).lift(feed.pubKey, ecdsaData);
         vm.stopBroadcast();
-
-        // Set feed's assigned feedIndex.
-        feed.index = uint8(feedIndex);
 
         // Set bar to 1.
         vm.startBroadcast();
@@ -365,7 +359,7 @@ contract ScribeScript is Script {
 
         // Drop feed again.
         vm.startBroadcast();
-        IScribe(self).drop(feed.index);
+        IScribe(self).drop(feed.id);
         vm.stopBroadcast();
 
         // Set bar to type(uint8).max.

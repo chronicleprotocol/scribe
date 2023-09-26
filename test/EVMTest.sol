@@ -33,10 +33,10 @@ abstract contract EVMTest is Test {
         uint sSeed
     ) public {
         // Let privKey ∊ [1, Q).
-        uint privKey = bound(privKeySeed, 1, LibSecp256k1.Q() - 1);
+        uint privKey = _bound(privKeySeed, 1, LibSecp256k1.Q() - 1);
 
         // Let s ∊ [Q, type(uint).max].
-        bytes32 s = bytes32(bound(sSeed, LibSecp256k1.Q(), type(uint).max));
+        bytes32 s = bytes32(_bound(sSeed, LibSecp256k1.Q(), type(uint).max));
 
         // Create ECDSA signature.
         (, bytes32 r,) = vm.sign(privKey, keccak256("scribe"));
@@ -51,7 +51,7 @@ abstract contract EVMTest is Test {
         public
     {
         // Let privKey ∊ [1, Q).
-        uint privKey = bound(privKeySeed, 1, LibSecp256k1.Q() - 1);
+        uint privKey = _bound(privKeySeed, 1, LibSecp256k1.Q() - 1);
 
         // Create ECDSA signature.
         (,, bytes32 s) = vm.sign(privKey, keccak256("scribe"));

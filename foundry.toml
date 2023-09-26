@@ -12,7 +12,7 @@ via_ir = true
 extra_output_files = ["metadata", "irOptimized"]
 
 # Testing
-fuzz = { runs = 10 }
+fuzz = { runs = 50 }
 block_timestamp = 1_680_220_800 # March 31, 2023 at 00:00 GMT
 
 [invariant]

@@ -28,29 +28,21 @@ library LibFeed {
         Vm(address(uint160(uint(keccak256("hevm cheat code")))));
 
     /// @dev Feed encapsulates a private key, derived public key, and the
-    ///      public keys index in a Scribe instance.
+    ///      corresponding feed id.
     struct Feed {
         uint privKey;
         LibSecp256k1.Point pubKey;
-        uint8 index;
+        uint8 id;
     }
 
-    /// @dev Returns a new feed instance with private key `privKey` and feed
-    ///      index 0. Note that 0 is never a valid index!
+    /// @dev Returns a new feed instance with private key `privKey`.
     function newFeed(uint privKey) internal returns (Feed memory) {
-        return newFeed(privKey, 0);
-    }
+        LibSecp256k1.Point memory pubKey = privKey.derivePublicKey();
 
-    /// @dev Returns a new feed instance with private key `privKey` and feed
-    ///      index `index` in a Scribe instance.
-    function newFeed(uint privKey, uint8 index)
-        internal
-        returns (Feed memory)
-    {
         return Feed({
             privKey: privKey,
-            pubKey: privKey.derivePublicKey(),
-            index: index
+            pubKey: pubKey,
+            id: uint8(uint(uint160(pubKey.toAddress())) >> 152)
         });
     }
 
@@ -77,7 +69,7 @@ library LibFeed {
         return IScribe.SchnorrData({
             signature: bytes32(signature),
             commitment: commitment,
-            signersBlob: abi.encodePacked(self.index)
+            feedIds: abi.encodePacked(self.id)
         });
     }
 
@@ -94,96 +86,16 @@ library LibFeed {
         }
         (uint signature, address commitment) = privKeys.signMessage(message);
 
-        // Create signersBlob with sorted indexes.
-        bytes memory signersBlob;
-        uint8[] memory sortedIndexes = selfs.getIndexesSortedByAddress();
-        for (uint i; i < sortedIndexes.length; i++) {
-            signersBlob = abi.encodePacked(signersBlob, sortedIndexes[i]);
+        // Create blob of feedIds.
+        bytes memory feedIds;
+        for (uint i; i < selfs.length; i++) {
+            feedIds = abi.encodePacked(feedIds, selfs[i].id);
         }
 
         return IScribe.SchnorrData({
             signature: bytes32(signature),
             commitment: commitment,
-            signersBlob: signersBlob
+            feedIds: feedIds
         });
-    }
-
-    /// @dev Returns a Schnorr multi-signature (aggregated signature) of type
-    ///      IScribe.SchnorrData signing `message` via `selfs`' private keys.
-    ///      Note that SchnorrData's signersBlob is not ordered and the signature
-    ///      therefore unacceptable for Scribe.
-    function signSchnorr_withoutOrderingSignerIndexes(
-        Feed[] memory selfs,
-        bytes32 message
-    ) internal returns (IScribe.SchnorrData memory) {
-        // Create multi-signature.
-        uint[] memory privKeys = new uint[](selfs.length);
-        for (uint i; i < selfs.length; i++) {
-            privKeys[i] = selfs[i].privKey;
-        }
-        (uint signature, address commitment) = privKeys.signMessage(message);
-
-        // Create list of signerIndexes.
-        uint8[] memory signerIndexes = new uint8[](selfs.length);
-        for (uint i; i < selfs.length; i++) {
-            signerIndexes[i] = selfs[i].index;
-        }
-
-        // Create signersBlob.
-        bytes memory signersBlob;
-        for (uint i; i < signerIndexes.length; i++) {
-            signersBlob = abi.encodePacked(signersBlob, signerIndexes[i]);
-        }
-
-        return IScribe.SchnorrData({
-            signature: bytes32(signature),
-            commitment: commitment,
-            signersBlob: signersBlob
-        });
-    }
-
-    /// @dev Returns the list of `selfs` indexes sorted by `selfs`' addresses.
-    function getIndexesSortedByAddress(Feed[] memory selfs)
-        internal
-        pure
-        returns (uint8[] memory)
-    {
-        // Create array of feeds' indexes.
-        uint8[] memory indexes = new uint8[](selfs.length);
-        for (uint i; i < selfs.length; i++) {
-            indexes[i] = selfs[i].index;
-        }
-
-        // Create array of feeds' addresses.
-        address[] memory addrs = new address[](selfs.length);
-        for (uint i; i < selfs.length; i++) {
-            addrs[i] = selfs[i].pubKey.toAddress();
-        }
-
-        // Sort indexes array based on addresses array.
-        for (uint i = 1; i < selfs.length; i++) {
-            for (
-                uint j = i;
-                j > 0 && uint160(addrs[j - 1]) > uint160(addrs[j]);
-                j--
-            ) {
-                // Swap in indexes array.
-                {
-                    uint8 tmp = indexes[j];
-                    indexes[j] = indexes[j - 1];
-                    indexes[j - 1] = tmp;
-                }
-
-                // Swap in addresses array.
-                {
-                    address tmp = addrs[j];
-                    addrs[j] = addrs[j - 1];
-                    addrs[j - 1] = tmp;
-                }
-            }
-        }
-
-        // Return sorted list of indexes.
-        return indexes;
     }
 }

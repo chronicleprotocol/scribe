@@ -57,104 +57,27 @@ abstract contract IScribeInvariantTest is Test {
     function invariant_poke_PokeTimestampsAreStrictlyMonotonicallyIncreasing()
         public
     {
-        // Get scribe's pokeData before the execution.
+        // Get scribe's pokeData before execution.
         IScribe.PokeData memory beforePokeData = handler.scribe_lastPokeData();
 
         // Get scribe's current pokeData.
         IScribe.PokeData memory currentPokeData;
         currentPokeData = scribe.inspectable_pokeData();
 
-        if (beforePokeData.age != currentPokeData.age) {
-            assertTrue(beforePokeData.age < currentPokeData.age);
-        } else {
-            assertEq(beforePokeData.age, currentPokeData.age);
-        }
+        assertTrue(beforePokeData.age <= currentPokeData.age);
     }
-
-    /*
-    function invariant_poke_PokeTimestampIsOnlyMutatedToCurrentTimestamp()
-        public
-    {
-        // Get scribe's pokeData before the execution.
-        IScribe.PokeData memory beforePokeData = handler.scribe_lastPokeData();
-
-        // Get scribe's current pokeData.
-        IScribe.PokeData memory currentPokeData;
-        currentPokeData = scribe.inspectable_pokeData();
-
-        if (beforePokeData.age != currentPokeData.age) {
-            assertEq(currentPokeData.age, uint32(block.timestamp));
-        }
-    }
-    */
 
     // -- PubKeys --
 
-    function invariant_pubKeys_AtIndexZeroIsZeroPoint() public {
-        assertTrue(scribe.inspectable_pubKeys(0).isZeroPoint());
-    }
-
-    mapping(bytes32 => bool) private pubKeyFilter;
-
-    function invariant_pubKeys_NonZeroPubKeyExistsAtMostOnce() public {
-        LibSecp256k1.Point[] memory pubKeys = scribe.inspectable_pubKeys();
-        for (uint i; i < pubKeys.length; i++) {
-            if (pubKeys[i].isZeroPoint()) continue;
-
-            bytes32 id = keccak256(abi.encodePacked(pubKeys[i].x, pubKeys[i].y));
-
-            assertFalse(pubKeyFilter[id]);
-            pubKeyFilter[id] = true;
-        }
-    }
-
-    function invariant_pubKeys_LengthIsStrictlyMonotonicallyIncreasing()
-        public
-    {
-        uint lastLen = handler.scribe_lastPubKeysLength();
-        uint currentLen = scribe.inspectable_pubKeys().length;
-
-        assertTrue(lastLen <= currentLen);
-    }
-
-    function invariant_pubKeys_ZeroPointIsNeverAddedAsPubKey() public {
-        uint lastLen = handler.scribe_lastPubKeysLength();
-
-        LibSecp256k1.Point[] memory pubKeys;
-        pubKeys = scribe.inspectable_pubKeys();
-
-        if (lastLen != pubKeys.length) {
-            assertFalse(pubKeys[pubKeys.length - 1].isZeroPoint());
-        }
-    }
-
-    // -- Feeds --
-
-    function invariant_feeds_ImageIsZeroToLengthOfPubKeys() public {
-        address[] memory feedAddrs = handler.ghost_feedAddresses();
-        uint pubKeysLen = scribe.inspectable_pubKeys().length;
-
-        for (uint i; i < feedAddrs.length; i++) {
-            uint index = scribe.inspectable_feeds(feedAddrs[i]);
-
-            assertTrue(index < pubKeysLen);
-        }
-    }
-
-    function invariant_feeds_LinkToTheirPublicKeys() public {
-        address[] memory feedAddrs = handler.ghost_feedAddresses();
-
-        LibSecp256k1.Point[] memory pubKeys;
-        pubKeys = scribe.inspectable_pubKeys();
-
+    function invariant_pubKeys_IndexedViaFeedId() public {
         LibSecp256k1.Point memory pubKey;
-        for (uint i; i < feedAddrs.length; i++) {
-            uint index = scribe.inspectable_feeds(feedAddrs[i]);
+        uint8 feedId;
 
-            pubKey = pubKeys[index];
-            if (!pubKey.isZeroPoint()) {
-                assertEq(pubKey.toAddress(), feedAddrs[i]);
-            }
+        for (uint i; i < 256; i++) {
+            pubKey = scribe.inspectable_sloadPubKey(uint8(i));
+            feedId = uint8(uint(uint160(pubKey.toAddress())) >> 152);
+
+            assertTrue(pubKey.isZeroPoint() || i == feedId);
         }
     }
 

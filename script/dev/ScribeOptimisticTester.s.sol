@@ -45,18 +45,16 @@ contract ScribeOptimisticTesterScript is ScribeTesterScript {
         // Setup feeds.
         LibFeed.Feed[] memory feeds = new LibFeed.Feed[](privKeys.length);
         for (uint i; i < feeds.length; i++) {
-            feeds[i] =
-                LibFeed.newFeed({privKey: privKeys[i], index: uint8(i + 1)});
+            feeds[i] = LibFeed.newFeed({privKey: privKeys[i]});
 
             vm.label(
                 feeds[i].pubKey.toAddress(),
                 string.concat("Feed #", vm.toString(i + 1))
             );
 
-            // Update feed's index.
+            // Verify feed is lifted.
             bool isFeed;
-            uint feedIndex;
-            (isFeed, feedIndex) =
+            (isFeed, /*feedId*/ ) =
                 IScribe(self).feeds(feeds[i].pubKey.toAddress());
             require(
                 isFeed,
@@ -64,8 +62,6 @@ contract ScribeOptimisticTesterScript is ScribeTesterScript {
                     "Private key not feed, privKey=", vm.toString(privKeys[i])
                 )
             );
-
-            feeds[i].index = uint8(feedIndex);
         }
 
         // Create poke data.
@@ -125,18 +121,16 @@ contract ScribeOptimisticTesterScript is ScribeTesterScript {
         // Setup feeds.
         LibFeed.Feed[] memory feeds = new LibFeed.Feed[](privKeys.length);
         for (uint i; i < feeds.length; i++) {
-            feeds[i] =
-                LibFeed.newFeed({privKey: privKeys[i], index: uint8(i + 1)});
+            feeds[i] = LibFeed.newFeed({privKey: privKeys[i]});
 
             vm.label(
                 feeds[i].pubKey.toAddress(),
                 string.concat("Feed #", vm.toString(i + 1))
             );
 
-            // Update feed's index.
+            // Verify feed is lifted.
             bool isFeed;
-            uint feedIndex;
-            (isFeed, feedIndex) =
+            (isFeed, /*feedId*/ ) =
                 IScribe(self).feeds(feeds[i].pubKey.toAddress());
             require(
                 isFeed,
@@ -144,8 +138,6 @@ contract ScribeOptimisticTesterScript is ScribeTesterScript {
                     "Private key not feed, privKey=", vm.toString(privKeys[i])
                 )
             );
-
-            feeds[i].index = uint8(feedIndex);
         }
 
         // Create poke data.
@@ -196,7 +188,7 @@ contract ScribeOptimisticTesterScript is ScribeTesterScript {
     ///         --private-key $PRIVATE_KEY \
     ///         --broadcast \
     ///         --rpc-url $RPC_URL \
-    ///         --sig $(cast calldata "opChallenge(address,uint128,uint32,bytes32,address,bytes)" $SCRIBE $TEST_POKE_VAL $TEST_POKE_AGE $TEST_SCHNORR_SIGNATURE $TEST_SCHNORR_COMMITMENT $TEST_SCHNORR_SIGNERS_BLOB) \
+    ///         --sig $(cast calldata "opChallenge(address,uint128,uint32,bytes32,address,bytes)" $SCRIBE $TEST_POKE_VAL $TEST_POKE_AGE $TEST_SCHNORR_SIGNATURE $TEST_SCHNORR_COMMITMENT $TEST_SCHNORR_FEED_IDS) \
     ///         -vvv \
     ///         script/dev/ScribeOptimisticTester.s.sol:ScribeOptimisticTesterScript
     ///      ```
@@ -206,7 +198,7 @@ contract ScribeOptimisticTesterScript is ScribeTesterScript {
         uint32 age,
         bytes32 schnorrSignature,
         address schnorrCommitment,
-        bytes memory schnorrSignersBlob
+        bytes memory schnorrFeedIds
     ) public {
         // Construct pokeData and schnorrData.
         IScribe.PokeData memory pokeData;
@@ -216,7 +208,7 @@ contract ScribeOptimisticTesterScript is ScribeTesterScript {
         IScribe.SchnorrData memory schnorrData;
         schnorrData.signature = schnorrSignature;
         schnorrData.commitment = schnorrCommitment;
-        schnorrData.signersBlob = schnorrSignersBlob;
+        schnorrData.feedIds = schnorrFeedIds;
 
         // Create poke message from pokeData.
         bytes32 pokeMessage = IScribe(self).constructPokeMessage(pokeData);

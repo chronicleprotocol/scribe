@@ -15,14 +15,12 @@ library LibBytes {
     function getByteAtIndex(uint word, uint index)
         internal
         pure
-        returns (uint)
+        returns (uint8)
     {
-        uint result;
+        uint8 result;
         assembly ("memory-safe") {
             result := byte(sub(31, index), word)
         }
-
-        // Note that the resulting byte is returned as word.
         return result;
     }
 }

@@ -59,11 +59,14 @@ abstract contract IScribeOptimisticTest is IScribeTest {
     function test_Deployment() public override(IScribeTest) {
         super.test_Deployment();
 
-        // opFeedIndex not set.
-        assertEq(opScribe.opFeedIndex(), 0);
+        // opFeedId set to zero.
+        assertEq(opScribe.opFeedId(), 0);
 
         // OpChallengePeriod set to 1 hour.
         assertEq(opScribe.opChallengePeriod(), 1 hours);
+
+        // MaxChallengeRewards set to type(uint).max.
+        assertEq(opScribe.maxChallengeReward(), type(uint).max);
     }
 
     // -- Test: Poke --
@@ -72,7 +75,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         uint val;
         uint age;
 
-        LibFeed.Feed[] memory feeds = _createAndLiftFeeds(opScribe.bar());
+        LibFeed.Feed[] memory feeds = _liftFeeds(opScribe.bar());
 
         // Execute opPoke.
         IScribe.PokeData memory opPokeData;
@@ -135,18 +138,18 @@ abstract contract IScribeOptimisticTest is IScribeTest {
             }
         }
 
-        LibFeed.Feed[] memory feeds = _createAndLiftFeeds(opScribe.bar());
+        LibFeed.Feed[] memory feeds = _liftFeeds(opScribe.bar());
 
         IScribe.SchnorrData memory schnorrData;
         IScribe.ECDSAData memory ecdsaData;
         uint feedIndex;
         for (uint i; i < pokeDatas.length; i++) {
             // Select random feed signing opPoke.
-            feedIndex = bound(feedIndexSeeds[i], 0, feeds.length - 1);
+            feedIndex = _bound(feedIndexSeeds[i], 0, feeds.length - 1);
 
             // Make sure val is non-zero and age not stale.
             pokeDatas[i].val =
-                uint128(bound(pokeDatas[i].val, 1, type(uint128).max));
+                uint128(_bound(pokeDatas[i].val, 1, type(uint128).max));
 
             // @todo Weird behaviour if compiled via --via-ir.
             //       See comment in testFuzz_opPoke_FailsIf_AgeIsStale().
@@ -191,11 +194,11 @@ abstract contract IScribeOptimisticTest is IScribeTest {
     function testFuzz_opPoke_FailsIf_AgeIsStale(
         IScribe.PokeData memory pokeData
     ) public {
-        LibFeed.Feed[] memory feeds = _createAndLiftFeeds(opScribe.bar());
+        LibFeed.Feed[] memory feeds = _liftFeeds(opScribe.bar());
 
         vm.assume(pokeData.val != 0);
         // Let pokeData's age ∊ [1, block.timestamp].
-        pokeData.age = uint32(bound(pokeData.age, 1, block.timestamp));
+        pokeData.age = uint32(_bound(pokeData.age, 1, block.timestamp));
 
         IScribe.SchnorrData memory schnorrData;
         schnorrData = feeds.signSchnorr(opScribe.constructPokeMessage(pokeData));
@@ -208,12 +211,12 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         // Execute opPoke.
         opScribe.opPoke(pokeData, schnorrData, ecdsaData);
 
-        // opPoke'd age is set to block.timestamp.
+        // opPoke's age is set to block.timestamp.
         uint lastAge = uint32(block.timestamp);
         console2.log("lastAge", lastAge);
 
         // Set pokeData's age ∊ [0, block.timestamp].
-        pokeData.age = uint32(bound(pokeData.age, 0, block.timestamp));
+        pokeData.age = uint32(_bound(pokeData.age, 0, block.timestamp));
 
         // Wait until opPokeData finalized.
         vm.warp(block.timestamp + opScribe.opChallengePeriod());
@@ -242,12 +245,12 @@ abstract contract IScribeOptimisticTest is IScribeTest {
     function testFuzz_opPoke_FailsIf_AgeIsInTheFuture(
         IScribe.PokeData memory pokeData
     ) public {
-        LibFeed.Feed[] memory feeds = _createAndLiftFeeds(opScribe.bar());
+        LibFeed.Feed[] memory feeds = _liftFeeds(opScribe.bar());
 
         vm.assume(pokeData.val != 0);
         // Let pokeData's age ∊ [block.timestamp+1, type(uint32).max].
         pokeData.age =
-            uint32(bound(pokeData.age, block.timestamp + 1, type(uint32).max));
+            uint32(_bound(pokeData.age, block.timestamp + 1, type(uint32).max));
 
         IScribe.SchnorrData memory schnorrData;
         schnorrData = feeds.signSchnorr(opScribe.constructPokeMessage(pokeData));
@@ -273,7 +276,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         uint rMask,
         uint sMask
     ) public {
-        LibFeed.Feed[] memory feeds = _createAndLiftFeeds(opScribe.bar());
+        LibFeed.Feed[] memory feeds = _liftFeeds(opScribe.bar());
 
         IScribe.PokeData memory pokeData;
         pokeData.val = 1;
@@ -302,7 +305,9 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         );
 
         vm.expectRevert(
-            abi.encodeWithSelector(IScribe.SignerNotFeed.selector, recovered)
+            abi.encodeWithSelector(
+                IScribeOptimistic.SignerNotFeed.selector, recovered
+            )
         );
         opScribe.opPoke(pokeData, schnorrData, ecdsaData);
     }
@@ -310,7 +315,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
     function testFuzz_opPoke_FailsIf_opPokeDataInChallengePeriodExists(
         uint warpSeed
     ) public {
-        LibFeed.Feed[] memory feeds = _createAndLiftFeeds(opScribe.bar());
+        LibFeed.Feed[] memory feeds = _liftFeeds(opScribe.bar());
 
         IScribe.PokeData memory pokeData;
         pokeData.val = 1;
@@ -342,7 +347,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
     function testFuzz_opChallenge_opPokeDataValidAndNotStale(uint warpSeed)
         public
     {
-        LibFeed.Feed[] memory feeds = _createAndLiftFeeds(opScribe.bar());
+        LibFeed.Feed[] memory feeds = _liftFeeds(opScribe.bar());
 
         IScribe.PokeData memory pokeData;
         pokeData.val = 1;
@@ -394,7 +399,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
     function testFuzz_opChallenge_opPokeDataValidButStale(uint warpSeed)
         public
     {
-        LibFeed.Feed[] memory feeds = _createAndLiftFeeds(opScribe.bar());
+        LibFeed.Feed[] memory feeds = _liftFeeds(opScribe.bar());
 
         IScribe.PokeData memory pokeData;
         pokeData.val = 1;
@@ -451,7 +456,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
     ) public {
         vm.assume(schnorrSignatureMask != 0 || schnorrCommitmentMask != 0);
 
-        LibFeed.Feed[] memory feeds = _createAndLiftFeeds(opScribe.bar());
+        LibFeed.Feed[] memory feeds = _liftFeeds(opScribe.bar());
 
         IScribe.PokeData memory pokeData;
         pokeData.val = 1;
@@ -526,7 +531,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
     }
 
     function test_opChallenge_FailsIf_InvalidSchnorrDataGiven() public {
-        LibFeed.Feed[] memory feeds = _createAndLiftFeeds(opScribe.bar());
+        LibFeed.Feed[] memory feeds = _liftFeeds(opScribe.bar());
 
         IScribe.PokeData memory pokeData;
         pokeData.val = 1;
@@ -552,7 +557,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
     }
 
     function test_opChallenge_FailsIf_CalledSubsequently() public {
-        LibFeed.Feed[] memory feeds = _createAndLiftFeeds(opScribe.bar());
+        LibFeed.Feed[] memory feeds = _liftFeeds(opScribe.bar());
 
         IScribe.PokeData memory pokeData;
         pokeData.val = 1;
@@ -639,7 +644,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
 
     function test_setOpChallengePeriod_DropsFinalizedOpPoke_If_NonFinalizedAfterUpdate(
     ) public {
-        LibFeed.Feed[] memory feeds = _createAndLiftFeeds(opScribe.bar());
+        LibFeed.Feed[] memory feeds = _liftFeeds(opScribe.bar());
 
         // Execute opPoke.
         IScribe.PokeData memory opPokeData;
@@ -689,8 +694,9 @@ abstract contract IScribeOptimisticTest is IScribeTest {
 
     function _setUpFeedsAndOpPokeOnce(IScribe.PokeData memory pokeData)
         private
+        returns (LibFeed.Feed[] memory)
     {
-        LibFeed.Feed[] memory feeds = _createAndLiftFeeds(opScribe.bar());
+        LibFeed.Feed[] memory feeds = _liftFeeds(opScribe.bar());
 
         IScribe.SchnorrData memory schnorrData;
         schnorrData = feeds.signSchnorr(opScribe.constructPokeMessage(pokeData));
@@ -702,6 +708,8 @@ abstract contract IScribeOptimisticTest is IScribeTest {
                 opScribe.constructOpPokeMessage(pokeData, schnorrData)
             )
         );
+
+        return feeds;
     }
 
     function testFuzz_setOpChallengePeriod_IsAfterAuthedActionProtected(
@@ -730,7 +738,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         pokeData.val = 1;
         pokeData.age = uint32(block.timestamp);
 
-        _setUpFeedsAndOpPokeOnce(pokeData);
+        LibFeed.Feed[] memory feeds = _setUpFeedsAndOpPokeOnce(pokeData);
 
         if (opPokeFinalized) {
             vm.warp(block.timestamp + opScribe.opChallengePeriod());
@@ -739,7 +747,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
             emit OpPokeDataDropped(address(this), pokeData);
         }
 
-        opScribe.drop(1);
+        opScribe.drop(feeds[0].id);
     }
 
     function testFuzz_drop_Multiple_IsAfterAuthedActionProtected(
@@ -749,7 +757,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         pokeData.val = 1;
         pokeData.age = uint32(block.timestamp);
 
-        _setUpFeedsAndOpPokeOnce(pokeData);
+        LibFeed.Feed[] memory feeds = _setUpFeedsAndOpPokeOnce(pokeData);
 
         if (opPokeFinalized) {
             vm.warp(block.timestamp + opScribe.opChallengePeriod());
@@ -758,10 +766,12 @@ abstract contract IScribeOptimisticTest is IScribeTest {
             emit OpPokeDataDropped(address(this), pokeData);
         }
 
-        uint[] memory feedIndexes = new uint[](1);
-        feedIndexes[0] = 1;
+        uint8[] memory feedIds = new uint8[](feeds.length);
+        for (uint i; i < feeds.length; i++) {
+            feedIds[i] = feeds[i].id;
+        }
 
-        opScribe.drop(feedIndexes);
+        opScribe.drop(feedIds);
     }
 
     function testFuzz_setBar_IsAfterAuthedActionProtected(bool opPokeFinalized)
@@ -799,9 +809,9 @@ abstract contract IScribeOptimisticTest is IScribeTest {
     function testFuzz_afterAuthedAction_ProvidesValue_If_MoreThanOncePoked(
         uint pathSeed
     ) public {
-        LibFeed.Feed[] memory feeds = _createAndLiftFeeds(opScribe.bar());
+        LibFeed.Feed[] memory feeds = _liftFeeds(opScribe.bar());
 
-        uint path = bound(pathSeed, 0, 6);
+        uint path = _bound(pathSeed, 0, 6);
 
         uint128 otherVal = 1;
         uint128 wantVal = 2;
@@ -1046,9 +1056,13 @@ abstract contract IScribeOptimisticTest is IScribeTest {
 
     function _setUp_afterAuthedAction_1()
         internal
-        returns (IScribe.PokeData memory, IScribe.PokeData memory)
+        returns (
+            IScribe.PokeData memory,
+            IScribe.PokeData memory,
+            LibFeed.Feed[] memory
+        )
     {
-        LibFeed.Feed[] memory feeds = _createAndLiftFeeds(opScribe.bar());
+        LibFeed.Feed[] memory feeds = _liftFeeds(opScribe.bar());
 
         IScribe.PokeData memory pokeData;
         IScribe.PokeData memory opPokeData = IScribe.PokeData(1, 1);
@@ -1063,7 +1077,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
             )
         );
 
-        return (pokeData, opPokeData);
+        return (pokeData, opPokeData, feeds);
     }
 
     function test_afterAuthedAction_1_setBar() public {
@@ -1079,9 +1093,9 @@ abstract contract IScribeOptimisticTest is IScribeTest {
     }
 
     function test_afterAuthedAction_1_drop() public {
-        _setUp_afterAuthedAction_1();
+        (,, LibFeed.Feed[] memory feeds) = _setUp_afterAuthedAction_1();
 
-        opScribe.drop(1);
+        opScribe.drop(feeds[0].id);
 
         (bool ok,) = opScribe.tryRead();
         assertFalse(ok);
@@ -1116,9 +1130,13 @@ abstract contract IScribeOptimisticTest is IScribeTest {
 
     function _setUp_afterAuthedAction_2()
         internal
-        returns (IScribe.PokeData memory, IScribe.PokeData memory)
+        returns (
+            IScribe.PokeData memory,
+            IScribe.PokeData memory,
+            LibFeed.Feed[] memory
+        )
     {
-        LibFeed.Feed[] memory feeds = _createAndLiftFeeds(opScribe.bar());
+        LibFeed.Feed[] memory feeds = _liftFeeds(opScribe.bar());
 
         IScribe.PokeData memory pokeData = IScribe.PokeData(2, 1);
         opScribe.poke(
@@ -1140,11 +1158,11 @@ abstract contract IScribeOptimisticTest is IScribeTest {
             )
         );
 
-        return (pokeData, opPokeData);
+        return (pokeData, opPokeData, feeds);
     }
 
     function test_afterAuthedAction_2_setBar() public {
-        (IScribe.PokeData memory pokeData,) = _setUp_afterAuthedAction_2();
+        (IScribe.PokeData memory pokeData,,) = _setUp_afterAuthedAction_2();
 
         opScribe.setBar(3);
 
@@ -1158,9 +1176,10 @@ abstract contract IScribeOptimisticTest is IScribeTest {
     }
 
     function test_afterAuthedAction_2_drop() public {
-        (IScribe.PokeData memory pokeData,) = _setUp_afterAuthedAction_2();
+        (IScribe.PokeData memory pokeData,, LibFeed.Feed[] memory feeds) =
+            _setUp_afterAuthedAction_2();
 
-        opScribe.drop(1);
+        opScribe.drop(feeds[0].id);
 
         (bool ok, uint val, uint age) = opScribe.tryReadWithAge();
         assertTrue(ok);
@@ -1172,7 +1191,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
     }
 
     function test_afterAuthedAction_2_setChallengePeriod() public {
-        (IScribe.PokeData memory pokeData,) = _setUp_afterAuthedAction_2();
+        (IScribe.PokeData memory pokeData,,) = _setUp_afterAuthedAction_2();
 
         // Note that _opPokeData still non-finalized after challenge period
         // update.
@@ -1199,9 +1218,13 @@ abstract contract IScribeOptimisticTest is IScribeTest {
 
     function _setUp_afterAuthedAction_3()
         internal
-        returns (IScribe.PokeData memory, IScribe.PokeData memory)
+        returns (
+            IScribe.PokeData memory,
+            IScribe.PokeData memory,
+            LibFeed.Feed[] memory
+        )
     {
-        LibFeed.Feed[] memory feeds = _createAndLiftFeeds(opScribe.bar());
+        LibFeed.Feed[] memory feeds = _liftFeeds(opScribe.bar());
 
         IScribe.PokeData memory opPokeData =
             IScribe.PokeData(1, uint32(block.timestamp));
@@ -1218,11 +1241,11 @@ abstract contract IScribeOptimisticTest is IScribeTest {
 
         vm.warp(block.timestamp + opScribe.opChallengePeriod() + 1);
 
-        return (IScribe.PokeData(0, 0), opPokeData);
+        return (IScribe.PokeData(0, 0), opPokeData, feeds);
     }
 
     function test_afterAuthedAction_3_setBar() public {
-        (, IScribe.PokeData memory opPokeData) = _setUp_afterAuthedAction_3();
+        (, IScribe.PokeData memory opPokeData,) = _setUp_afterAuthedAction_3();
 
         opScribe.setBar(3);
 
@@ -1236,9 +1259,10 @@ abstract contract IScribeOptimisticTest is IScribeTest {
     }
 
     function test_afterAuthedAction_3_drop() public {
-        (, IScribe.PokeData memory opPokeData) = _setUp_afterAuthedAction_3();
+        (, IScribe.PokeData memory opPokeData, LibFeed.Feed[] memory feeds) =
+            _setUp_afterAuthedAction_3();
 
-        opScribe.drop(1);
+        opScribe.drop(feeds[0].id);
 
         (bool ok, uint val, uint age) = opScribe.tryReadWithAge();
         assertTrue(ok);
@@ -1250,7 +1274,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
     }
 
     function test_afterAuthedAction_3_setChallengePeriod() public {
-        (, IScribe.PokeData memory opPokeData) = _setUp_afterAuthedAction_3();
+        (, IScribe.PokeData memory opPokeData,) = _setUp_afterAuthedAction_3();
 
         // Update challenge period so that _opPokeData still finalized.
         opScribe.setOpChallengePeriod(1);
@@ -1276,9 +1300,13 @@ abstract contract IScribeOptimisticTest is IScribeTest {
 
     function _setUp_afterAuthedAction_4()
         internal
-        returns (IScribe.PokeData memory, IScribe.PokeData memory)
+        returns (
+            IScribe.PokeData memory,
+            IScribe.PokeData memory,
+            LibFeed.Feed[] memory
+        )
     {
-        LibFeed.Feed[] memory feeds = _createAndLiftFeeds(opScribe.bar());
+        LibFeed.Feed[] memory feeds = _liftFeeds(opScribe.bar());
 
         IScribe.PokeData memory pokeData = IScribe.PokeData(2, 1);
         opScribe.poke(
@@ -1302,11 +1330,11 @@ abstract contract IScribeOptimisticTest is IScribeTest {
 
         vm.warp(block.timestamp + opScribe.opChallengePeriod() + 1);
 
-        return (pokeData, opPokeData);
+        return (pokeData, opPokeData, feeds);
     }
 
     function test_afterAuthedAction_4_setBar() public {
-        (, IScribe.PokeData memory opPokeData) = _setUp_afterAuthedAction_4();
+        (, IScribe.PokeData memory opPokeData,) = _setUp_afterAuthedAction_4();
 
         opScribe.setBar(3);
 
@@ -1319,9 +1347,10 @@ abstract contract IScribeOptimisticTest is IScribeTest {
     }
 
     function test_afterAuthedAction_4_drop() public {
-        (, IScribe.PokeData memory opPokeData) = _setUp_afterAuthedAction_4();
+        (, IScribe.PokeData memory opPokeData, LibFeed.Feed[] memory feeds) =
+            _setUp_afterAuthedAction_4();
 
-        opScribe.drop(1);
+        opScribe.drop(feeds[0].id);
 
         (bool ok, uint val,) = opScribe.tryReadWithAge();
         assertTrue(ok);
@@ -1332,7 +1361,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
     }
 
     function test_afterAuthedAction_4_setChallengePeriod() public {
-        (, IScribe.PokeData memory opPokeData) = _setUp_afterAuthedAction_4();
+        (, IScribe.PokeData memory opPokeData,) = _setUp_afterAuthedAction_4();
 
         // Update challenge period so that _opPokeData still finalized.
         opScribe.setOpChallengePeriod(1);
