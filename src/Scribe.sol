@@ -326,6 +326,13 @@ contract Scribe is IScribe, Auth, Toll {
         answeredInRound = roundId;
     }
 
+    /// @inheritdoc IScribe
+    /// @dev Only callable by toll'ed address.
+    function latestAnswer() external view virtual toll returns (int) {
+        uint val = _pokeData.val;
+        return int(val);
+    }
+
     // -- Public Read Functionality --
 
     /// @inheritdoc IScribe

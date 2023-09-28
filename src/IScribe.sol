@@ -128,6 +128,13 @@ interface IScribe is IChronicle {
             uint80 answeredInRound
         );
 
+    /// @notice Returns the oracle's latest value.
+    /// @dev Provides partial compatibility with Chainlink's
+    ///      IAggregatorV3Interface.
+    /// @custom:deprecated See https://docs.chain.link/data-feeds/api-reference/#latestanswer.
+    /// @return answer The oracle's latest value.
+    function latestAnswer() external view returns (int);
+
     /// @notice Pokes the oracle.
     /// @dev Expects `pokeData`'s age to be greater than the timestamp of the
     ///      last successful poke.

@@ -415,6 +415,20 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         answeredInRound = roundId;
     }
 
+    /// @inheritdoc IScribe
+    /// @dev Only callable by toll'ed address.
+    function latestAnswer()
+        external
+        view
+        virtual
+        override(IScribe, Scribe)
+        toll
+        returns (int)
+    {
+        uint val = _currentPokeData().val;
+        return int(val);
+    }
+
     function _currentPokeData() internal view returns (PokeData memory) {
         // Load pokeData slots from storage.
         PokeData memory pokeData = _pokeData;

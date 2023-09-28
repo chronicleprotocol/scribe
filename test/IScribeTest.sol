@@ -122,6 +122,9 @@ abstract contract IScribeTest is Test {
         assertEq(startedAt, 0);
         assertEq(updatedAt, wantAge);
         assertEq(uint(answeredInRound), 1);
+
+        answer = scribe.latestAnswer();
+        assertEq(uint(answer), wantVal);
     }
 
     // -- Test: Deployment --
@@ -191,6 +194,9 @@ abstract contract IScribeTest is Test {
         assertEq(startedAt, 0);
         assertEq(updatedAt, 0);
         assertEq(answeredInRound, 1);
+
+        // latestAnswer()(int) returns zero.
+        assertEq(scribe.latestAnswer(), int(0));
     }
 
     // -- Test: Schnorr Verification --
@@ -939,5 +945,13 @@ abstract contract IScribeTest is Test {
             abi.encodeWithSelector(IToll.NotTolled.selector, address(0xbeef))
         );
         scribe.latestRoundData();
+    }
+
+    function test_latestAnswer_isTollProtected() public {
+        vm.prank(address(0xbeef));
+        vm.expectRevert(
+            abi.encodeWithSelector(IToll.NotTolled.selector, address(0xbeef))
+        );
+        scribe.latestAnswer();
     }
 }
