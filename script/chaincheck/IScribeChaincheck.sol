@@ -504,6 +504,16 @@ contract IScribeChaincheck is Chaincheck {
             logs.push(log);
         }
 
+        // Note that latestAnswer()(int) was added in v1.2.0 and may not be
+        // supported by every deployed Scribe(Optimistic) instance.
+        try self.latestAnswer() returns (int val) {
+            if (uint(val) != valWant) {
+                logs.push(log);
+            }
+        } catch {
+            // Scribe instance has version <v1.2.0.
+        }
+
         // - MakerDAO Compatibility Functions
 
         (valGot, isValidGot) = self.peek();
