@@ -4,8 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/).
 
+[1.2.0]: https://github.com/chronicleprotocol/scribe/releases/tag/v1.2.0
 [1.1.0]: https://github.com/chronicleprotocol/scribe/releases/tag/v1.1.0
 [1.0.0]: https://github.com/chronicleprotocol/scribe/releases/tag/v1.0.0
+
+## [1.2.0] - 2023-09-29
+
+### Added
+
+- Chainlink compatibility function `latestAnswer()(int)` ([#24](https://github.com/chronicleprotocol/scribe/pull/24))
 
 ## [1.1.0] - 2023-08-25
 
