@@ -13,7 +13,7 @@ import {LibSchnorrData} from "./libs/LibSchnorrData.sol";
 
 /**
  * @title Scribe
- * @custom:version 1.1.0
+ * @custom:version 1.2.0
  *
  * @notice Efficient Schnorr multi-signature based Oracle
  */
