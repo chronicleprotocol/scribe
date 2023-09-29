@@ -5,7 +5,7 @@
 #
 # Build via:
 # ```bash
-# $ docker build -t <name of image> -f docker/Dockerfile_readWithAge
+# $ docker build -t <name of image> -f docker/readWithAge.dockerfile
 # ```
 #
 # Run via:
