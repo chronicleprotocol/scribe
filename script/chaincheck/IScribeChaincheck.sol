@@ -448,6 +448,7 @@ contract IScribeChaincheck is Chaincheck {
 
     function check_invariant_ReadFunctionsReturnSameValue() internal {
         // Note to make sure address(this) is tolled.
+        // Do not forget to diss after afterwards again!
         address addrThis = address(this);
         vm.prank(IAuth(address(self)).authed()[0]);
         IToll(address(self)).kiss(addrThis);
@@ -519,6 +520,10 @@ contract IScribeChaincheck is Chaincheck {
         } catch {
             // Scribe instance has version <v1.1.0.
         }
+
+        // Note to diss address(this) again.
+        vm.prank(IAuth(address(self)).authed()[0]);
+        IToll(address(self)).diss(addrThis);
     }
 
     // -- Dependency Checks --
