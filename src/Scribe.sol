@@ -44,6 +44,8 @@ contract Scribe is IScribe, Auth, Toll {
     /// @dev Scribe's current value and corresponding age.
     PokeData internal _pokeData;
 
+    /// @dev Statically allocated array of feeds' public keys.
+    ///      Indexed via the public keys address' highest-order byte.
     LibSecp256k1.Point[256] internal _pubKeys;
 
     /// @inheritdoc IScribe
