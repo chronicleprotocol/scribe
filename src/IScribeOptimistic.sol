@@ -36,21 +36,30 @@ interface IScribeOptimistic is IScribe {
 
     /// @notice Emitted when successfully challenged an opPoke.
     /// @param caller The caller's address.
+    /// @param schnorrData The schnorrData challenged.
     /// @param schnorrErr The abi-encoded custom error returned from the failed
     ///                   Schnorr signature verification.
     event OpPokeChallengedSuccessfully(
-        address indexed caller, bytes schnorrErr
+        address indexed caller,
+        IScribe.SchnorrData schnorrData,
+        bytes schnorrErr
     );
 
     /// @notice Emitted when unsuccessfully challenged an opPoke.
     /// @param caller The caller's address.
-    event OpPokeChallengedUnsuccessfully(address indexed caller);
+    /// @param schnorrData The schnorrData challenged.
+    event OpPokeChallengedUnsuccessfully(
+        address indexed caller, IScribe.SchnorrData schnorrData
+    );
 
     /// @notice Emitted when ETH reward paid for successfully challenging an
     ///         opPoke.
     /// @param challenger The challenger to which the reward was send.
+    /// @param schnorrData The schnorrData challenged.
     /// @param reward The ETH rewards paid.
-    event OpChallengeRewardPaid(address indexed challenger, uint reward);
+    event OpChallengeRewardPaid(
+        address indexed challenger, IScribe.SchnorrData schnorrData, uint reward
+    );
 
     /// @notice Emitted when an opPoke dropped.
     /// @dev opPoke's are dropped if security parameters are updated that could

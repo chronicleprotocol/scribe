@@ -254,7 +254,7 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
                 delete _opPokeData;
             }
 
-            emit OpPokeChallengedUnsuccessfully(msg.sender);
+            emit OpPokeChallengedUnsuccessfully(msg.sender, schnorrData);
         } else {
             // Drop opFeed and delete invalid _opPokeData.
             // Note to use address(this) as caller to indicate self-governed
@@ -264,10 +264,10 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
             // Pay ETH reward to challenger.
             uint reward = challengeReward();
             if (_sendETH(payable(msg.sender), reward)) {
-                emit OpChallengeRewardPaid(msg.sender, reward);
+                emit OpChallengeRewardPaid(msg.sender, schnorrData, reward);
             }
 
-            emit OpPokeChallengedSuccessfully(msg.sender, err);
+            emit OpPokeChallengedSuccessfully(msg.sender, schnorrData, err);
         }
 
         // Return whether challenging was successful.

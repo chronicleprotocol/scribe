@@ -29,10 +29,16 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         IScribe.PokeData pokeData
     );
     event OpPokeChallengedSuccessfully(
-        address indexed caller, bytes schnorrErr
+        address indexed caller,
+        IScribe.SchnorrData schnorrData,
+        bytes schnorrErr
     );
-    event OpPokeChallengedUnsuccessfully(address indexed caller);
-    event OpChallengeRewardPaid(address indexed challenger, uint reward);
+    event OpPokeChallengedUnsuccessfully(
+        address indexed caller, IScribe.SchnorrData schnorrData
+    );
+    event OpChallengeRewardPaid(
+        address indexed challenger, IScribe.SchnorrData schnorrData, uint reward
+    );
     event OpPokeDataDropped(address indexed caller, IScribe.PokeData pokeData);
     event OpChallengePeriodUpdated(
         address indexed caller,
@@ -373,7 +379,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         uint balanceBefore = address(this).balance;
 
         vm.expectEmit();
-        emit OpPokeChallengedUnsuccessfully(address(this));
+        emit OpPokeChallengedUnsuccessfully(address(this), schnorrData);
 
         // Challenge opPoke.
         bool opPokeInvalid = opScribe.opChallenge(schnorrData);
@@ -432,7 +438,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         );
 
         vm.expectEmit();
-        emit OpPokeChallengedUnsuccessfully(address(this));
+        emit OpPokeChallengedUnsuccessfully(address(this), schnorrData);
 
         // Challenge opPoke.
         bool opPokeInvalid = opScribe.opChallenge(schnorrData);
@@ -495,11 +501,12 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         {
             // Expect events.
             vm.expectEmit();
-            emit OpChallengeRewardPaid(address(this), 1 ether);
+            emit OpChallengeRewardPaid(address(this), schnorrData, 1 ether);
 
             vm.expectEmit();
             emit OpPokeChallengedSuccessfully(
                 address(this),
+                schnorrData,
                 abi.encodeWithSelector(IScribe.SchnorrSignatureInvalid.selector)
             );
         }
