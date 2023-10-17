@@ -275,8 +275,7 @@ contract IScribeChaincheck is Chaincheck {
         for (uint i; i < wantFeeds.length; i++) {
             wantFeed = wantFeeds[i];
 
-            bool isFeed;
-            (isFeed, /*feedId*/ ) = self.feeds(wantFeed);
+            bool isFeed = self.feeds(wantFeed);
 
             if (!isFeed) {
                 logs.push(
@@ -295,8 +294,7 @@ contract IScribeChaincheck is Chaincheck {
         address[] memory wantFeeds = config.readAddressArray(".IScribe.feeds");
 
         // Check that only expected feeds are lifted.
-        address[] memory gotFeeds;
-        (gotFeeds, /*feedId*/ ) = self.feeds();
+        address[] memory gotFeeds = self.feeds();
         for (uint i; i < gotFeeds.length; i++) {
             bool found = false;
 
@@ -344,8 +342,7 @@ contract IScribeChaincheck is Chaincheck {
 
         // Check that each address derived from public key is lifted.
         for (uint i; i < addrs.length; i++) {
-            bool isFeed;
-            (isFeed, /*feedId*/ ) = self.feeds(addrs[i]);
+            bool isFeed = self.feeds(addrs[i]);
 
             if (!isFeed) {
                 logs.push(
@@ -399,9 +396,7 @@ contract IScribeChaincheck is Chaincheck {
     // -- Invariants --
 
     function check_invariant_ZeroPublicKeyIsNotLifted() internal {
-        bool isFeed;
-        (isFeed, /*feedIndex*/ ) =
-            self.feeds(LibSecp256k1.ZERO_POINT().toAddress());
+        bool isFeed = self.feeds(LibSecp256k1.ZERO_POINT().toAddress());
 
         if (isFeed) {
             logs.push(

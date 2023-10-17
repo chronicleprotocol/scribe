@@ -53,9 +53,7 @@ contract ScribeOptimisticTesterScript is ScribeTesterScript {
             );
 
             // Verify feed is lifted.
-            bool isFeed;
-            (isFeed, /*feedId*/ ) =
-                IScribe(self).feeds(feeds[i].pubKey.toAddress());
+            bool isFeed = IScribe(self).feeds(feeds[i].pubKey.toAddress());
             require(
                 isFeed,
                 string.concat(
@@ -129,9 +127,7 @@ contract ScribeOptimisticTesterScript is ScribeTesterScript {
             );
 
             // Verify feed is lifted.
-            bool isFeed;
-            (isFeed, /*feedId*/ ) =
-                IScribe(self).feeds(feeds[i].pubKey.toAddress());
+            bool isFeed = IScribe(self).feeds(feeds[i].pubKey.toAddress());
             require(
                 isFeed,
                 string.concat(

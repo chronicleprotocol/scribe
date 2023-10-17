@@ -518,7 +518,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         assertTrue(opPokeInvalid);
 
         // opFeed dropped.
-        (bool isFeed,) = opScribe.feeds(feeds[0].pubKey.toAddress());
+        bool isFeed = opScribe.feeds(feeds[0].pubKey.toAddress());
         assertFalse(isFeed);
 
         // 1 ETH reward paid.

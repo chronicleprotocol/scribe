@@ -317,13 +317,12 @@ contract Scribe is IScribe, Auth, Toll {
     // -- Public Read Functionality --
 
     /// @inheritdoc IScribe
-    function feeds(address who) external view returns (bool, uint8) {
+    function feeds(address who) external view returns (bool) {
         uint8 feedId = uint8(uint(uint160(who)) >> 152);
 
         LibSecp256k1.Point memory pubKey = _sloadPubKey(feedId);
-        bool isFeed = !pubKey.isZeroPoint() && pubKey.toAddress() == who;
 
-        return (isFeed, feedId);
+        return !pubKey.isZeroPoint() && pubKey.toAddress() == who;
     }
 
     /// @inheritdoc IScribe
@@ -336,25 +335,19 @@ contract Scribe is IScribe, Auth, Toll {
     }
 
     /// @inheritdoc IScribe
-    function feeds() external view returns (address[] memory, uint8[] memory) {
-        // Initiate arrays with upper limit length.
+    function feeds() external view returns (address[] memory) {
         address[] memory feeds_ = new address[](256);
-        uint8[] memory ids = new uint8[](256);
 
         LibSecp256k1.Point memory pubKey;
         address feed;
-        uint8 id;
         uint ctr;
-
         for (uint i; i < 256;) {
             pubKey = _sloadPubKey(uint8(i));
 
             if (!pubKey.isZeroPoint()) {
                 feed = pubKey.toAddress();
-                id = uint8(uint(uint160(feed)) >> 152);
 
                 feeds_[ctr] = feed;
-                ids[ctr] = id;
 
                 // forgefmt: disable-next-item
                 unchecked { ++ctr; }
@@ -366,10 +359,9 @@ contract Scribe is IScribe, Auth, Toll {
 
         assembly ("memory-safe") {
             mstore(feeds_, ctr)
-            mstore(ids, ctr)
         }
 
-        return (feeds_, ids);
+        return feeds_;
     }
 
     // -- Auth'ed Functionality --
@@ -423,7 +415,7 @@ contract Scribe is IScribe, Auth, Toll {
         if (sPubKey.isZeroPoint()) {
             _sstorePubKey(feedId, pubKey);
 
-            emit FeedLifted(msg.sender, feed, feedId);
+            emit FeedLifted(msg.sender, feed);
         } else {
             // Note to be idempotent. However, disallow updating an id's feed
             // via lifting without dropping the previous feed.
@@ -453,7 +445,7 @@ contract Scribe is IScribe, Auth, Toll {
         if (!pubKey.isZeroPoint()) {
             _sstorePubKey(feedId, LibSecp256k1.ZERO_POINT());
 
-            emit FeedDropped(caller, pubKey.toAddress(), feedId);
+            emit FeedDropped(caller, pubKey.toAddress());
         }
     }
 

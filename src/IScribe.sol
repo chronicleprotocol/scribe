@@ -65,18 +65,12 @@ interface IScribe is IChronicle {
     /// @notice Emitted when new feed lifted.
     /// @param caller The caller's address.
     /// @param feed The feed address lifted.
-    /// @param feedId The feed's id.
-    event FeedLifted(
-        address indexed caller, address indexed feed, uint8 indexed feedId
-    );
+    event FeedLifted(address indexed caller, address indexed feed);
 
     /// @notice Emitted when feed dropped.
     /// @param caller The caller's address.
     /// @param feed The feed address dropped.
-    /// @param feedId The feed's id.
-    event FeedDropped(
-        address indexed caller, address indexed feed, uint8 indexed feedId
-    );
+    event FeedDropped(address indexed caller, address indexed feed);
 
     /// @notice Emitted when bar updated.
     /// @param caller The caller's address.
@@ -168,14 +162,10 @@ interface IScribe is IChronicle {
         view
         returns (bytes32 pokeMessage);
 
-    /// @notice Returns whether address `who` is a feed and its feed id.
+    /// @notice Returns whether address `who` is a feed.
     /// @param who The address to check.
     /// @return isFeed True if `who` is feed, false otherwise.
-    /// @return feedId The feed id for address `who`.
-    function feeds(address who)
-        external
-        view
-        returns (bool isFeed, uint8 feedId);
+    function feeds(address who) external view returns (bool isFeed);
 
     /// @notice Returns whether feed id `feedId` is a feed and, if so, the
     ///         feed's address.
@@ -188,15 +178,11 @@ interface IScribe is IChronicle {
         view
         returns (bool isFeed, address feed);
 
-    /// @notice Returns list of feed addresses and corresponding feed ids.
+    /// @notice Returns list of feed addresses.
     /// @dev Note that this function has a high gas consumption and is not
     ///      intended to be called onchain.
     /// @return feeds List of feed addresses.
-    /// @return feedIds List of feed ids.
-    function feeds()
-        external
-        view
-        returns (address[] memory feeds, uint8[] memory feedIds);
+    function feeds() external view returns (address[] memory feeds);
 
     /// @notice Lifts public key `pubKey` to being a feed.
     /// @dev Only callable by auth'ed address.

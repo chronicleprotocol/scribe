@@ -88,8 +88,7 @@ contract ScribeScript is Script {
 
         require(!pubKey.isZeroPoint(), "Public key cannot be zero point");
         require(pubKey.isOnCurve(), "Public key must be valid secp256k1 point");
-        bool isFeed;
-        (isFeed, /*feedId*/ ) = IScribe(self).feeds(pubKey.toAddress());
+        bool isFeed = IScribe(self).feeds(pubKey.toAddress());
         require(!isFeed, "Public key already lifted");
 
         address recovered =
@@ -142,8 +141,7 @@ contract ScribeScript is Script {
                 pubKeys[i].isOnCurve(),
                 "Public key must be valid secp256k1 point"
             );
-            bool isFeed;
-            (isFeed, /*feedId*/ ) = IScribe(self).feeds(pubKeys[i].toAddress());
+            bool isFeed = IScribe(self).feeds(pubKeys[i].toAddress());
             require(!isFeed, "Public key already lifted");
         }
 
@@ -311,9 +309,12 @@ contract ScribeScript is Script {
     ///          script/${SCRIBE_FLAVOUR}.s.sol:${SCRIBE_FLAVOUR}Script
     ///      ```
     function deactivate(address self) public {
-        // Get lifted feed ids.
-        uint8[] memory feedIds;
-        ( /*feeds*/ , feedIds) = IScribe(self).feeds();
+        // Get lifted feeds and compute their feed ids.
+        address[] memory feeds = IScribe(self).feeds();
+        uint8[] memory feedIds = new uint8[](feeds.length);
+        for (uint i; i < feeds.length; i++) {
+            feedIds[i] = uint8(uint(uint160(feeds[i])) >> 152);
+        }
 
         // Drop all feeds.
         vm.startBroadcast();

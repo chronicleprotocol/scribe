@@ -49,7 +49,7 @@ contract ScribeHandler is CommonBase, StdUtils {
 
     function _ensureBarFeedsLifted() internal {
         uint bar = scribe.bar();
-        (address[] memory feeds,) = scribe.feeds();
+        address[] memory feeds = scribe.feeds();
 
         if (feeds.length < bar) {
             // Lift feeds until bar is reached.

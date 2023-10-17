@@ -25,12 +25,8 @@ abstract contract IScribeTest is Test {
 
     // Events copied from IScribe.
     event Poked(address indexed caller, uint128 val, uint32 age);
-    event FeedLifted(
-        address indexed caller, address indexed feed, uint8 indexed feedId
-    );
-    event FeedDropped(
-        address indexed caller, address indexed feed, uint8 indexed feedId
-    );
+    event FeedLifted(address indexed caller, address indexed feed);
+    event FeedDropped(address indexed caller, address indexed feed);
     event BarUpdated(address indexed caller, uint8 oldBar, uint8 newBar);
 
     function setUp(address scribe_) internal virtual {
@@ -137,9 +133,8 @@ abstract contract IScribeTest is Test {
         assertEq(scribe.bar(), 2);
 
         // Set of feeds is empty.
-        (address[] memory feeds, uint8[] memory feedIds) = scribe.feeds();
+        address[] memory feeds = scribe.feeds();
         assertEq(feeds.length, 0);
-        assertEq(feedIds.length, 0);
 
         // read()(uint) fails.
         try scribe.read() returns (uint) {
@@ -458,7 +453,7 @@ abstract contract IScribeTest is Test {
         LibFeed.Feed memory feed = LibFeed.newFeed(privKey);
 
         vm.expectEmit();
-        emit FeedLifted(address(this), feed.pubKey.toAddress(), feed.id);
+        emit FeedLifted(address(this), feed.pubKey.toAddress());
 
         uint feedId =
             scribe.lift(feed.pubKey, feed.signECDSA(FEED_REGISTRATION_MESSAGE));
@@ -467,26 +462,20 @@ abstract contract IScribeTest is Test {
         // Is idempotent.
         scribe.lift(feed.pubKey, feed.signECDSA(FEED_REGISTRATION_MESSAGE));
 
-        // Check via feeds(address)(bool,uint8).
-        bool ok;
-        (ok, feedId) = scribe.feeds(feed.pubKey.toAddress());
-        assertTrue(ok);
-        assertEq(feedId, feed.id);
+        // Check via feeds(address)(bool).
+        bool isFeed = scribe.feeds(feed.pubKey.toAddress());
+        assertTrue(isFeed);
 
         // Check via feeds(uint8)(bool,address).
         address feedAddr;
-        (ok, feedAddr) = scribe.feeds(feed.id);
-        assertTrue(ok);
+        (isFeed, feedAddr) = scribe.feeds(feed.id);
+        assertTrue(isFeed);
         assertEq(feedAddr, feed.pubKey.toAddress());
 
-        // Check via feeds()(address[],uint8[]).
-        address[] memory feeds_;
-        uint8[] memory feedIds;
-        (feeds_, feedIds) = scribe.feeds();
+        // Check via feeds()(address[]).
+        address[] memory feeds_ = scribe.feeds();
         assertEq(feeds_.length, 1);
-        assertEq(feedIds.length, 1);
         assertEq(feeds_[0], feed.pubKey.toAddress());
-        assertEq(feedIds[0], feed.id);
     }
 
     function test_lift_Single_FailsIf_ECDSADataInvalid() public {
@@ -552,9 +541,7 @@ abstract contract IScribeTest is Test {
         // Expect events.
         for (uint i; i < feeds.length; i++) {
             vm.expectEmit();
-            emit FeedLifted(
-                address(this), feeds[i].pubKey.toAddress(), feeds[i].id
-            );
+            emit FeedLifted(address(this), feeds[i].pubKey.toAddress());
         }
 
         // Lift feeds and verify returned feed ids.
@@ -564,35 +551,33 @@ abstract contract IScribeTest is Test {
             assertEq(feedIds[i], feeds[i].id);
         }
 
-        // Check via feeds(address)(bool,uint8) and feeds(uint8)(bool,address).
-        bool ok;
+        // Check via feeds(address)(bool) and feeds(uint8)(bool,address).
+        bool isFeed;
         uint8 feedId;
         address feedAddr;
         for (uint i; i < feeds.length; i++) {
-            (ok, feedId) = scribe.feeds(feeds[i].pubKey.toAddress());
-            assertTrue(ok);
-            assertEq(feedId, feeds[i].id);
+            isFeed = scribe.feeds(feeds[i].pubKey.toAddress());
+            assertTrue(isFeed);
 
-            (ok, feedAddr) = scribe.feeds(feedId);
-            assertTrue(ok);
+            feedId = uint8(uint(uint160(feeds[i].pubKey.toAddress())) >> 152);
+
+            (isFeed, feedAddr) = scribe.feeds(feedId);
+            assertTrue(isFeed);
             assertEq(feeds[i].pubKey.toAddress(), feedAddr);
         }
 
-        // Check via feeds()(address[],uint8[]).
-        address[] memory feedAddrs;
-        (feedAddrs, feedIds) = scribe.feeds();
-        assertEq(feedAddrs.length, feedIds.length);
+        // Check via feeds()(address[]).
+        address[] memory feedAddrs = scribe.feeds();
         for (uint i; i < feeds.length; i++) {
             for (uint j; j < feedAddrs.length; j++) {
                 // Break inner loop if feed's address found in list of feedAddrs.
                 if (feeds[i].pubKey.toAddress() == feedAddrs[j]) {
-                    assertEq(feedIds[j], feeds[i].id);
                     break;
                 }
 
                 // Fail if pubKey's address not found in list of feeds.
                 if (j == feedAddrs.length - 1) {
-                    fail("Expected feed missing in feeds()(address[],uint8[])");
+                    fail("Expected feed missing in feeds()(address[])");
                 }
             }
         }
@@ -635,32 +620,26 @@ abstract contract IScribeTest is Test {
             scribe.lift(feed.pubKey, feed.signECDSA(FEED_REGISTRATION_MESSAGE));
 
         vm.expectEmit();
-        emit FeedDropped(address(this), feed.pubKey.toAddress(), feedId);
+        emit FeedDropped(address(this), feed.pubKey.toAddress());
 
         scribe.drop(feedId);
 
         // Is idempotent.
         scribe.drop(feedId);
 
-        // Check via feeds(address)(bool,uint8).
-        bool ok;
-        uint8 feedId_;
-        (ok, feedId_) = scribe.feeds(feed.pubKey.toAddress());
-        assertFalse(ok);
-        assertEq(feedId_, feedId);
+        // Check via feeds(address)(bool).
+        bool isFeed = scribe.feeds(feed.pubKey.toAddress());
+        assertFalse(isFeed);
 
         // Check via feeds(uint)(bool,address).
         address feedAddr;
-        (ok, feedAddr) = scribe.feeds(feedId);
-        assertFalse(ok);
+        (isFeed, feedAddr) = scribe.feeds(feedId);
+        assertFalse(isFeed);
         assertEq(feedAddr, address(0));
 
-        // Check via feeds()(address[],uint8[]).
-        address[] memory feeds_;
-        uint8[] memory feedIds;
-        (feeds_, feedIds) = scribe.feeds();
+        // Check via feeds()(address[]).
+        address[] memory feeds_ = scribe.feeds();
         assertEq(feeds_.length, 0);
-        assertEq(feedIds.length, 0);
     }
 
     function testFuzz_drop_Multiple(uint[] memory privKeys) public {
@@ -712,9 +691,7 @@ abstract contract IScribeTest is Test {
                 bloom |= 1 << feeds[i].id;
 
                 vm.expectEmit();
-                emit FeedDropped(
-                    address(this), feeds[i].pubKey.toAddress(), feeds[i].id
-                );
+                emit FeedDropped(address(this), feeds[i].pubKey.toAddress());
             }
         }
 
@@ -724,29 +701,24 @@ abstract contract IScribeTest is Test {
         // Is idempotent.
         scribe.drop(feedIds);
 
-        // Check via feeds(address)(bool,uint8).
-        bool ok;
-        uint8 feedId;
+        // Check via feeds(address)(bool).
+        bool isFeed;
         for (uint i; i < feeds.length; i++) {
-            (ok, feedId) = scribe.feeds(feeds[i].pubKey.toAddress());
-            assertFalse(ok);
-            assertEq(feedId, feeds[i].id);
+            isFeed = scribe.feeds(feeds[i].pubKey.toAddress());
+            assertFalse(isFeed);
         }
 
         // Check via feeds(uint8)(bool,address).
         address feedAddr;
         for (uint i; i < feeds.length; i++) {
-            (ok, feedAddr) = scribe.feeds(feeds[i].id);
-            assertFalse(ok);
+            (isFeed, feedAddr) = scribe.feeds(feeds[i].id);
+            assertFalse(isFeed);
             assertEq(feedAddr, address(0));
         }
 
-        // Check via feeds()(address[],uint8[]).
-        address[] memory feedAddresses;
-        uint8[] memory feedIds_;
-        (feedAddresses, feedIds) = scribe.feeds();
+        // Check via feeds()(address[]).
+        address[] memory feedAddresses = scribe.feeds();
         assertEq(feedAddresses.length, 0);
-        assertEq(feedIds_.length, 0);
     }
 
     function testFuzz_setBar(uint8 bar) public {
