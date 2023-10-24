@@ -83,6 +83,8 @@ contract Scribe is IScribe, Auth, Toll {
         SLOT_pubKeys = pubKeysSlot;
     }
 
+    receive() external payable {}
+
     // -- Poke Functionality --
 
     /// @dev Optimized function selector: 0x00000082.
