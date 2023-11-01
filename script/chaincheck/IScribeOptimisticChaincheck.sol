@@ -30,6 +30,7 @@ import {IScribeChaincheck} from "./IScribeChaincheck.sol";
  *              "wat": "ETH/USD",
  *              "bar": 13,
  *              "decimals": 18,
+ *              "maxAllowedAge": <time in seconds>,
  *              "feeds": [
  *                  "<Ethereum address>",
  *                  ...

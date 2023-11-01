@@ -36,6 +36,7 @@ import {
  *              "wat": "ETH/USD",
  *              "bar": 13,
  *              "decimals": 18,
+ *              "maxAllowedAge": <time in seconds>,
  *              "feeds": [
  *                  "<Ethereum address>",
  *                  ...
@@ -114,6 +115,9 @@ contract IScribeChaincheck is Chaincheck {
         // Constants:
         check_wat();
         check_decimals();
+
+        // Liveness:
+        check_beingPoked();
 
         // Configurations:
         check_bar();
@@ -218,6 +222,44 @@ contract IScribeChaincheck is Chaincheck {
                 )
             );
         }
+    }
+
+    // -- Liveness --
+
+    function check_beingPoked() internal {
+        uint maxAllowedAge = config.readUint(".IScribe.maxAllowedAge");
+
+        // Note to make sure address(this) is tolled.
+        // Do not forget to diss after afterwards again!
+        address addrThis = address(this);
+        vm.prank(IAuth(address(self)).authed()[0]);
+        IToll(address(self)).kiss(addrThis);
+
+        // Read val and age.
+        bool ok;
+        uint val;
+        uint age;
+        (ok, val, age) = self.tryReadWithAge();
+
+        if (!ok) {
+            logs.push(StdStyle.red("Read failed"));
+        }
+
+        if (age > maxAllowedAge) {
+            logs.push(
+                string.concat(
+                    StdStyle.red("Has stale value:"),
+                    " maxAllowedAge=",
+                    vm.toString(maxAllowedAge),
+                    ", current age=",
+                    vm.toString(age)
+                )
+            );
+        }
+
+        // Note to diss address(this) again.
+        vm.prank(IAuth(address(self)).authed()[0]);
+        IToll(address(self)).diss(addrThis);
     }
 
     // -- Configurations --
