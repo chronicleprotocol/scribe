@@ -36,7 +36,7 @@ import {
  *              "wat": "ETH/USD",
  *              "bar": 13,
  *              "decimals": 18,
- *              "maxAllowedAge": <time in seconds>,
+ *              "stalenessThreshold": <time in seconds>,
  *              "feeds": [
  *                  "<Ethereum address>",
  *                  ...
@@ -117,7 +117,7 @@ contract IScribeChaincheck is Chaincheck {
         check_decimals();
 
         // Liveness:
-        check_beingPoked();
+        check_stalenessThreshold();
 
         // Configurations:
         check_bar();
@@ -226,8 +226,8 @@ contract IScribeChaincheck is Chaincheck {
 
     // -- Liveness --
 
-    function check_beingPoked() internal {
-        uint maxAllowedAge = config.readUint(".IScribe.maxAllowedAge");
+    function check_stalenessThreshold() internal {
+        uint stalenessThreshold = config.readUint(".IScribe.stalenessThreshold");
 
         // Note to make sure address(this) is tolled.
         // Do not forget to diss after afterwards again!
@@ -241,18 +241,20 @@ contract IScribeChaincheck is Chaincheck {
         uint age;
         (ok, val, age) = self.tryReadWithAge();
 
+        // Check whether value is provided at all.
         if (!ok) {
             logs.push(StdStyle.red("Read failed"));
         }
 
-        if (age > maxAllowedAge) {
+        // Check whether value's age is older than allowed.
+        if (block.timestamp - age > stalenessThreshold) {
             logs.push(
                 string.concat(
-                    StdStyle.red("Has stale value:"),
-                    " maxAllowedAge=",
-                    vm.toString(maxAllowedAge),
-                    ", current age=",
-                    vm.toString(age)
+                    StdStyle.red("Stale value:"),
+                    " stalenessThreshold=",
+                    vm.toString(stalenessThreshold),
+                    ", age=",
+                    vm.toString(block.timestamp - age)
                 )
             );
         }
