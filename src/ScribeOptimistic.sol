@@ -99,8 +99,8 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
     // -- opPoke Functionality --
 
     /// @dev Optimized function selector: 0x00000000.
-    ///      Note that this function is _not_ defined via the IScribe interface
-    ///      and one should _not_ depend on it.
+    ///      Note that this function is _not_ defined via the IScribeOptimistic
+    ///      interface and one should _not_ depend on it.
     function opPoke_optimized_397084999(
         PokeData calldata pokeData,
         SchnorrData calldata schnorrData,
@@ -283,7 +283,6 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         return !ok;
     }
 
-    // @todo Why not single public function?
     /// @inheritdoc IScribeOptimistic
     function constructOpPokeMessage(
         PokeData calldata pokeData,
