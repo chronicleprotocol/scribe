@@ -9,7 +9,6 @@ import {IScribe} from "./IScribe.sol";
 
 import {LibSchnorr} from "./libs/LibSchnorr.sol";
 import {LibSecp256k1} from "./libs/LibSecp256k1.sol";
-import {LibSchnorrData} from "./libs/LibSchnorrData.sol";
 
 /**
  * @title Scribe
@@ -21,7 +20,6 @@ contract Scribe is IScribe, Auth, Toll {
     using LibSchnorr for LibSecp256k1.Point;
     using LibSecp256k1 for LibSecp256k1.Point;
     using LibSecp256k1 for LibSecp256k1.JacobianPoint;
-    using LibSchnorrData for SchnorrData;
 
     /// @inheritdoc IScribe
     uint8 public constant decimals = 18;
@@ -164,13 +162,13 @@ contract Scribe is IScribe, Auth, Toll {
         //
         // Note that requiring equality constrains the verification's runtime
         // from Ω(bar) to Θ(bar).
-        uint numberFeeds = schnorrData.numberFeeds();
+        uint numberFeeds = schnorrData.feedIds.length;
         if (numberFeeds != bar) {
             return (false, _errorBarNotReached(uint8(numberFeeds), bar));
         }
 
         // Initiate feed variables with schnorrData's 0's feed index.
-        feedId = schnorrData.loadFeedId(0);
+        feedId = uint8(schnorrData.feedIds[0]);
         feedPubKey = _sloadPubKey(feedId);
 
         // Fail if feed not lifted.
@@ -184,9 +182,9 @@ contract Scribe is IScribe, Auth, Toll {
         // Initiate aggPubKey with value of first feed's public key.
         aggPubKey = feedPubKey.toJacobian();
 
-        for (uint8 i = 1; i < bar;) {
+        for (uint8 i = 1; i < numberFeeds;) {
             // Update feed variables.
-            feedId = schnorrData.loadFeedId(i);
+            feedId = uint8(schnorrData.feedIds[i]);
             feedPubKey = _sloadPubKey(feedId);
 
             // Fail if feed not lifted.

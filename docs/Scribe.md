@@ -54,8 +54,6 @@ To reduce the calldata load, Scribe does not use type `address`, which uses 20 b
 
 A feed's identifier is defined as the highest order byte of the feed's address and can be computed via `uint8(uint(uint160(feedAddress)) >> 152)`.
 
-For more info, see [`LibSchnorrData.sol`](../src/libs/LibSchnorrData.sol).
-
 ## Lifting Feeds
 
 Feeds _must_ prove the integrity of their public key by proving the ownership of the corresponding private key. The `lift()` function therefore expects an ECDSA signed message, for more info see [`IScribe.feedRegistrationMessage()`](../src/IScribe.sol).

@@ -348,14 +348,15 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         opScribe.opPoke(pokeData, schnorrData, ecdsaData);
     }
 
-    function testFuzz_opPoke_FailsIf_SignatureInvalid_DueTo_GasAttack(
+    // See audits/Spearbit@v2.0.0.pdf.
+    function testFuzz_opPoke_FailsIf_BarNotReached_DueTo_GasAttack(
         uint feedIdsLengthSeed
     ) public {
         // Note to stay reasonable with calldata load.
         uint feedIdsLength =
             _bound(feedIdsLengthSeed, uint(type(uint8).max) + 1, 1_000);
 
-        LibFeed.Feed[] memory feeds = _liftFeeds(opScribe.bar());
+        _liftFeeds(opScribe.bar());
 
         IScribe.PokeData memory pokeData;
         pokeData.val = 1;
@@ -614,6 +615,64 @@ abstract contract IScribeOptimisticTest is IScribeTest {
 
         vm.expectRevert(IScribeOptimistic.NoOpPokeToChallenge.selector);
         opScribe.opChallenge(schnorrData);
+    }
+
+    // See audits/Spearbit@v2.0.0.pdf.
+    function test_opChallenge_CalldataEncodingAttack() public {
+        LibFeed.Feed[] memory feeds = _liftFeeds(opScribe.bar());
+
+        IScribe.PokeData memory pokeData;
+        pokeData.val = 1;
+        pokeData.age = 1;
+        assertEq(opScribe.feeds().length, 2, "expected 2 feeds to start with");
+
+        IScribe.SchnorrData memory schnorrData;
+        schnorrData = feeds.signSchnorr(opScribe.constructPokeMessage(pokeData));
+
+        IScribe.ECDSAData memory ecdsaData;
+        ecdsaData = feeds[0].signECDSA(
+            opScribe.constructOpPokeMessage(pokeData, schnorrData)
+        );
+
+        // Execute valid opPoke.
+        opScribe.opPoke(pokeData, schnorrData, ecdsaData);
+
+        // Challenge opPoke.
+        // bytes memory defaultCalldata = abi.encodeCall(opScribe.opChallenge, schnorrData);
+        // console2.logBytes(defaultCalldata);
+        // 8928a1f8 // selector
+        // 0000000000000000000000000000000000000000000000000000000000000020 // struct offset
+        // fecd661c0731ca99672edb7303a072da3c2b8342e714c2f2a90639b966298958 // signature
+        // 000000000000000000000000026428bf84a659a2d371be1e705613d89d93f78f // commitment
+        // 0000000000000000000000000000000000000000000000000000000000000060 // offset(feedIds)
+        // 0000000000000000000000000000000000000000000000000000000000000002 // length(feedIds)
+        // 2b68000000000000000000000000000000000000000000000000000000000000 // feedIds
+        bytes memory customCalldata = (
+            hex"8928a1f8" // selector
+            hex"0000000000000000000000000000000000000000000000000000000000000020" // struct offset
+            hex"fecd661c0731ca99672edb7303a072da3c2b8342e714c2f2a90639b966298958" // signature
+            hex"000000000000000000000000026428bf84a659a2d371be1e705613d89d93f78f" // commitment
+            hex"00000000000000000000000000000000000000000000000000000000000000a0" // offset(feedIds)
+            hex"0000000000000000000000000000000000000000000000000000000000000002" // injected(feedIds).length
+            hex"2b2b000000000000000000000000000000000000000000000000000000000000" // injected(feedIds) (double sign)
+            hex"0000000000000000000000000000000000000000000000000000000000000002" // length(feedIds)
+            hex"2b68000000000000000000000000000000000000000000000000000000000000"
+        ); // feedIds
+
+        (bool success, bytes memory retData) =
+            address(opScribe).call(customCalldata);
+        if (!success || retData.length != 32) revert();
+        bool opPokeInvalid = abi.decode(retData, (bool));
+
+        // Original PoC:
+        // assertTrue(opPokeInvalid, "expected opChallenge to return true");
+        // assertEq(opScribe.feeds().length, 1, "expected feed to be dropped");
+
+        // Fixed:
+        assertFalse(opPokeInvalid, "opChallenge: Calldata encoding attack");
+        assertEq(
+            opScribe.feeds().length, 2, "opChallenge: Calldata encoding attack"
+        );
     }
 
     // -- Test: Public View Functions --
