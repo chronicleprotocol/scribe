@@ -348,6 +348,35 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         opScribe.opPoke(pokeData, schnorrData, ecdsaData);
     }
 
+    function testFuzz_opPoke_FailsIf_SignatureInvalid_DueTo_GasAttack(
+        uint feedIdsLengthSeed
+    ) public {
+        // Note to stay reasonable with calldata load.
+        uint feedIdsLength =
+            _bound(feedIdsLengthSeed, uint(type(uint8).max) + 1, 1_000);
+
+        LibFeed.Feed[] memory feeds = _liftFeeds(opScribe.bar());
+
+        IScribe.PokeData memory pokeData;
+        pokeData.val = 1;
+        pokeData.age = 1;
+
+        IScribe.SchnorrData memory schnorrData;
+        for (uint i; i < feedIdsLength; i++) {
+            schnorrData.feedIds =
+                abi.encodePacked(schnorrData.feedIds, uint8(0xFF));
+        }
+
+        IScribe.ECDSAData memory ecdsaData;
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IScribe.BarNotReached.selector, type(uint8).max, opScribe.bar()
+            )
+        );
+        opScribe.opPoke(pokeData, schnorrData, ecdsaData);
+    }
+
     // -- Test: opChallenge --
 
     function testFuzz_opChallenge_opPokeDataValidAndNotStale(uint warpSeed)

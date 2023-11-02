@@ -123,6 +123,15 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         SchnorrData calldata schnorrData,
         ECDSAData calldata ecdsaData
     ) internal {
+        // Revert if schnorrData.feedIds' length is higher than bar's maximum
+        // value.
+        //
+        // Note that this prevents opPoke's with such big schnorrData that it
+        // becomes economically unprofitable to challenge it.
+        if (schnorrData.feedIds.length > type(uint8).max) {
+            revert BarNotReached(type(uint8).max, bar);
+        }
+
         // Load _opPokeData from storage.
         PokeData memory opPokeData = _opPokeData;
 
