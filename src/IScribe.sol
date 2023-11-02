@@ -139,7 +139,7 @@ interface IScribe is IChronicle {
     ///         currently acceptable for message `message`.
     /// @dev Note that a valid Schnorr signature is only acceptable if the
     ///      signature was signed by exactly bar many feeds.
-    ///      For more info, see `bar()(uint8)` and `feeds()(address[],uint8[])`.
+    ///      For more info, see `bar()(uint8)` and `feeds()(address[])`.
     /// @dev Note that bar and feeds are configurable, meaning a once acceptable
     ///      Schnorr signature may become unacceptable in the future.
     /// @param message The message expected to be signed via `schnorrData`.
