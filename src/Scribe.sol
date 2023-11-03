@@ -169,7 +169,7 @@ contract Scribe is IScribe, Auth, Toll {
 
         // Initiate feed variables with schnorrData's 0's feed index.
         feedId = uint8(schnorrData.feedIds[0]);
-        feedPubKey = _sloadPubKey(feedId);
+        feedPubKey = _pubKeys[feedId];
 
         // Fail if feed not lifted.
         if (feedPubKey.isZeroPoint()) {
@@ -185,7 +185,7 @@ contract Scribe is IScribe, Auth, Toll {
         for (uint8 i = 1; i < numberFeeds;) {
             // Update feed variables.
             feedId = uint8(schnorrData.feedIds[i]);
-            feedPubKey = _sloadPubKey(feedId);
+            feedPubKey = _pubKeys[feedId];
 
             // Fail if feed not lifted.
             if (feedPubKey.isZeroPoint()) {
@@ -316,14 +316,14 @@ contract Scribe is IScribe, Auth, Toll {
     function feeds(address who) external view returns (bool) {
         uint8 feedId = uint8(uint(uint160(who)) >> 152);
 
-        LibSecp256k1.Point memory pubKey = _sloadPubKey(feedId);
+        LibSecp256k1.Point memory pubKey = _pubKeys[feedId];
 
         return !pubKey.isZeroPoint() && pubKey.toAddress() == who;
     }
 
     /// @inheritdoc IScribe
     function feeds(uint8 feedId) external view returns (bool, address) {
-        LibSecp256k1.Point memory pubKey = _sloadPubKey(feedId);
+        LibSecp256k1.Point memory pubKey = _pubKeys[feedId];
 
         return pubKey.isZeroPoint()
             ? (false, address(0))
@@ -338,7 +338,7 @@ contract Scribe is IScribe, Auth, Toll {
         address feed;
         uint ctr;
         for (uint i; i < 256;) {
-            pubKey = _sloadPubKey(uint8(i));
+            pubKey = _pubKeys[uint8(i)];
 
             if (!pubKey.isZeroPoint()) {
                 feed = pubKey.toAddress();
@@ -407,9 +407,9 @@ contract Scribe is IScribe, Auth, Toll {
 
         uint8 feedId = uint8(uint(uint160(feed)) >> 152);
 
-        LibSecp256k1.Point memory sPubKey = _sloadPubKey(feedId);
+        LibSecp256k1.Point memory sPubKey = _pubKeys[feedId];
         if (sPubKey.isZeroPoint()) {
-            _sstorePubKey(feedId, pubKey);
+            _pubKeys[feedId] = pubKey;
 
             emit FeedLifted(msg.sender, feed);
         } else {
@@ -437,9 +437,9 @@ contract Scribe is IScribe, Auth, Toll {
     }
 
     function _drop(address caller, uint8 feedId) internal virtual {
-        LibSecp256k1.Point memory pubKey = _sloadPubKey(feedId);
+        LibSecp256k1.Point memory pubKey = _pubKeys[feedId];
         if (!pubKey.isZeroPoint()) {
-            _sstorePubKey(feedId, LibSecp256k1.ZERO_POINT());
+            delete _pubKeys[feedId];
 
             emit FeedDropped(caller, pubKey.toAddress());
         }
@@ -456,51 +456,6 @@ contract Scribe is IScribe, Auth, Toll {
         if (bar != bar_) {
             emit BarUpdated(msg.sender, bar, bar_);
             bar = bar_;
-        }
-    }
-
-    // -- Internal Helpers --
-
-    function _sloadPubKey(uint8 index)
-        internal
-        view
-        returns (LibSecp256k1.Point memory)
-    {
-        LibSecp256k1.Point memory pubKey;
-        assembly ("memory-safe") {
-            let slot := add(_pubKeys.slot, shl(1, index))
-
-            let x := sload(slot)
-            let y := sload(add(slot, 1))
-
-            mstore(pubKey, x)
-            mstore(add(pubKey, 32), y)
-        }
-
-        // assert(
-        //     pubKey.isZeroPoint()
-        //         || uint(uint160(pubKey.toAddress())) >> 152 == index
-        // );
-
-        return pubKey;
-    }
-
-    function _sstorePubKey(uint8 index, LibSecp256k1.Point memory pubKey)
-        internal
-    {
-        // assert(
-        //     pubKey.isZeroPoint()
-        //         || uint(uint160(pubKey.toAddress())) >> 152 == index
-        // );
-
-        assembly ("memory-safe") {
-            let slot := add(_pubKeys.slot, shl(1, index))
-
-            let pubKey_x := mload(pubKey)
-            let pubKey_y := mload(add(pubKey, 32))
-
-            sstore(slot, pubKey_x)
-            sstore(add(slot, 1), pubKey_y)
         }
     }
 
@@ -527,7 +482,7 @@ contract Scribe is IScribe, Auth, Toll {
         pure
         returns (bytes memory)
     {
-        // assert(_sloadPubKey(feedId).isZeroPoint());
+        // assert(_pubKeys[feedId].isZeroPoint());
         return abi.encodeWithSelector(IScribe.InvalidFeedId.selector, feedId);
     }
 

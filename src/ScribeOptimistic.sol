@@ -169,8 +169,8 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         uint8 feedId = uint8(uint(uint160(signer)) >> 152);
 
         // Revert if signer not feed.
-        // assert(_sloadPubKey(id).toAddress() != address(0));
-        if (_sloadPubKey(feedId).toAddress() != signer) {
+        // assert(_pubKeys[feedId].toAddress() != address(0));
+        if (_pubKeys[feedId].toAddress() != signer) {
             revert SignerNotFeed(signer);
         }
 

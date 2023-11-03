@@ -14,11 +14,11 @@ contract ScribeInspectable is Scribe {
         return _pokeData;
     }
 
-    function inspectable_sloadPubKey(uint8 feedId)
+    function inspectable_pubKeys(uint8 feedId)
         public
         view
         returns (LibSecp256k1.Point memory)
     {
-        return _sloadPubKey(feedId);
+        return _pubKeys[feedId];
     }
 }

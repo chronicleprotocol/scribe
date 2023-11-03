@@ -74,10 +74,17 @@ abstract contract IScribeInvariantTest is Test {
         uint8 feedId;
 
         for (uint i; i < 256; i++) {
-            pubKey = scribe.inspectable_sloadPubKey(uint8(i));
+            pubKey = scribe.inspectable_pubKeys(uint8(i));
             feedId = uint8(uint(uint160(pubKey.toAddress())) >> 152);
 
             assertTrue(pubKey.isZeroPoint() || i == feedId);
+        }
+    }
+
+    function invariant_pubKeys_CannotIndexOutOfBoundsViaUint8Index() public {
+        for (uint i; i <= type(uint8).max; i++) {
+            // Should not revert.
+            scribe.inspectable_pubKeys(uint8(i));
         }
     }
 
