@@ -67,6 +67,7 @@ Scribe aims to be partially Chainlink compatible by implementing the most widely
 The following `IChainlinkAggregatorV3` functions are provided:
 - `latestRoundData()`
 - `decimals()`
+- `latestAnswer()`
 
 ## Optimistic-Flavored Scribe
 
