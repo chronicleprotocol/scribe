@@ -81,7 +81,10 @@ abstract contract IScribeInvariantTest is Test {
         }
     }
 
-    function invariant_pubKeys_CannotIndexOutOfBoundsViaUint8Index() public {
+    function invariant_pubKeys_CannotIndexOutOfBoundsViaUint8Index()
+        public
+        view
+    {
         for (uint i; i <= type(uint8).max; i++) {
             // Should not revert.
             scribe.inspectable_pubKeys(uint8(i));

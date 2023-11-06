@@ -188,6 +188,7 @@ abstract contract IScribeTest is Test {
         assertEq(answeredInRound, 1);
 
         // latestAnswer()(int) returns zero.
+        // Note that latestAnswer()(int) is deprecated.
         assertEq(scribe.latestAnswer(), int(0));
     }
 

@@ -24,10 +24,6 @@ import {
 /**
  * @notice IScribe's `chaincheck` Integration Test
  *
- * @dev Note that this `chaincheck` has a runtime of and memory consumption of
- *      ω(2^#feeds). If the script fails with "EVMError: MemoryLimitOOG",
- *      increase the memory limit via the `--memory-limit` flag.
- *
  * @dev Config Definition:
  *
  *      ```json
@@ -84,9 +80,6 @@ contract IScribeChaincheck is Chaincheck {
 
     string[] logs;
 
-    // Necessary for check_invariant_PubKeysHaveNoLinearRelationship().
-    LibPublicKeyVerifier.PublicKeyVerifier pubKeyVerifier;
-
     function setUp(address self_, string memory config_)
         public
         virtual
@@ -113,7 +106,7 @@ contract IScribeChaincheck is Chaincheck {
         check_decimals();
 
         // Liveness:
-        check_stalenessThreshold();
+        check_StalenessThreshold();
 
         // Configurations:
         check_bar();
@@ -123,12 +116,8 @@ contract IScribeChaincheck is Chaincheck {
         check_feeds_PublicKeysCorrectlyOrdered();
 
         // Invariants:
+        check_invariant_IsReadable();
         check_invariant_ZeroPublicKeyIsNotLifted();
-        // Note that check is disabled due to heavy memory usage making it
-        // currently unusable in ci.
-        // @todo: Try to fix. However, problem is NP hard so most likely need
-        //        more resources in ci or utilize some caching strategy.
-        //check_invariant_PublicKeysHaveNoLinearRelationship();
         check_invariant_BarIsNotZero();
         check_invariant_ReadFunctionsReturnSameValue();
 
@@ -210,7 +199,7 @@ contract IScribeChaincheck is Chaincheck {
 
     // -- Liveness --
 
-    function check_stalenessThreshold() internal {
+    function check_StalenessThreshold() internal {
         uint stalenessThreshold = config.readUint(".IScribe.stalenessThreshold");
 
         // Note to make sure address(this) is tolled.
@@ -219,16 +208,9 @@ contract IScribeChaincheck is Chaincheck {
         vm.prank(IAuth(address(self)).authed()[0]);
         IToll(address(self)).kiss(addrThis);
 
-        // Read val and age.
-        bool ok;
-        uint val;
+        // Read age.
         uint age;
-        (ok, val, age) = self.tryReadWithAge();
-
-        // Check whether value is provided at all.
-        if (!ok) {
-            logs.push(StdStyle.red("Read failed"));
-        }
+        ( /*ok*/ , /*val*/, age) = self.tryReadWithAge();
 
         // Check whether value's age is older than allowed.
         if (block.timestamp - age > stalenessThreshold) {
@@ -395,39 +377,29 @@ contract IScribeChaincheck is Chaincheck {
 
     // -- Invariants --
 
+    function check_invariant_IsReadable() internal {
+        // Note to make sure address(this) is tolled.
+        // Do not forget to diss after afterwards again!
+        address addrThis = address(this);
+        vm.prank(IAuth(address(self)).authed()[0]);
+        IToll(address(self)).kiss(addrThis);
+
+        try self.read() {}
+        catch {
+            logs.push(StdStyle.red("[INVARIANT BROKEN] Not readable"));
+        }
+
+        // Note to diss address(this) again.
+        vm.prank(IAuth(address(self)).authed()[0]);
+        IToll(address(self)).diss(addrThis);
+    }
+
     function check_invariant_ZeroPublicKeyIsNotLifted() internal {
         bool isFeed = self.feeds(LibSecp256k1.ZERO_POINT().toAddress());
 
         if (isFeed) {
             logs.push(
                 StdStyle.red("[INVARIANT BROKEN] Zero public key is lifted")
-            );
-        }
-    }
-
-    function check_invariant_PublicKeysHaveNoLinearRelationship() internal {
-        uint[] memory feedPublicKeysXCoordinates =
-            config.readUintArray(".IScribe.feedPublicKeys.xCoordinates");
-        uint[] memory feedPublicKeysYCoordinates =
-            config.readUintArray(".IScribe.feedPublicKeys.yCoordinates");
-
-        // Make LibSecp256k1.Point types from coordinates.
-        LibSecp256k1.Point[] memory pubKeys;
-        pubKeys = new LibSecp256k1.Point[](feedPublicKeysXCoordinates.length);
-        for (uint i; i < pubKeys.length; i++) {
-            pubKeys[i] = LibSecp256k1.Point({
-                x: feedPublicKeysXCoordinates[i],
-                y: feedPublicKeysYCoordinates[i]
-            });
-        }
-
-        bool ok;
-        (ok, /*set1*/, /*set2*/ ) = pubKeyVerifier.verifyPublicKeys(pubKeys);
-        if (!ok) {
-            logs.push(
-                StdStyle.red(
-                    "[INVARIANT BROKEN] Public keys have linear relationship"
-                )
             );
         }
     }
