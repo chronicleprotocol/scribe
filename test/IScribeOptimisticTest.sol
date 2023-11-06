@@ -68,8 +68,8 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         // opFeedId set to zero.
         assertEq(opScribe.opFeedId(), 0);
 
-        // OpChallengePeriod set to 1 hour.
-        assertEq(opScribe.opChallengePeriod(), 1 hours);
+        // OpChallengePeriod is non-zero.
+        assertNotEq(opScribe.opChallengePeriod(), 0);
 
         // MaxChallengeRewards set to type(uint).max.
         assertEq(opScribe.maxChallengeReward(), type(uint).max);

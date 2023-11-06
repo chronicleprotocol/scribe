@@ -127,7 +127,7 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         // value.
         //
         // Note that this prevents opPoke's with such big schnorrData that it
-        // becomes economically unprofitable to challenge it.
+        // becomes economically unprofitable to challenge them.
         if (schnorrData.feedIds.length > type(uint8).max) {
             revert BarNotReached(type(uint8).max, bar);
         }
