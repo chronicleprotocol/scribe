@@ -459,6 +459,8 @@ contract Scribe is IScribe, Auth, Toll {
         }
     }
 
+    // -- Internal Helpers --
+
     function _revert(bytes memory err) internal pure {
         // assert(err.length != 0);
         assembly ("memory-safe") {

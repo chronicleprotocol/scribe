@@ -51,7 +51,7 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         Scribe(initialAuthed, wat_)
     {
         // Note to have a non-zero challenge period.
-        _setOpChallengePeriod(1 hours);
+        _setOpChallengePeriod(20 minutes);
 
         // Set maxChallengeReward to type(uint).max.
         _setMaxChallengeRewards(type(uint).max);
