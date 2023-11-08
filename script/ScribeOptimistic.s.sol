@@ -3,6 +3,8 @@ pragma solidity ^0.8.16;
 
 import {console2} from "forge-std/console2.sol";
 
+import {IToll} from "chronicle-std/toll/IToll.sol";
+
 import {IGreenhouse} from "greenhouse/IGreenhouse.sol";
 
 import {IScribe} from "src/IScribe.sol";
@@ -21,7 +23,8 @@ import {ScribeScript} from "./Scribe.s.sol";
 contract ScribeOptimisticScript is ScribeScript {
     /// @dev Deploys a new ScribeOptimistic instance via Greenhouse instance
     ///      `greenhouse` and salt `salt` with `initialAuthed` being the address
-    ///      initially auth'ed.
+    ///      initially auth'ed. Note that zero address is kissed directly after
+    ///      deployment.
     function deploy(
         address greenhouse,
         bytes32 salt,
@@ -37,9 +40,11 @@ contract ScribeOptimisticScript is ScribeScript {
         address deployed = IGreenhouse(greenhouse).addressOf(salt);
         require(deployed.code.length == 0, "Salt already used");
 
-        // Plant creation code via greenhouse.
+        // Plant creation code via greenhouse and kiss zero address.
         vm.startBroadcast();
+        require(msg.sender == initialAuthed, "Deployer must be initial auth'ed");
         IGreenhouse(greenhouse).plant(salt, creationCode);
+        IToll(deployed).kiss(address(0));
         vm.stopBroadcast();
 
         console2.log("Deployed at", deployed);

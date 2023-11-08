@@ -27,7 +27,7 @@ contract ScribeScript is Script {
 
     /// @dev Deploys a new Scribe instance via Greenhouse instance `greenhouse`
     ///      and salt `salt` with `initialAuthed` being the address initially
-    ///      auth'ed.
+    ///      auth'ed. Note that zero address is kissed directly after deployment.
     function deploy(
         address greenhouse,
         bytes32 salt,
@@ -43,9 +43,11 @@ contract ScribeScript is Script {
         address deployed = IGreenhouse(greenhouse).addressOf(salt);
         require(deployed.code.length == 0, "Salt already used");
 
-        // Plant creation code via greenhouse.
+        // Plant creation code via greenhouse and kiss zero address.
         vm.startBroadcast();
+        require(msg.sender == initialAuthed, "Deployer must be initial auth'ed");
         IGreenhouse(greenhouse).plant(salt, creationCode);
+        IToll(deployed).kiss(address(0));
         vm.stopBroadcast();
 
         console2.log("Deployed at", deployed);
