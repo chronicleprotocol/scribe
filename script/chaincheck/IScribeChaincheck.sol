@@ -506,9 +506,7 @@ contract IScribeChaincheck is Chaincheck {
     function check_IAuth() internal {
         // Run IAuth chaincheck.
         string[] memory authLogs;
-        (, authLogs) = new IAuthChaincheck()
-                            .setUp(address(self), config)
-                            .run();
+        (, authLogs) = new IAuthChaincheck().setUp(address(self), config).run();
 
         // Add logs to own logs.
         for (uint i; i < authLogs.length; i++) {
@@ -519,14 +517,12 @@ contract IScribeChaincheck is Chaincheck {
     /// @dev Checks the IToll module dependency.
     function check_IToll() internal {
         // Run IToll chaincheck.
-        string[] memory authLogs;
-        (, authLogs) = new ITollChaincheck()
-                            .setUp(address(self), config)
-                            .run();
+        string[] memory tollLogs;
+        (, tollLogs) = new ITollChaincheck().setUp(address(self), config).run();
 
         // Add logs to own logs.
-        for (uint i; i < authLogs.length; i++) {
-            logs.push(authLogs[i]);
+        for (uint i; i < tollLogs.length; i++) {
+            logs.push(tollLogs[i]);
         }
     }
 
