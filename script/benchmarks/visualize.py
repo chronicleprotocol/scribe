@@ -7,13 +7,13 @@
 import matplotlib.pyplot as plt
 
 # Bar configuration
-x = [5, 10, 15, 20, 50, 100]
+x = [5, 10, 15, 20, 50, 100, 200, 255]
 
 # Scribe benchmark results received via `run.sh`
-scribe = [79428, 106862, 131834, 158263, 315655, 577919]
+scribe = [80280, 105070, 132414, 156983, 314455, 574227, 1096599, 1382810]
 
 # ScribeOptimistic benchmark results received via `run.sh`
-opScribe = [66462, 66534, 66603, 66663, 67437, 68845]
+opScribe = [68815, 68887, 68944, 69004, 69791, 71186, 73630, 74735]
 
 # Plotting the benchmark data
 plt.plot(x, scribe, label='Scribe')

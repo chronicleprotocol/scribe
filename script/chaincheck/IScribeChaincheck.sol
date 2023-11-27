@@ -24,10 +24,6 @@ import {
 /**
  * @notice IScribe's `chaincheck` Integration Test
  *
- * @dev Note that this `chaincheck` has a runtime of and memory consumption of
- *      ω(2^#feeds). If the script fails with "EVMError: MemoryLimitOOG",
- *      increase the memory limit via the `--memory-limit` flag.
- *
  * @dev Config Definition:
  *
  *      ```json
@@ -39,10 +35,6 @@ import {
  *              "stalenessThreshold": <time in seconds>,
  *              "feeds": [
  *                  "<Ethereum address>",
- *                  ...
- *              ],
- *              "feedIndexes": [
- *                  0,
  *                  ...
  *              ],
  *              "feedPublicKeys": {
@@ -88,9 +80,6 @@ contract IScribeChaincheck is Chaincheck {
 
     string[] logs;
 
-    // Necessary for check_invariant_PubKeysHaveNoLinearRelationship().
-    LibPublicKeyVerifier.PublicKeyVerifier pubKeyVerifier;
-
     function setUp(address self_, string memory config_)
         public
         virtual
@@ -117,23 +106,18 @@ contract IScribeChaincheck is Chaincheck {
         check_decimals();
 
         // Liveness:
-        check_stalenessThreshold();
+        check_StalenessThreshold();
 
         // Configurations:
         check_bar();
         check_feeds_AllExpectedFeedsAreLifted();
         check_feeds_OnlyExpectedFeedsAreLifted();
-        check_feeds_AllExpectedFeedIndexesLinkToCorrectFeed();
         check_feeds_AllPublicKeysAreLifted();
         check_feeds_PublicKeysCorrectlyOrdered();
 
         // Invariants:
+        check_invariant_IsReadable();
         check_invariant_ZeroPublicKeyIsNotLifted();
-        // Note that check is disabled due to heavy memory usage making it
-        // currently unusable in ci.
-        // @todo: Try to fix. However, problem is NP hard so most likely need
-        //        more resources in ci or utilize some caching strategy.
-        //check_invariant_PublicKeysHaveNoLinearRelationship();
         check_invariant_BarIsNotZero();
         check_invariant_ReadFunctionsReturnSameValue();
 
@@ -149,23 +133,12 @@ contract IScribeChaincheck is Chaincheck {
 
     function check_feeds_ConfigSanity() internal {
         address[] memory feeds = config.readAddressArray(".IScribe.feeds");
-        uint[] memory feedIndexes = config.readUintArray(".IScribe.feedIndexes");
         uint[] memory feedPublicKeysXCoordinates =
             config.readUintArray(".IScribe.feedPublicKeys.xCoordinates");
         uint[] memory feedPublicKeysYCoordinates =
             config.readUintArray(".IScribe.feedPublicKeys.yCoordinates");
 
         uint wantLen = feeds.length;
-
-        if (feedIndexes.length != wantLen) {
-            logs.push(
-                string.concat(
-                    StdStyle.red(
-                        "Config error: IScribe.feeds.length != IScribe.feedIndexes.length"
-                    )
-                )
-            );
-        }
 
         if (feedPublicKeysXCoordinates.length != wantLen) {
             logs.push(
@@ -226,7 +199,7 @@ contract IScribeChaincheck is Chaincheck {
 
     // -- Liveness --
 
-    function check_stalenessThreshold() internal {
+    function check_StalenessThreshold() internal {
         uint stalenessThreshold = config.readUint(".IScribe.stalenessThreshold");
 
         // Note to make sure address(this) is tolled.
@@ -235,16 +208,9 @@ contract IScribeChaincheck is Chaincheck {
         vm.prank(IAuth(address(self)).authed()[0]);
         IToll(address(self)).kiss(addrThis);
 
-        // Read val and age.
-        bool ok;
-        uint val;
+        // Read age.
         uint age;
-        (ok, val, age) = self.tryReadWithAge();
-
-        // Check whether value is provided at all.
-        if (!ok) {
-            logs.push(StdStyle.red("Read failed"));
-        }
+        ( /*ok*/ , /*val*/, age) = self.tryReadWithAge();
 
         // Check whether value's age is older than allowed.
         if (block.timestamp - age > stalenessThreshold) {
@@ -291,8 +257,7 @@ contract IScribeChaincheck is Chaincheck {
         for (uint i; i < wantFeeds.length; i++) {
             wantFeed = wantFeeds[i];
 
-            bool isFeed;
-            (isFeed, /*feedIndex*/ ) = self.feeds(wantFeed);
+            bool isFeed = self.feeds(wantFeed);
 
             if (!isFeed) {
                 logs.push(
@@ -311,58 +276,26 @@ contract IScribeChaincheck is Chaincheck {
         address[] memory wantFeeds = config.readAddressArray(".IScribe.feeds");
 
         // Check that only expected feeds are lifted.
-        address[] memory gotFeeds;
-        (gotFeeds, /*feedIndexes*/ ) = self.feeds();
+        address[] memory gotFeeds = self.feeds();
         for (uint i; i < gotFeeds.length; i++) {
+            bool found = false;
+
             for (uint j; j < wantFeeds.length; j++) {
                 if (gotFeeds[i] == wantFeeds[j]) {
-                    // Feed is expected, break inner loop.
-                    break;
-                }
-
-                if (j == wantFeeds.length - 1) {
-                    // Feed not found.
-                    logs.push(
-                        string.concat(
-                            StdStyle.red("Unknown feed lifted:"),
-                            " feed=",
-                            vm.toString(gotFeeds[i])
-                        )
-                    );
+                    found = true;
+                    break; // Found feed. Continue with outer loop.
                 }
             }
-        }
-    }
 
-    function check_feeds_AllExpectedFeedIndexesLinkToCorrectFeed() internal {
-        address[] memory wantFeeds = config.readAddressArray(".IScribe.feeds");
-        uint[] memory wantFeedIndexes =
-            config.readUintArray(".IScribe.feedIndexes");
-
-        // Check that each feed index links to correct feed.
-        address wantFeed;
-        uint wantFeedIndex;
-        for (uint i; i < wantFeeds.length; i++) {
-            wantFeed = wantFeeds[i];
-            wantFeedIndex = wantFeedIndexes[i];
-
-            bool isFeed;
-            uint gotFeedIndex;
-            (isFeed, gotFeedIndex) = self.feeds(wantFeed);
-
-            if (wantFeedIndex != gotFeedIndex) {
+            if (!found) {
+                // Feed not found.
                 logs.push(
                     string.concat(
-                        StdStyle.red("Expected feed index does not match:"),
+                        StdStyle.red("Unknown feed lifted:"),
                         " feed=",
-                        vm.toString(wantFeed),
-                        ", expectedIndex=",
-                        vm.toString(wantFeedIndex),
-                        ", actualIndex=",
-                        vm.toString(gotFeedIndex)
+                        vm.toString(gotFeeds[i])
                     )
                 );
-                continue;
             }
         }
     }
@@ -391,8 +324,7 @@ contract IScribeChaincheck is Chaincheck {
 
         // Check that each address derived from public key is lifted.
         for (uint i; i < addrs.length; i++) {
-            bool isFeed;
-            (isFeed, /*feedIndex*/ ) = self.feeds(addrs[i]);
+            bool isFeed = self.feeds(addrs[i]);
 
             if (!isFeed) {
                 logs.push(
@@ -445,41 +377,29 @@ contract IScribeChaincheck is Chaincheck {
 
     // -- Invariants --
 
+    function check_invariant_IsReadable() internal {
+        // Note to make sure address(this) is tolled.
+        // Do not forget to diss after afterwards again!
+        address addrThis = address(this);
+        vm.prank(IAuth(address(self)).authed()[0]);
+        IToll(address(self)).kiss(addrThis);
+
+        try self.read() {}
+        catch {
+            logs.push(StdStyle.red("[INVARIANT BROKEN] Not readable"));
+        }
+
+        // Note to diss address(this) again.
+        vm.prank(IAuth(address(self)).authed()[0]);
+        IToll(address(self)).diss(addrThis);
+    }
+
     function check_invariant_ZeroPublicKeyIsNotLifted() internal {
-        bool isFeed;
-        (isFeed, /*feedIndex*/ ) =
-            self.feeds(LibSecp256k1.ZERO_POINT().toAddress());
+        bool isFeed = self.feeds(LibSecp256k1.ZERO_POINT().toAddress());
 
         if (isFeed) {
             logs.push(
                 StdStyle.red("[INVARIANT BROKEN] Zero public key is lifted")
-            );
-        }
-    }
-
-    function check_invariant_PublicKeysHaveNoLinearRelationship() internal {
-        uint[] memory feedPublicKeysXCoordinates =
-            config.readUintArray(".IScribe.feedPublicKeys.xCoordinates");
-        uint[] memory feedPublicKeysYCoordinates =
-            config.readUintArray(".IScribe.feedPublicKeys.yCoordinates");
-
-        // Make LibSecp256k1.Point types from coordinates.
-        LibSecp256k1.Point[] memory pubKeys;
-        pubKeys = new LibSecp256k1.Point[](feedPublicKeysXCoordinates.length);
-        for (uint i; i < pubKeys.length; i++) {
-            pubKeys[i] = LibSecp256k1.Point({
-                x: feedPublicKeysXCoordinates[i],
-                y: feedPublicKeysYCoordinates[i]
-            });
-        }
-
-        bool ok;
-        (ok, /*set1*/, /*set2*/ ) = pubKeyVerifier.verifyPublicKeys(pubKeys);
-        if (!ok) {
-            logs.push(
-                StdStyle.red(
-                    "[INVARIANT BROKEN] Public keys have linear relationship"
-                )
             );
         }
     }
@@ -586,9 +506,7 @@ contract IScribeChaincheck is Chaincheck {
     function check_IAuth() internal {
         // Run IAuth chaincheck.
         string[] memory authLogs;
-        (, authLogs) = new IAuthChaincheck()
-                            .setUp(address(self), config)
-                            .run();
+        (, authLogs) = new IAuthChaincheck().setUp(address(self), config).run();
 
         // Add logs to own logs.
         for (uint i; i < authLogs.length; i++) {
@@ -599,14 +517,12 @@ contract IScribeChaincheck is Chaincheck {
     /// @dev Checks the IToll module dependency.
     function check_IToll() internal {
         // Run IToll chaincheck.
-        string[] memory authLogs;
-        (, authLogs) = new ITollChaincheck()
-                            .setUp(address(self), config)
-                            .run();
+        string[] memory tollLogs;
+        (, tollLogs) = new ITollChaincheck().setUp(address(self), config).run();
 
         // Add logs to own logs.
-        for (uint i; i < authLogs.length; i++) {
-            logs.push(authLogs[i]);
+        for (uint i; i < tollLogs.length; i++) {
+            logs.push(tollLogs[i]);
         }
     }
 

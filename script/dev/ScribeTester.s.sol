@@ -41,8 +41,7 @@ contract ScribeTesterScript is Script {
         // Setup feeds.
         LibFeed.Feed[] memory feeds = new LibFeed.Feed[](privKeys.length);
         for (uint i; i < feeds.length; i++) {
-            feeds[i] =
-                LibFeed.newFeed({privKey: privKeys[i], index: uint8(i + 1)});
+            feeds[i] = LibFeed.newFeed({privKey: privKeys[i]});
 
             vm.label(
                 feeds[i].pubKey.toAddress(),
@@ -93,27 +92,21 @@ contract ScribeTesterScript is Script {
         // Setup feeds.
         LibFeed.Feed[] memory feeds = new LibFeed.Feed[](privKeys.length);
         for (uint i; i < feeds.length; i++) {
-            feeds[i] =
-                LibFeed.newFeed({privKey: privKeys[i], index: uint8(i + 1)});
+            feeds[i] = LibFeed.newFeed({privKey: privKeys[i]});
 
             vm.label(
                 feeds[i].pubKey.toAddress(),
                 string.concat("Feed #", vm.toString(i + 1))
             );
 
-            // Update feed's index.
-            bool isFeed;
-            uint feedIndex;
-            (isFeed, feedIndex) =
-                IScribe(self).feeds(feeds[i].pubKey.toAddress());
+            // Verify feed is lifted.
+            bool isFeed = IScribe(self).feeds(feeds[i].pubKey.toAddress());
             require(
                 isFeed,
                 string.concat(
                     "Private key not feed, privKey=", vm.toString(privKeys[i])
                 )
             );
-
-            feeds[i].index = uint8(feedIndex);
         }
 
         // Create poke data.

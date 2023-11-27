@@ -35,10 +35,6 @@ import {IScribeChaincheck} from "./IScribeChaincheck.sol";
  *                  "<Ethereum address>",
  *                  ...
  *              ],
- *              "feedIndexes": [
- *                  0,
- *                  ...
- *              ],
  *              "feedPublicKeys": {
  *                  "xCoordinates": [
  *                      <uint>,

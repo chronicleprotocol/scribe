@@ -8,8 +8,7 @@ interface IScribeOptimistic is IScribe {
     ///         in challenge period.
     error InChallengePeriod();
 
-    /// @notice Thrown if opChallenge called while no opPoke exists thats
-    ///         challengeable.
+    /// @notice Thrown if opChallenge called while no challengeable opPoke exists.
     error NoOpPokeToChallenge();
 
     /// @notice Thrown if opChallenge called with SchnorrData not matching
@@ -18,6 +17,10 @@ interface IScribeOptimistic is IScribe {
     /// @param wantHash The truncated expected keccak256 hash of the SchnorrData
     ///                 argument.
     error SchnorrDataMismatch(uint160 gotHash, uint160 wantHash);
+
+    /// @notice Thrown if opPoke called with non-feed ECDSA signature.
+    /// @param signer The ECDSA signature's signer.
+    error SignerNotFeed(address signer);
 
     /// @notice Emitted when oracles was successfully opPoked.
     /// @param caller The caller's address.
@@ -33,25 +36,34 @@ interface IScribeOptimistic is IScribe {
 
     /// @notice Emitted when successfully challenged an opPoke.
     /// @param caller The caller's address.
+    /// @param schnorrData The schnorrData challenged.
     /// @param schnorrErr The abi-encoded custom error returned from the failed
     ///                   Schnorr signature verification.
     event OpPokeChallengedSuccessfully(
-        address indexed caller, bytes schnorrErr
+        address indexed caller,
+        IScribe.SchnorrData schnorrData,
+        bytes schnorrErr
     );
 
     /// @notice Emitted when unsuccessfully challenged an opPoke.
     /// @param caller The caller's address.
-    event OpPokeChallengedUnsuccessfully(address indexed caller);
+    /// @param schnorrData The schnorrData challenged.
+    event OpPokeChallengedUnsuccessfully(
+        address indexed caller, IScribe.SchnorrData schnorrData
+    );
 
     /// @notice Emitted when ETH reward paid for successfully challenging an
     ///         opPoke.
     /// @param challenger The challenger to which the reward was send.
+    /// @param schnorrData The schnorrData challenged.
     /// @param reward The ETH rewards paid.
-    event OpChallengeRewardPaid(address indexed challenger, uint reward);
+    event OpChallengeRewardPaid(
+        address indexed challenger, IScribe.SchnorrData schnorrData, uint reward
+    );
 
     /// @notice Emitted when an opPoke dropped.
     /// @dev opPoke's are dropped if security parameters are updated that could
-    ///      lead to an initially valid opPoke becoming invalid or an opPoke was
+    ///      lead to an initially valid opPoke becoming invalid or if an opPoke
     ///      was successfully challenged.
     /// @param caller The caller's address.
     /// @param pokeData The pokeData dropped.
@@ -80,6 +92,7 @@ interface IScribeOptimistic is IScribe {
     /// @notice Optimistically pokes the oracle.
     /// @dev Expects `pokeData`'s age to be greater than the timestamp of the
     ///      last successful poke.
+    /// @dev Expects `pokeData`'s age to not be greater than the current time.
     /// @dev Expects `ecdsaData` to be a signature from a feed.
     /// @dev Expects `ecdsaData` to prove the integrity of the `pokeData` and
     ///      `schnorrData`.
@@ -122,9 +135,9 @@ interface IScribeOptimistic is IScribe {
         SchnorrData calldata schnorrData
     ) external view returns (bytes32 opPokeMessage);
 
-    /// @notice Returns the feed index of the feed last opPoke'd.
-    /// @return opFeedIndex Feed index of the feed last opPoke'd.
-    function opFeedIndex() external view returns (uint8 opFeedIndex);
+    /// @notice Returns the feed id of the feed last opPoke'd.
+    /// @return opFeedId Feed id of the feed last opPoke'd.
+    function opFeedId() external view returns (uint8 opFeedId);
 
     /// @notice Returns the opChallengePeriod security parameter.
     /// @return opChallengePeriod The opChallengePeriod security parameter.

@@ -21,16 +21,13 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
     using LibSecp256k1 for LibSecp256k1.Point;
     using LibSecp256k1 for LibSecp256k1.Point[];
 
-    /// @dev The initial opChallengePeriod set during construction.
-    uint16 private constant _INITIAL_OP_CHALLENGE_PERIOD = 1 hours;
-
     // -- Storage --
 
     /// @inheritdoc IScribeOptimistic
     uint16 public opChallengePeriod;
 
     /// @inheritdoc IScribeOptimistic
-    uint8 public opFeedIndex;
+    uint8 public opFeedId;
 
     /// @dev The truncated hash of the schnorrData provided in last opPoke.
     ///      Binds the opFeed to their schnorrData.
@@ -50,10 +47,14 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
     // -- Constructor and Receive Functionality --
 
     constructor(address initialAuthed, bytes32 wat_)
+        payable
         Scribe(initialAuthed, wat_)
     {
         // Note to have a non-zero challenge period.
-        _setOpChallengePeriod(_INITIAL_OP_CHALLENGE_PERIOD);
+        _setOpChallengePeriod(20 minutes);
+
+        // Set maxChallengeReward to type(uint).max.
+        _setMaxChallengeRewards(type(uint).max);
     }
 
     receive() external payable {}
@@ -98,8 +99,8 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
     // -- opPoke Functionality --
 
     /// @dev Optimized function selector: 0x00000000.
-    ///      Note that this function is _not_ defined via the IScribe interface
-    ///      and one should _not_ depend on it.
+    ///      Note that this function is _not_ defined via the IScribeOptimistic
+    ///      interface and one should _not_ depend on it.
     function opPoke_optimized_397084999(
         PokeData calldata pokeData,
         SchnorrData calldata schnorrData,
@@ -122,6 +123,15 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         SchnorrData calldata schnorrData,
         ECDSAData calldata ecdsaData
     ) internal {
+        // Revert if schnorrData.feedIds' length is higher than bar's maximum
+        // value.
+        //
+        // Note that this prevents opPoke's with such big schnorrData that it
+        // becomes economically unprofitable to challenge them.
+        if (schnorrData.feedIds.length > type(uint8).max) {
+            revert BarNotReached(type(uint8).max, bar);
+        }
+
         // Load _opPokeData from storage.
         PokeData memory opPokeData = _opPokeData;
 
@@ -155,27 +165,25 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
             ecdsaData.s
         );
 
-        // Load signer's index.
-        uint signerIndex = _feeds[signer];
+        // Compute feed id of signer.
+        uint8 feedId = uint8(uint(uint160(signer)) >> 152);
 
         // Revert if signer not feed.
-        if (signerIndex == 0) {
+        // assert(_pubKeys[feedId].toAddress() != address(0));
+        if (_pubKeys[feedId].toAddress() != signer) {
             revert SignerNotFeed(signer);
         }
 
-        // Store the signerIndex as opFeedIndex and bind them to their provided
+        // Store the feed's id as opFeedId and bind them to their provided
         // schnorrData.
-        //
-        // Note that cast is safe as _feed's image is [0, _pubKeys.length) and
-        // _pubKeys' length is bounded by maxFeeds, i.e. type(uint8).max - 1.
-        opFeedIndex = uint8(signerIndex);
+        opFeedId = feedId;
         _schnorrDataCommitment = uint160(
             uint(
                 keccak256(
                     abi.encodePacked(
                         schnorrData.signature,
                         schnorrData.commitment,
-                        schnorrData.signersBlob
+                        schnorrData.feedIds
                     )
                 )
             )
@@ -222,7 +230,7 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
                     abi.encodePacked(
                         schnorrData.signature,
                         schnorrData.commitment,
-                        schnorrData.signersBlob
+                        schnorrData.feedIds
                     )
                 )
             )
@@ -255,20 +263,20 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
                 delete _opPokeData;
             }
 
-            emit OpPokeChallengedUnsuccessfully(msg.sender);
+            emit OpPokeChallengedUnsuccessfully(msg.sender, schnorrData);
         } else {
             // Drop opFeed and delete invalid _opPokeData.
             // Note to use address(this) as caller to indicate self-governed
             // drop of feed.
-            _drop(address(this), opFeedIndex);
+            _drop(address(this), opFeedId);
 
             // Pay ETH reward to challenger.
             uint reward = challengeReward();
             if (_sendETH(payable(msg.sender), reward)) {
-                emit OpChallengeRewardPaid(msg.sender, reward);
+                emit OpChallengeRewardPaid(msg.sender, schnorrData, reward);
             }
 
-            emit OpPokeChallengedSuccessfully(msg.sender, err);
+            emit OpPokeChallengedSuccessfully(msg.sender, schnorrData, err);
         }
 
         // Return whether challenging was successful.
@@ -297,7 +305,7 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
                         pokeData.age,
                         schnorrData.signature,
                         schnorrData.commitment,
-                        schnorrData.signersBlob
+                        schnorrData.feedIds
                     )
                 )
             )
@@ -349,6 +357,8 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         return (pokeData.val, pokeData.age);
     }
 
+    /// @inheritdoc IChronicle
+    /// @dev Only callable by toll'ed address.
     function tryReadWithAge()
         external
         view
@@ -357,7 +367,9 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         returns (bool, uint, uint)
     {
         PokeData memory pokeData = _currentPokeData();
-        return (pokeData.val != 0, pokeData.val, pokeData.age);
+        return pokeData.val != 0
+            ? (true, pokeData.val, pokeData.age)
+            : (false, 0, 0);
     }
 
     // - MakerDAO Compatibility
@@ -466,8 +478,8 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
         _afterAuthedAction();
     }
 
-    function _drop(address caller, uint feedIndex) internal override(Scribe) {
-        super._drop(caller, feedIndex);
+    function _drop(address caller, uint8 feedId) internal override(Scribe) {
+        super._drop(caller, feedId);
 
         _afterAuthedAction();
     }
@@ -552,6 +564,10 @@ contract ScribeOptimistic is IScribeOptimistic, Scribe {
 
     /// @inheritdoc IScribeOptimistic
     function setMaxChallengeReward(uint maxChallengeReward_) external auth {
+        _setMaxChallengeRewards(maxChallengeReward_);
+    }
+
+    function _setMaxChallengeRewards(uint maxChallengeReward_) internal {
         if (maxChallengeReward != maxChallengeReward_) {
             emit MaxChallengeRewardUpdated(
                 msg.sender, maxChallengeReward, maxChallengeReward_

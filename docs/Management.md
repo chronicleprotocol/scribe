@@ -111,7 +111,7 @@ $ forge script \
 
 Set the following environment variables:
 
-- `FEED_INDEX`: The feed's index
+- `FEED_ID`: The feed's id
 
 Run:
 
@@ -120,7 +120,7 @@ $ forge script \
     --private-key $PRIVATE_KEY \
     --broadcast \
     --rpc-url $RPC_URL \
-    --sig $(cast calldata "drop(address,uint)" $SCRIBE $FEED_INDEX) \
+    --sig $(cast calldata "drop(address,uint)" $SCRIBE $FEED_ID) \
     -vvv \
     script/${SCRIBE_FLAVOUR}.s.sol:${SCRIBE_FLAVOUR}Script
 ```

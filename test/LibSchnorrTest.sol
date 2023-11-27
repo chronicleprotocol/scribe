@@ -36,7 +36,7 @@ abstract contract LibSchnorrTest is Test {
         // Note that we allow double signing.
         uint[] memory privKeys = new uint[](privKeySeeds.length);
         for (uint i; i < privKeySeeds.length; i++) {
-            privKeys[i] = bound(privKeySeeds[i], 2, LibSecp256k1.Q() - 1);
+            privKeys[i] = _bound(privKeySeeds[i], 2, LibSecp256k1.Q() - 1);
         }
 
         // Make list of public key.
@@ -79,7 +79,7 @@ abstract contract LibSchnorrTest is Test {
         bytes32 message
     ) public {
         // Let privKey ∊ [1, Q).
-        uint privKey = bound(privKeySeed, 1, LibSecp256k1.Q() - 1);
+        uint privKey = _bound(privKeySeed, 1, LibSecp256k1.Q() - 1);
 
         // Compute pubKey.
         LibSecp256k1.Point memory pubKey = privKey.derivePublicKey();
@@ -119,7 +119,7 @@ abstract contract LibSchnorrTest is Test {
         // Note that we allow double signing.
         uint[] memory privKeys = new uint[](privKeySeeds.length);
         for (uint i; i < privKeySeeds.length; i++) {
-            privKeys[i] = bound(privKeySeeds[i], 2, LibSecp256k1.Q() - 1);
+            privKeys[i] = _bound(privKeySeeds[i], 2, LibSecp256k1.Q() - 1);
         }
 
         // Make list of public key.
@@ -166,7 +166,7 @@ abstract contract LibSchnorrTest is Test {
         vm.assume(signatureMask != 0);
 
         // Let privKey ∊ [1, Q).
-        uint privKey = bound(privKeySeed, 1, LibSecp256k1.Q() - 1);
+        uint privKey = _bound(privKeySeed, 1, LibSecp256k1.Q() - 1);
 
         // Sign message.
         uint signature;
@@ -191,7 +191,7 @@ abstract contract LibSchnorrTest is Test {
         vm.assume(commitmentMask != 0);
 
         // Let privKey ∊ [1, Q).
-        uint privKey = bound(privKeySeed, 1, LibSecp256k1.Q() - 1);
+        uint privKey = _bound(privKeySeed, 1, LibSecp256k1.Q() - 1);
 
         // Sign message.
         uint signature;
@@ -216,7 +216,7 @@ abstract contract LibSchnorrTest is Test {
         vm.assume(messageMask != 0);
 
         // Let privKey ∊ [1, Q).
-        uint privKey = bound(privKeySeed, 1, LibSecp256k1.Q() - 1);
+        uint privKey = _bound(privKeySeed, 1, LibSecp256k1.Q() - 1);
 
         // Sign message.
         uint signature;
@@ -242,7 +242,7 @@ abstract contract LibSchnorrTest is Test {
         vm.assume(pubKeyXMask != 0 || flipParity);
 
         // Let privKey ∊ [1, Q).
-        uint privKey = bound(privKeySeed, 1, LibSecp256k1.Q() - 1);
+        uint privKey = _bound(privKeySeed, 1, LibSecp256k1.Q() - 1);
 
         // Sign message.
         uint signature;
@@ -268,7 +268,7 @@ abstract contract LibSchnorrTest is Test {
         bytes32 message
     ) public {
         // Let privKey ∊ [1, Q).
-        uint privKey = bound(privKeySeed, 1, LibSecp256k1.Q() - 1);
+        uint privKey = _bound(privKeySeed, 1, LibSecp256k1.Q() - 1);
 
         // Sign message.
         uint signature;
@@ -290,7 +290,7 @@ abstract contract LibSchnorrTest is Test {
         bytes32 message
     ) public {
         // Let privKey ∊ [1, Q).
-        uint privKey = bound(privKeySeed, 1, LibSecp256k1.Q() - 1);
+        uint privKey = _bound(privKeySeed, 1, LibSecp256k1.Q() - 1);
 
         // Sign message.
         uint signature;

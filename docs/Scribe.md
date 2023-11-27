@@ -50,17 +50,15 @@ For more info, see [`LibSecp256k1::addAffinePoint()`](../src/libs/LibSecp256k1.s
 
 The `poke()` function has to receive the set of feeds, i.e. public keys, that participated in the Schnorr multi-signature.
 
-To reduce the calldata load, Scribe does not use type `address`, which uses 20 bytes per feed, but encodes the unique feeds' identifier's byte-wise into a `bytes` type called `signersBlob`.
+To reduce the calldata load, Scribe does not use type `address`, which uses 20 bytes per feed, but encodes the feeds' identifier's byte-wise into a `bytes` type called `feedIds`.
 
-For more info, see [`LibSchnorrData.sol`](../src/libs/LibSchnorrData.sol).
+A feed's identifier is defined as the highest order byte of the feed's address and can be computed via `uint8(uint(uint160(feedAddress)) >> 152)`.
 
 ## Lifting Feeds
 
 Feeds _must_ prove the integrity of their public key by proving the ownership of the corresponding private key. The `lift()` function therefore expects an ECDSA signed message, for more info see [`IScribe.feedRegistrationMessage()`](../src/IScribe.sol).
 
 If public key's would not be verified, the Schnorr signature verification would be vulnerable to rogue-key attacks. For more info, see [`docs/Schnorr.md`](./Schnorr.md#key-aggregation-for-multisignatures).
-
-Also, the number of state-changing `lift()` executions is limited to `type(uint8).max-1`, i.e. 254. After reaching this limit, no further `lift()` calls can be executed. For more info, see [`IScribe.maxFeeds()`](../src/IScribe.sol).
 
 ## Chainlink Compatibility
 
@@ -69,6 +67,7 @@ Scribe aims to be partially Chainlink compatible by implementing the most widely
 The following `IChainlinkAggregatorV3` functions are provided:
 - `latestRoundData()`
 - `decimals()`
+- `latestAnswer()`
 
 ## Optimistic-Flavored Scribe
 
