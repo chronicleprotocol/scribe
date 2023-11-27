@@ -348,7 +348,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         opScribe.opPoke(pokeData, schnorrData, ecdsaData);
     }
 
-    // See audits/Spearbit@v2.0.0.pdf.
+    // See audits/Cantina@v2.0.0.pdf.
     function testFuzz_opPoke_FailsIf_BarNotReached_DueTo_GasAttack(
         uint feedIdsLengthSeed
     ) public {
@@ -617,7 +617,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         opScribe.opChallenge(schnorrData);
     }
 
-    // See audits/Spearbit@v2.0.0.pdf.
+    // See audits/Cantina@v2.0.0.pdf.
     function test_opChallenge_CalldataEncodingAttack() public {
         LibFeed.Feed[] memory feeds = _liftFeeds(opScribe.bar());
 

@@ -4,9 +4,22 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/).
 
+[2.0.0]: https://github.com/chronicleprotocol/scribe/releases/tag/v2.0.0
 [1.2.0]: https://github.com/chronicleprotocol/scribe/releases/tag/v1.2.0
 [1.1.0]: https://github.com/chronicleprotocol/scribe/releases/tag/v1.1.0
 [1.0.0]: https://github.com/chronicleprotocol/scribe/releases/tag/v1.0.0
+
+## [2.0.0] - 2023-11-27
+
+### Changed
+
+- **Breaking** Use 1-byte identifier for feeds based on highest-order byte of their addresses instead of their storage array's index ([#23](https://github.com/chronicleprotocol/scribe/pull/23))
+- **Breaking** Change `IScribe` and `IScribeOptimistic` interfaces to account for new feed identification ([#23](https://github.com/chronicleprotocol/scribe/pull/23))
+
+### Fixed
+
+- DOS vector in `ScribeOptimistic::opPoke` making `ScribeOptimistic::opChallenge` economically unprofitable ([#23](https://github.com/chronicleprotocol/scribe/pull/23))
+- Possibility to successfully `opChallenge` a valid `opPoke` via non-default calldata encoding ([#23](https://github.com/chronicleprotocol/scribe/pull/23))
 
 ## [1.2.0] - 2023-09-29
 
