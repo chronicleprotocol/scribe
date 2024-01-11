@@ -120,7 +120,7 @@ $ forge script \
     --private-key $PRIVATE_KEY \
     --broadcast \
     --rpc-url $RPC_URL \
-    --sig $(cast calldata "drop(address,uint)" $SCRIBE $FEED_ID) \
+    --sig $(cast calldata "drop(address,uint8)" $SCRIBE $FEED_ID) \
     -vvv \
     script/${SCRIBE_FLAVOUR}.s.sol:${SCRIBE_FLAVOUR}Script
 ```
