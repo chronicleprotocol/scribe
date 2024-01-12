@@ -51,7 +51,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         uint newMaxChallengeReward
     );
 
-    function setUp(address scribe_) internal override(IScribeTest) {
+    function setUp(address scribe_) internal virtual override(IScribeTest) {
         super.setUp(scribe_);
 
         opScribe = IScribeOptimistic(scribe_);
