@@ -73,4 +73,54 @@ contract ScribeOptimisticScript is ScribeScript {
 
         console2.log("MaxChallengeReward set to", maxChallengeReward);
     }
+
+    /// @dev opPokes `self` with arguments given via calldata payload `payload`.
+    ///
+    /// @dev Note that this function can be used to simulate - or execute -
+    ///      opPokes with an already fully constructed payload.
+    ///
+    /// @dev Call via:
+    ///
+    ///      ```bash
+    ///      $ forge script \
+    ///           --private-key $PRIVATE_KEY \
+    ///           --broadcast \
+    ///           --rpc-url $RPC_URL \
+    ///           --sig $(cast calldata "opPokeRaw(address,bytes)" $SCRIBE $PAYLOAD) \
+    ///           -vvvvv \
+    ///           script/dev/ScribeOptimistic.s.sol:ScribeOptimisticScript
+    ///      ```
+    ///
+    ///      Note to remove `--broadcast` to just simulate the opPoke.
+    function opPokeRaw(address self, bytes calldata payload) public {
+        // Note to remove first 4 bytes, ie the function selector, from the
+        // payload to receive the arguments.
+        bytes calldata args = payload[4:];
+
+        // Decode arguments into opPoke argument types.
+        IScribe.PokeData memory pokeData;
+        IScribe.SchnorrData memory schnorrData;
+        IScribe.ECDSAData memory ecdsaData;
+        (pokeData, schnorrData, ecdsaData) = abi.decode(
+            args, (IScribe.PokeData, IScribe.SchnorrData, IScribe.ECDSAData)
+        );
+
+        // Print arguments.
+        console2.log("PokeData");
+        console2.log("- val :", pokeData.val);
+        console2.log("- age :", pokeData.age);
+        console2.log("SchnorrData");
+        console2.log("- signature  :", uint(schnorrData.signature));
+        console2.log("- commitment :", schnorrData.commitment);
+        console2.log("- feedIds    :", vm.toString(schnorrData.feedIds));
+        console2.log("ECDSAData");
+        console2.log("- v :", ecdsaData.v);
+        console2.log("- r :", uint(ecdsaData.r));
+        console2.log("- s :", uint(ecdsaData.s));
+
+        // Execute opPoke.
+        vm.startBroadcast();
+        IScribeOptimistic(self).opPoke(pokeData, schnorrData, ecdsaData);
+        vm.stopBroadcast();
+    }
 }
