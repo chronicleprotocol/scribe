@@ -2,7 +2,6 @@ ds-test/=lib/forge-std/lib/ds-test/src/
 forge-std/=lib/forge-std/src/
 
 chronicle-std/=lib/chronicle-std/src/
-@script/chronicle-std/=lib/chronicle-std/script/
 lib/chronicle-std:src/=lib/chronicle-std/src/
 lib/chronicle-std:ds-test/=lib/chronicle-std/lib/forge-std/lib/ds-test/src/
 lib/chronicle-std:forge-std/=lib/chronicle-std/lib/forge-std/src/
