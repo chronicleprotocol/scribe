@@ -188,6 +188,50 @@ contract ScribeScript is Script {
         console2.log("Dropped", feedId);
     }
 
+    /// @dev Pokes `self` with arguments given via calldata payload `payload`.
+    ///
+    /// @dev Note that this function can be used to simulate - or execute -
+    ///      pokes with an already fully constructed payload.
+    ///
+    /// @dev Call via:
+    ///
+    ///      ```bash
+    ///      $ forge script \
+    ///           --private-key $PRIVATE_KEY \
+    ///           --broadcast \
+    ///           --rpc-url $RPC_URL \
+    ///           --sig $(cast calldata "pokeRaw(address,bytes)" $SCRIBE $PAYLOAD) \
+    ///           -vvvvv \
+    ///           script/dev/Scribe.s.sol:ScribeScript
+    ///      ```
+    ///
+    ///      Note to remove `--broadcast` to just simulate the poke.
+    function pokeRaw(address self, bytes calldata payload) public {
+        // Note to remove first 4 bytes, ie the function selector, from the
+        // payload to receive the arguments.
+        bytes calldata args = payload[4:];
+
+        // Decode arguments into opPoke argument types.
+        IScribe.PokeData memory pokeData;
+        IScribe.SchnorrData memory schnorrData;
+        (pokeData, schnorrData) =
+            abi.decode(args, (IScribe.PokeData, IScribe.SchnorrData));
+
+        // Print arguments.
+        console2.log("PokeData");
+        console2.log("- val :", pokeData.val);
+        console2.log("- age :", pokeData.age);
+        console2.log("SchnorrData");
+        console2.log("- signature  :", uint(schnorrData.signature));
+        console2.log("- commitment :", schnorrData.commitment);
+        console2.log("- feedIds    :", vm.toString(schnorrData.feedIds));
+
+        // Execute poke..
+        vm.startBroadcast();
+        IScribe(self).poke(pokeData, schnorrData);
+        vm.stopBroadcast();
+    }
+
     // -- View Functions
 
     /// @dev Prints instance's `self` current price and age.
