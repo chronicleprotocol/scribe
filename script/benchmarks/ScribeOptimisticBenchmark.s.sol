@@ -154,6 +154,43 @@ contract ScribeOptimisticBenchmark is Script {
         opScribe.opPoke(pokeData, schnorrData, ecdsaData);
     }
 
+    function opPokeInvalidAndChallenge() public {
+        uint relay = vm.deriveKey(ANVIL_MNEMONIC, uint32(1));
+        uint challenger = vm.deriveKey(ANVIL_MNEMONIC, uint32(2));
+
+        // Create bar many feeds.
+        LibFeed.Feed[] memory feeds = _createFeeds(opScribe.bar());
+
+        // Create pokeData.
+        // Note to use max value for val to have highest possible gas costs.
+        IScribe.PokeData memory pokeData = IScribe.PokeData({
+            val: type(uint128).max,
+            age: uint32(block.timestamp)
+        });
+
+        // Create schnorrData.
+        IScribe.SchnorrData memory schnorrData;
+        schnorrData = feeds.signSchnorr(opScribe.constructPokeMessage(pokeData));
+
+        // Mutate pokeData to make Schnorr signature invalid.
+        // Note to mutate before creating ECDSA signature.
+        pokeData.val -= 1;
+
+        // Create ecdsaData.
+        IScribe.ECDSAData memory ecdsaData;
+        ecdsaData = feeds[0].signECDSA(
+            opScribe.constructOpPokeMessage(pokeData, schnorrData)
+        );
+
+        // Execute opPoke.
+        vm.broadcast(relay);
+        opScribe.opPoke(pokeData, schnorrData, ecdsaData);
+
+        // Execute opChallenge.
+        vm.broadcast(challenger);
+        opScribe.opChallenge(schnorrData);
+    }
+
     function _createFeeds(uint numberFeeds)
         internal
         returns (LibFeed.Feed[] memory)
