@@ -1,10 +1,10 @@
 #!/bin/bash
 
-# Script to run Scribe and ScribeOptimistic benchmarks.
+# Script to run relay benchmarks for Scribe and ScribeOptimistic.
 #
 # Run via:
 # ```bash
-# $ script/benchmarks/run.sh
+# $ script/benchmarks/relay.sh
 # ```
 
 poke () {
@@ -52,8 +52,6 @@ run_ScribeOptimistic () {
     forge script script/benchmarks/ScribeOptimisticBenchmark.s.sol --rpc-url http://127.0.0.1:8545 --broadcast --sig $(cast calldata "setBar(uint8)" $bar) > /dev/null 2>&1
     # Lift feeds
     forge script script/benchmarks/ScribeOptimisticBenchmark.s.sol --rpc-url http://127.0.0.1:8545 --broadcast --sig "liftFeeds()" > /dev/null 2>&1
-    # Set opChallengePeriod
-    forge script script/benchmarks/ScribeOptimisticBenchmark.s.sol --rpc-url http://127.0.0.1:8545 --broadcast --sig "setOpChallengePeriod()" > /dev/null 2>&1
     # Poke once
     poke
     # Poke again
@@ -71,7 +69,7 @@ run_ScribeOptimistic () {
 }
 
 
-echo "=== Scribe Benchmarks (Printing cost of non-initial poke())"
+echo "=== Relay Scribe Benchmarks (Printing cost of non-initial poke())"
 run_Scribe 5
 run_Scribe 10
 run_Scribe 15
@@ -81,7 +79,7 @@ run_Scribe 100
 run_Scribe 200
 run_Scribe 255
 
-echo "=== Scribe Optimistic Benchmarks (Printing cost of non-initial opPoke())"
+echo "=== Relay Scribe Optimistic Benchmarks (Printing cost of non-initial opPoke())"
 run_ScribeOptimistic 5
 run_ScribeOptimistic 10
 run_ScribeOptimistic 15
