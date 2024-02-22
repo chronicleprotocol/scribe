@@ -26,6 +26,17 @@ contract ScribeInvariantTest is IScribeInvariantTest {
     }
 }
 
+// -- Extensions
+
+import {ScribeLST} from "src/extensions/ScribeLST.sol";
+import {IScribeLSTTest} from "./extensions/IScribeLSTTest.sol";
+
+contract ScribeLSTest is IScribeLSTTest {
+    function setUp() public {
+        setUp(address(new ScribeLST(address(this), "ETH/USD")));
+    }
+}
+
 // -- Test: Optimistic Scribe --
 
 import {ScribeOptimistic} from "src/ScribeOptimistic.sol";
@@ -36,6 +47,20 @@ import {IScribeOptimisticTest} from "./IScribeOptimisticTest.sol";
 contract ScribeOptimisticTest is IScribeOptimisticTest {
     function setUp() public {
         setUp(address(new ScribeOptimistic(address(this), "ETH/USD")));
+    }
+}
+
+// -- Extensions
+
+import {ScribeOptimisticLST} from "src/extensions/ScribeOptimisticLST.sol";
+import {IScribeOptimisticLSTTest} from
+    "./extensions/IScribeOptimisticLSTTest.sol";
+
+contract ScribeOptimisticLSTTest is IScribeOptimisticLSTTest {
+    function setUp() public {
+        setUp(
+            payable(address(new ScribeOptimisticLST(address(this), "ETH/USD")))
+        );
     }
 }
 
