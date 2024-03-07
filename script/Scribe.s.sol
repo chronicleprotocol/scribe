@@ -188,6 +188,17 @@ contract ScribeScript is Script {
         console2.log("Dropped", feedId);
     }
 
+    /// @dev Drops feeds with ids `feedIds`.
+    function drop(address self, uint8[] memory feedIds) public {
+        vm.startBroadcast();
+        IScribe(self).drop(feedIds);
+        vm.stopBroadcast();
+
+        for (uint i; i < feedIds.length; i++) {
+            console2.log("Dropped", feedIds[i]);
+        }
+    }
+
     /// @dev Pokes `self` with arguments given via calldata payload `payload`.
     ///
     /// @dev Note that this function can be used to simulate - or execute -
