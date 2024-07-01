@@ -5,8 +5,6 @@ import {console2} from "forge-std/console2.sol";
 
 import {IToll} from "chronicle-std/toll/IToll.sol";
 
-import {IGreenhouse} from "greenhouse/IGreenhouse.sol";
-
 import {IScribe} from "src/IScribe.sol";
 import {IScribeOptimistic} from "src/IScribeOptimistic.sol";
 import {Chronicle_BASE_QUOTE_COUNTER as ScribeOptimistic} from
@@ -21,29 +19,16 @@ import {ScribeScript} from "./Scribe.s.sol";
  * @title ScribeOptimistic Management Script
  */
 contract ScribeOptimisticScript is ScribeScript {
-    /// @dev Deploys a new ScribeOptimistic instance via Greenhouse instance
-    ///      `greenhouse` and salt `salt` with `initialAuthed` being the address
-    ///      initially auth'ed. Note that zero address is kissed directly after
-    ///      deployment.
-    function deploy(
-        address greenhouse,
-        bytes32 salt,
-        address initialAuthed,
-        bytes32 wat
-    ) public override(ScribeScript) {
-        // Create creation code with constructor arguments.
-        bytes memory creationCode = abi.encodePacked(
-            type(ScribeOptimistic).creationCode, abi.encode(initialAuthed, wat)
-        );
-
-        // Ensure salt not yet used.
-        address deployed = IGreenhouse(greenhouse).addressOf(salt);
-        require(deployed.code.length == 0, "Salt already used");
-
-        // Plant creation code via greenhouse and kiss zero address.
+    /// @dev Deploys a new ScribeOptimistic instance with `initialAuthed` being
+    ///      the address initially auth'ed. Note that zero address is kissed
+    ///      directly after deployment.
+    function deploy(address initialAuthed, bytes32 wat)
+        public
+        override(ScribeScript)
+    {
         vm.startBroadcast();
         require(msg.sender == initialAuthed, "Deployer must be initial auth'ed");
-        IGreenhouse(greenhouse).plant(salt, creationCode);
+        address deployed = address(new ScribeOptimistic(initialAuthed, wat));
         IToll(deployed).kiss(address(0));
         vm.stopBroadcast();
 

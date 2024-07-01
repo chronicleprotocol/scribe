@@ -5,5 +5,3 @@ chronicle-std/=lib/chronicle-std/src/
 lib/chronicle-std:src/=lib/chronicle-std/src/
 lib/chronicle-std:ds-test/=lib/chronicle-std/lib/forge-std/lib/ds-test/src/
 lib/chronicle-std:forge-std/=lib/chronicle-std/lib/forge-std/src/
-
-greenhouse/=lib/greenhouse/src/

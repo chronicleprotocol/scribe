@@ -7,8 +7,6 @@ import {console2} from "forge-std/console2.sol";
 import {IAuth} from "chronicle-std/auth/IAuth.sol";
 import {IToll} from "chronicle-std/toll/IToll.sol";
 
-import {IGreenhouse} from "greenhouse/IGreenhouse.sol";
-
 import {IScribe} from "src/IScribe.sol";
 import {Chronicle_BASE_QUOTE_COUNTER as Scribe} from "src/Scribe.sol";
 // @todo          ^^^^ ^^^^^ ^^^^^^^ Adjust name of Scribe instance.
@@ -25,28 +23,13 @@ contract ScribeScript is Script {
     using LibSecp256k1 for LibSecp256k1.Point;
     using LibFeed for LibFeed.Feed;
 
-    /// @dev Deploys a new Scribe instance via Greenhouse instance `greenhouse`
-    ///      and salt `salt` with `initialAuthed` being the address initially
-    ///      auth'ed. Note that zero address is kissed directly after deployment.
-    function deploy(
-        address greenhouse,
-        bytes32 salt,
-        address initialAuthed,
-        bytes32 wat
-    ) public virtual {
-        // Create creation code with constructor arguments.
-        bytes memory creationCode = abi.encodePacked(
-            type(Scribe).creationCode, abi.encode(initialAuthed, wat)
-        );
-
-        // Ensure salt not yet used.
-        address deployed = IGreenhouse(greenhouse).addressOf(salt);
-        require(deployed.code.length == 0, "Salt already used");
-
-        // Plant creation code via greenhouse and kiss zero address.
+    /// @dev Deploys a new Scribe instance with `initialAuthed` being the address
+    ///      initially auth'ed. Note that zero address is kissed directly after
+    ///      deployment.
+    function deploy(address initialAuthed, bytes32 wat) public virtual {
         vm.startBroadcast();
         require(msg.sender == initialAuthed, "Deployer must be initial auth'ed");
-        IGreenhouse(greenhouse).plant(salt, creationCode);
+        address deployed = address(new Scribe(initialAuthed, wat));
         IToll(deployed).kiss(address(0));
         vm.stopBroadcast();
 

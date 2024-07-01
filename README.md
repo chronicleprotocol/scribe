@@ -52,10 +52,6 @@ $ forge snapshot --nmt "Fuzz" [--check]
 
 - [chronicleprotocol/chronicle-std@v2](https://github.com/chronicleprotocol/chronicle-std/tree/v2)
 
-Deployment via:
-
-- [chronicleprotocol/greenhouse@v1](https://github.com/chronicleprotocol/greenhouse/tree/v1)
-
 ## Licensing
 
 The primary license for Scribe is the Business Source License 1.1 (`BUSL-1.1`), see [`LICENSE`](./LICENSE). However, some files are dual licensed under `MIT`:
