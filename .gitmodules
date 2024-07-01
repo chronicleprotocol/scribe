@@ -6,7 +6,3 @@
 	path = lib/chronicle-std
 	url = https://github.com/chronicleprotocol/chronicle-std
 	branch = v2
-[submodule "lib/greenhouse"]
-	path = lib/greenhouse
-	url = https://github.com/chronicleprotocol/greenhouse
-	branch = v1
