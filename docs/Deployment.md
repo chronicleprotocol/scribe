@@ -43,8 +43,7 @@ The deployment process consists of two steps - the actual deployment and the sub
 Deployment:
 
 ```bash
-$ SALT_BYTES32=$(cast format-bytes32-string $SALT) && \
-  WAT_BYTES32=$(cast format-bytes32-string $WAT) && \
+$ WAT_BYTES32=$(cast format-bytes32-string $WAT) && \
   forge script \
     --keystore "$KEYSTORE" \
     --password "$KEYSTORE_PASSWORD" \
