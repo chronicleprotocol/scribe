@@ -47,6 +47,7 @@ $ WAT_BYTES32=$(cast format-bytes32-string $WAT) && \
   forge script \
     --keystore "$KEYSTORE" \
     --password "$KEYSTORE_PASSWORD" \
+    --sender "$INITIAL_AUTHED" \
     --broadcast \
     --rpc-url "$RPC_URL" \
     --sig "$(cast calldata "deploy(address,bytes32)" "$INITIAL_AUTHED" "$WAT_BYTES32")" \
