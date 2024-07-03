@@ -67,5 +67,5 @@ $ WAT_BYTES32=$(cast format-bytes32-string $WAT) && \
     --etherscan-api-key "$ETHERSCAN_API_KEY" \
     --watch \
     --constructor-args $(cast abi-encode "constructor(address,bytes32)" "$INITIAL_AUTHED" "$WAT_BYTES32") \
-    src/${SCRIBE_FLAVOUR}.sol:"$SALT"
+    src/${SCRIBE_FLAVOUR}.sol:${SCRIBE_FLAVOUR}_1
 ```
