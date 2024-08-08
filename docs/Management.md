@@ -79,7 +79,7 @@ $ forge script \
     --password "$KEYSTORE_PASSWORD" \
     --broadcast \
     --rpc-url "$RPC_URL" \
-    --sig $(cast calldata "lift(address,uint,uint,uint8,bytes32,bytes32)" "$SCRIBE" "$PUBLIC_KEY_X_COORDINATE" "$PUBLIC_KEY_Y_COORDINATE" "$ECDSA_V $ECDSA_R" "$ECDSA_S") \
+    --sig $(cast calldata "lift(address,uint,uint,uint8,bytes32,bytes32)" "$SCRIBE" "$PUBLIC_KEY_X_COORDINATE" "$PUBLIC_KEY_Y_COORDINATE" "$ECDSA_V" "$ECDSA_R" "$ECDSA_S") \
     -vvv \
     script/${SCRIBE_FLAVOUR}.s.sol:${SCRIBE_FLAVOUR}Script
 ```
