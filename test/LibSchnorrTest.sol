@@ -57,21 +57,46 @@ abstract contract LibSchnorrTest is Test {
         }
 
         // Create signature via oracle-suite.
-        uint signature;
-        address commitment;
-        (signature, commitment) = LibOracleSuite.sign(privKeys, message);
+        uint signatureSuite;
+        address commitmentSuite;
+        (signatureSuite, commitmentSuite) =
+            LibOracleSuite.sign(privKeys, message);
 
-        // IMPORTANT: Don't do anything if signature is invalid.
-        if (signature == 0) {
-            console2.log("Signature is zero");
-            return;
-        }
+        // Create signature via LibSchnorrExtended.
+        uint signatureLibSchnorr;
+        address commitmentLibSchnorr;
+        (signatureLibSchnorr, commitmentLibSchnorr) =
+            LibSchnorrExtended.signMessage(privKeys, message);
 
-        // Expect oracle-suite's signature to be verifiable.
-        bool ok = LibSchnorr.verifySignature(
-            aggPubKey, message, bytes32(signature), commitment
+        // Expect both signatures to be verifiable via LibSchnorr.
+        assertTrue(
+            LibSchnorr.verifySignature(
+                aggPubKey, message, bytes32(signatureSuite), commitmentSuite
+            )
         );
-        assertTrue(ok);
+        assertTrue(
+            LibSchnorr.verifySignature(
+                aggPubKey,
+                message,
+                bytes32(signatureLibSchnorr),
+                commitmentLibSchnorr
+            )
+        );
+
+        // Expect both signatures to be verifiable via oracle-suite.
+        assertTrue(
+            LibOracleSuite.verify(
+                aggPubKey, message, bytes32(signatureSuite), commitmentSuite
+            )
+        );
+        assertTrue(
+            LibOracleSuite.verify(
+                aggPubKey,
+                message,
+                bytes32(signatureLibSchnorr),
+                commitmentLibSchnorr
+            )
+        );
     }
 
     function testFuzz_verifySignature_SingleSigner(
