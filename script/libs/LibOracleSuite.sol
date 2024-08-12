@@ -3,6 +3,8 @@ pragma solidity ^0.8.16;
 
 import {Vm} from "forge-std/Vm.sol";
 
+import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
+
 /**
  * @title LibOracleSuite
  *
@@ -40,6 +42,38 @@ library LibOracleSuite {
         address commitment = address(uint160(result[1]));
 
         return (signature, commitment);
+    }
+
+    /// @dev Verifies public key `pubKey` signs via `signature` and `commitment`
+    ///      message `message`.
+    ///
+    ///      Verified via:
+    ///      ```bash
+    ///      $ ./bin/schnorr verify \
+    ///             <message>       \
+    ///             <pubKey.x>      \
+    ///             <pubKey.y>      \
+    ///             <signature>     \
+    ///             <commitment>
+    ///      ```
+    function verify(
+        LibSecp256k1.Point memory pubKey,
+        bytes32 message,
+        bytes32 signature,
+        address commitment
+    ) internal returns (bool) {
+        string[] memory inputs = new string[](7);
+        inputs[0] = "bin/schnorr";
+        inputs[1] = "verify";
+        inputs[2] = vm.toString(message);
+        inputs[3] = vm.toString(pubKey.x);
+        inputs[4] = vm.toString(pubKey.y);
+        inputs[5] = vm.toString(signature);
+        inputs[6] = vm.toString(commitment);
+
+        uint result = abi.decode(vm.ffi(inputs), (uint));
+
+        return result == 1;
     }
 
     /// @dev Constructs poke message for `wat` with value `val` and age `age`.
