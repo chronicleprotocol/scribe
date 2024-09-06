@@ -54,7 +54,3 @@ runs = 100
 
 [profile.default.zksync]
 zksolc = "1.5.1"
-
-
-[etherscan]
-    mainnet = { key = "${ETHERSCAN_API_KEY}" , url = "${ETHERSCAN_API_URL}"}
