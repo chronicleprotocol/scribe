@@ -4,6 +4,10 @@
 
 Scribe is an efficient Schnorr multi-signature based Oracle. For more info, see [docs/Scribe.md](./docs/Scribe.md).
 
+## Bug Bounty
+
+This repository is subject to _Chronicle Protocol_'s Bug Bounty program, per the terms defined [here](https://cantina.xyz/bounties/5240b7c7-6fec-4902-bec0-8cad12f14ec4).
+
 ## Installation
 
 Install module via Foundry:
