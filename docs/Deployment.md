@@ -55,6 +55,12 @@ $ WAT_BYTES32=$(cast format-bytes32-string $WAT) && \
     script/${SCRIBE_FLAVOUR}.s.sol:${SCRIBE_FLAVOUR}Script
 ```
 
+In the case of zksync add this final flag:
+
+```
+--zksync
+```
+
 The deployment command will log the address of the newly deployed contract address. Store this address in the `$SCRIBE` environment variable and continue with the verification.
 
 Verification:
@@ -68,4 +74,11 @@ $ WAT_BYTES32=$(cast format-bytes32-string $WAT) && \
     --watch \
     --constructor-args $(cast abi-encode "constructor(address,bytes32)" "$INITIAL_AUTHED" "$WAT_BYTES32") \
     src/${SCRIBE_FLAVOUR}.sol:${SCRIBE_FLAVOUR}_1
+```
+
+
+In the case of zksync add these final two flags:
+
+```
+--zksync --evm-version london
 ```
