@@ -8,6 +8,9 @@ out/
 # Ignore broadcast logs
 broadcast/
 
+# Ignore zkout
+zkout/
+
 # Forge auto-generated docs
 docs_generated/
 
