@@ -12,6 +12,7 @@ This document describes how to manage deployed `Scribe` and `ScribeOptimistic` i
     - [`IScribe::lift`](#iscribelift)
     - [`IScribe::lift multiple`](#iscribelift-multiple)
     - [`IScribe::drop`](#iscribedrop)
+    - [`IScribe::drop multiple`](#iscribedrop-multiple)
     - [`IScribeOptimistic::setOpChallengePeriod`](#iscribeoptimisticsetopchallengeperiod)
     - [`IScribeOptimistic::setMaxChallengeReward`](#iscribeoptimisticsetmaxchallengereward)
     - [`IAuth::rely`](#iauthrely)
@@ -126,6 +127,27 @@ $ forge script \
     --broadcast \
     --rpc-url "$RPC_URL" \
     --sig $(cast calldata "drop(address,uint8)" "$SCRIBE" "$FEED_ID") \
+    -vvv \
+    script/${SCRIBE_FLAVOUR}.s.sol:${SCRIBE_FLAVOUR}Script
+```
+
+### `IScribe::drop multiple`
+
+Set the following environment variables:
+
+- `FEED_IDS`: The feeds' ids
+
+Note to use the following format for lists: `"[<elem>,<elem>]"`
+
+Run:
+
+```bash
+$ forge script \
+    --keystore "$KEYSTORE" \
+    --password "$KEYSTORE_PASSWORD" \
+    --broadcast \
+    --rpc-url "$RPC_URL" \
+    --sig $(cast calldata "drop(address,uint8[])" "$SCRIBE" "$FEED_IDS") \
     -vvv \
     script/${SCRIBE_FLAVOUR}.s.sol:${SCRIBE_FLAVOUR}Script
 ```
