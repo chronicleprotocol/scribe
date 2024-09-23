@@ -31,7 +31,7 @@ contract ScribeInvariantTest is IScribeInvariantTest {
 import {ScribeLST} from "src/extensions/ScribeLST.sol";
 import {IScribeLSTTest} from "./extensions/IScribeLSTTest.sol";
 
-contract ScribeLSTest is IScribeLSTTest {
+contract ScribeLSTTest is IScribeLSTTest {
     function setUp() public {
         setUp(address(new ScribeLST(address(this), "ETH/USD")));
     }
