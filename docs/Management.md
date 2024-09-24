@@ -19,6 +19,10 @@ This document describes how to manage deployed `Scribe` and `ScribeOptimistic` i
     - [`IAuth::deny`](#iauthdeny)
     - [`IToll::kiss`](#itollkiss)
     - [`IToll::diss`](#itolldiss)
+  - [Offboarding](#offboarding)
+    - [Deactivation](#deactivation)
+    - [Fund Rescue](#fund-resuce)
+    - [Killing](#killing)
 
 ## Environment Variables
 
@@ -272,6 +276,72 @@ $ forge script \
     --broadcast \
     --rpc-url "$RPC_URL" \
     --sig $(cast calldata "diss(address,address)" "$SCRIBE" "$WHO") \
+    -vvv \
+    script/${SCRIBE_FLAVOUR}.s.sol:${SCRIBE_FLAVOUR}Script
+```
+
+## Offboarding
+
+Offboarding a Scribe(Optimistic) instance simply means _Chronicle Protocol_ is not guaranteeing pokes anymore, ie the oracle is not being updated anymore.
+
+However, to ensure an offboarded Scribe(Optimistic) instance may not behave unexpectedly it needs to be deactivated. Furthermore, if the contract is a ScribeOptimistic instance ETH held by the contract may need to be rescued. If its certain the contract will never be used again it is recommended to kill it.
+
+### Deactivation
+
+Deactivating a Scribe(Optimistic) instance means its value is set to zero, leading all `read()` calls to revert/fail, no feeds are lifted, and `bar` is set to `255`.
+
+Note that one or more addresses still hold `auth` on the contract meaning the instance can be reactivated via `lift`-ing feeds and updating `bar` again.
+
+> [!IMPORTANT]
+>
+> Deactivation requires running two distinct `forge script` commands.
+>
+> It is of utmost importance to run both commands and NOT leave the Scribe(Optimistic) instance in an undefined state.
+
+Step 1:
+
+```bash
+$ forge script \
+    --keystore "$KEYSTORE" \
+    --password "$KEYSTORE_PASSWORD" \
+    --broadcast \
+    --rpc-url "$RPC_URL" \
+    --sig $(cast calldata "deactivate_Step1(address)" "$SCRIBE") \
+    -vvv \
+    script/${SCRIBE_FLAVOUR}.s.sol:${SCRIBE_FLAVOUR}Script
+```
+
+Step 2:
+
+```bash
+$ forge script \
+    --keystore "$KEYSTORE" \
+    --password "$KEYSTORE_PASSWORD" \
+    --broadcast \
+    --rpc-url "$RPC_URL" \
+    --sig $(cast calldata "deactivate_Step2(address)" "$SCRIBE") \
+    -vvv \
+    script/${SCRIBE_FLAVOUR}.s.sol:${SCRIBE_FLAVOUR}Script
+```
+
+### Fund Rescue
+
+TODO: Rescuing funds
+
+### Killing
+
+Killing a deactivated Scribe(Optimistic) instance ensures it cannot be activated again. Note that killing an instance makes the contract's state immutable via `deny`-ing `auth` for every address.
+
+Run:
+
+```bash
+$ forge script \
+    --keystore "$KEYSTORE" \
+    --password "$KEYSTORE_PASSWORD" \
+    --broadcast \
+    --rpc-url "$RPC_URL" \
+    --sig $(cast calldata "kill(address)" "$SCRIBE") \
+    --sender $(cast wallet address --keystore $KEYSTORE --password $KEYSTORE_PASSWORD) \
     -vvv \
     script/${SCRIBE_FLAVOUR}.s.sol:${SCRIBE_FLAVOUR}Script
 ```
