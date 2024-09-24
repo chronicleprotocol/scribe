@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.16;
 
+import {Vm} from "forge-std/Vm.sol";
 import {Script} from "forge-std/Script.sol";
 import {console2} from "forge-std/console2.sol";
 
@@ -268,42 +269,22 @@ contract ScribeScript is Script {
 
     // -- Offboarding Functions --
 
-    /// @dev !!! DANGER !!!
-    ///
-    /// @dev Deactivates instance `self`.
+    /// @dev Step 1 of deactivating instance `self`.
     ///
     /// @dev Deactivating an instance means:
     ///      - Its value is zero
     ///      - There are no lifted feeds
     ///      - Bar is set to type(uint8).max
     ///
-    /// @dev Note that function _must_ be executed with the `--slow` and
-    ///      `--skip-simulation` flags!
+    /// @dev Note that deactivation MUST be executed via two distinct
+    ///      `forge script` due to forge script's hard requirement to perform
+    ///      a simulation. However, simulating deactivation fails because
+    ///      the `poke(0)` MUST happen after (in terms of timestamp) the
+    ///      `setBar(1)` call. Note that `forge script` simulations run as a
+    ///      single tx and therefore at the same timestamp.
     ///
-    /// @dev Expected environment variables:
-    ///      - PRIVATE_KEY
-    ///         - The private key to use
-    ///      - RPC_URL
-    ///         - The RPC URL of an EVM node
-    ///      - SCRIBE
-    ///         - The Scribe instance to deactivate
-    ///      - SCRIBE_FLAVOUR
-    ///         - The Scribe instance's flavour, either "Scribe" or
-    ///           "ScribeOptimistic"
-    ///
-    /// @dev Run via:
-    ///
-    ///      ```bash
-    ///      $ forge script \
-    ///          --private-key $PRIVATE_KEY \
-    ///          --broadcast \
-    ///          --rpc-url $RPC_URL \
-    ///          --sig $(cast calldata "deactivate(address)" "$SCRIBE") \
-    ///          --slow \
-    ///          --skip-simulation \
-    ///          script/${SCRIBE_FLAVOUR}.s.sol:${SCRIBE_FLAVOUR}Script
-    ///      ```
-    function deactivate(address self) public {
+    ///      For more info, see https://github.com/foundry-rs/foundry/issues/6825.
+    function deactivate_Step1(address self) public {
         // Get lifted feeds and compute their feed ids.
         address[] memory feeds = IScribe(self).feeds();
         uint8[] memory feedIds = new uint8[](feeds.length);
@@ -316,6 +297,14 @@ contract ScribeScript is Script {
         IScribe(self).drop(feedIds);
         vm.stopBroadcast();
 
+        // Set bar to 1.
+        vm.startBroadcast();
+        IScribe(self).setBar(uint8(1));
+        vm.stopBroadcast();
+    }
+
+    /// @dev Step 2 of deactivating instance `self`.
+    function deactivate_Step2(address self) public {
         // Create new random private key.
         uint privKeySeed = LibRandom.readUint();
         uint privKey = _bound(privKeySeed, 1, LibSecp256k1.Q() - 1);
@@ -330,11 +319,6 @@ contract ScribeScript is Script {
         // Lift feed.
         vm.startBroadcast();
         IScribe(self).lift(feed.pubKey, ecdsaData);
-        vm.stopBroadcast();
-
-        // Set bar to 1.
-        vm.startBroadcast();
-        IScribe(self).setBar(uint8(1));
         vm.stopBroadcast();
 
         // Create and sign pokeData with value of zero.
@@ -364,46 +348,27 @@ contract ScribeScript is Script {
         vm.stopBroadcast();
     }
 
-    /// @dev !!! DANGER !!!
-    ///
     /// @dev Kills instance `self`.
     ///
-    /// @dev Killing an instance means:
-    ///      - Its deactivated
-    ///      - There are no auth'ed addresses
+    /// @dev Expects instance `self` to be deactivated.
     ///
-    ///      Note that this means the ownership of the contract is waived while
-    ///      ensuring its value can never be updated again.
-    ///
-    /// @dev Note that function _must_ be executed with the `--slow` and
-    ///      `--skip-simulation` flags!
-    ///
-    /// @dev Expected environment variables:
-    ///      - PRIVATE_KEY
-    ///         - The private key to use
-    ///      - RPC_URL
-    ///         - The RPC URL of an EVM node
-    ///      - SCRIBE
-    ///         - The Scribe instance to kill
-    ///      - SCRIBE_FLAVOUR
-    ///         - The Scribe instance's flavour, either "Scribe" or
-    ///           "ScribeOptimistic"
-    ///
-    /// @dev Run via:
-    ///
-    ///      ```bash
-    ///      $ forge script \
-    ///          --private-key $PRIVATE_KEY \
-    ///          --broadcast \
-    ///          --rpc-url $RPC_URL \
-    ///          --sig $(cast calldata "kill(address)" "$SCRIBE") \
-    ///          --slow \
-    ///          --skip-simulation \
-    ///          script/${SCRIBE_FLAVOUR}.s.sol:${SCRIBE_FLAVOUR}Script
-    ///      ```
+    /// @dev Note to only call using the `--sender` flag!
     function kill(address self) public {
-        // Deactivate self.
-        deactivate(self);
+        // Require self to be deactivated.
+        {
+            vm.prank(address(0));
+            (bool ok, /*val*/ ) = IScribe(self).tryRead();
+            require(!ok, "Instance not deactivated: read() does not fail");
+
+            require(
+                IScribe(self).feeds().length == 0,
+                "Instance not deactivated: Feeds still lifted"
+            );
+            require(
+                IScribe(self).bar() == 255,
+                "Instance not deactivated: Bar not type(uint8).max"
+            );
+        }
 
         // Get list of auth'ed addresses.
         address[] memory authed = IAuth(self).authed();
@@ -411,7 +376,7 @@ contract ScribeScript is Script {
         // Renounce auth for each address except msg.sender.
         //
         // Note that msg.sender refers to the current script's caller, i.e. the
-        // address signing the actual txs.
+        // address signing the actual txs, iff the `--sender` flag was used.
         for (uint i; i < authed.length; i++) {
             if (authed[i] == msg.sender) {
                 continue;
