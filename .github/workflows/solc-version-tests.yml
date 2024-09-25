@@ -20,10 +20,7 @@ jobs:
         with:
           version: nightly
 
-      - name: Run Forge tests for each supported solc version
+      - name: Run Forge tests against lowest and highest supported solc version
         run: >
           forge test --use 0.8.16 --nmt "FuzzDifferentialOracleSuite" &&
-          forge test --use 0.8.17 --nmt "FuzzDifferentialOracleSuite" &&
-          forge test --use 0.8.18 --nmt "FuzzDifferentialOracleSuite" &&
-          forge test --use 0.8.19 --nmt "FuzzDifferentialOracleSuite" &&
-          forge test --use 0.8.20 --nmt "FuzzDifferentialOracleSuite"
+          forge test --use 0.8.27 --nmt "FuzzDifferentialOracleSuite"
