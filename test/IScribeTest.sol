@@ -320,13 +320,17 @@ abstract contract IScribeTest is Test {
         // Note to stay reasonable in favor of runtime.
         vm.assume(pokeDatas.length < 50);
 
+        // Note to manually track timestamp instead of using the block.timestamp
+        // builtin as solc may remove block.timestamp calls inside the loop
+        // assuming the timestamp does not change during a tx's execution.
         uint32 lastPokeTimestamp = 0;
+        uint32 blockTimestamp = uint32(block.timestamp);
         IScribe.SchnorrData memory schnorrData;
         for (uint i; i < pokeDatas.length; i++) {
             pokeDatas[i].val =
                 uint128(_bound(pokeDatas[i].val, 1, type(uint128).max));
             pokeDatas[i].age = uint32(
-                _bound(pokeDatas[i].age, lastPokeTimestamp + 1, block.timestamp)
+                _bound(pokeDatas[i].age, lastPokeTimestamp + 1, blockTimestamp)
             );
 
             schnorrData =
@@ -337,10 +341,11 @@ abstract contract IScribeTest is Test {
 
             scribe.poke(pokeDatas[i], schnorrData);
 
-            _checkReadFunctions(pokeDatas[i].val, block.timestamp);
+            _checkReadFunctions(pokeDatas[i].val, blockTimestamp);
 
-            lastPokeTimestamp = uint32(block.timestamp);
-            vm.warp(block.timestamp + 10 minutes);
+            lastPokeTimestamp = blockTimestamp;
+            blockTimestamp += 10 minutes;
+            vm.warp(blockTimestamp);
         }
     }
 
