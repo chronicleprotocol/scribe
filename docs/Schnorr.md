@@ -22,11 +22,7 @@ elliptic curve. The scheme is used by _Chronicle Protocol_'s Scribe oracle contr
 
 ## Signing
 
-1. Select a _cryptographically secure_ `k ∊ [1, Q)`
-
-   Note that `k` can be deterministically constructed via `H(x ‖ m) mod Q`.
-   This construction keeps `k` random for everyone not knowing the private key
-   `x` while it also ensures a nonce is never reused for different messages.
+1. Select a _cryptographically secure random_ `k ∊ [1, Q)`
 
 2. Compute `R = [k]G`
 
