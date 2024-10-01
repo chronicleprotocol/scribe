@@ -85,8 +85,10 @@ Let the aggregated public key be:
 ```
 
 Note that this aggregation scheme is vulnerable to rogue-key attacks[^musig2-paper]!
-In order to prevent such attacks, it **MUST** be verified that participating
-public keys own the corresponding private key.
+In order to prevent such attacks a separate public key validation step, called a
+proof of possession, must be performed. This proof of possession can be
+implemented via an ECDSA signature, however, the message signed **MUST** be
+derived from the respective public key[^bls-proof-of-possession].
 
 Note further that this aggregation scheme is vulnerable to public keys with
 linear relationships. A set of public keys `A` leaking the sum of their private
@@ -178,5 +180,6 @@ N  = Qr * Pₓ⁻¹                                                    | Qr = [(
 - [Analysis of Bitcoin Improvement Proposal 340](https://courses.csail.mit.edu/6.857/2020/projects/4-Elbahrawy-Lovejoy-Ouyang-Perez.pdf)
 
 [^musig2-paper]:[MuSig2 Paper](https://eprint.iacr.org/2020/1261.pdf)
+[^bls-proof-of-possession]:[BLSBLS Signatures](https://www.ietf.org/archive/id/draft-irtf-cfrg-bls-signature-05.html#name-proof-of-possession)
 [^baby-step-giant-step-wikipedia]:[Baby-step giant-step Wikipedia](https://en.wikipedia.org/wiki/Baby-step_giant-step)
 [^vitalik-ethresearch-post]:[Vitalik's ethresearch post](https://ethresear.ch/t/you-can-kinda-abuse-ecrecover-to-do-ecmul-in-secp256k1-today/2384)

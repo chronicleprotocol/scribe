@@ -188,6 +188,10 @@ interface IScribe is IChronicle {
     /// @dev Only callable by auth'ed address.
     /// @dev The message expected to be signed by `ecdsaData` is defined via
     ///      `feedRegistrationMessage()(bytes32)`.
+    /// @custom:security The lift function's proof of possession is vulnerable
+    ///                  to rogue-key attacks. Additional verification MUST be
+    ///                  performed before lifting to ensure a feed's public key
+    ///                  validity.
     /// @param pubKey The public key of the feed.
     /// @param ecdsaData ECDSA signed message by the feed's public key.
     /// @return feedId The id of the newly lifted feed.
@@ -199,6 +203,10 @@ interface IScribe is IChronicle {
     /// @dev Only callable by auth'ed address.
     /// @dev The message expected to be signed by `ecdsaDatas` is defined via
     ///      `feedRegistrationMessage()(bytes32)`.
+    /// @custom:security The lift function's proof of possession is vulnerable
+    ///                  to rogue-key attacks. Additional verification MUST be
+    ///                  performed before lifting to ensure a feed's public key
+    ///                  validity.
     /// @param pubKeys The public keys of the feeds.
     /// @param ecdsaDatas ECDSA signed message by the feeds' public keys.
     /// @return List of feed ids of the newly lifted feeds.

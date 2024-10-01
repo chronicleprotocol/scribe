@@ -58,6 +58,14 @@ A feed's identifier is defined as the highest order byte of the feed's address a
 
 Feeds _must_ prove the integrity of their public key by proving the ownership of the corresponding private key. The `lift()` function therefore expects an ECDSA signed message, for more info see [`IScribe.feedRegistrationMessage()`](../src/IScribe.sol).
 
+> [!WARNING]
+>
+> The proof of possession implemented in Scribe is insufficient to defend against rogue-key attacks. In order to sufficiently verify a public key the message being signed MUST be derived from the public key itself.
+>
+> In order to keep Scribe backwards compatible the extended proof of possession is implemented in the external [ValidatorRegistry](https://github.com/chronicleprotocol/validator-registry) contract.
+>
+> For more info, see [audits/Cantina@v2.0.0_2.pdf](../audits/Cantina@v2.0.0_2.pdf).
+
 If public key's would not be verified, the Schnorr signature verification would be vulnerable to rogue-key attacks. For more info, see [`docs/Schnorr.md`](./Schnorr.md#key-aggregation-for-multisignatures).
 
 ## Chainlink Compatibility
