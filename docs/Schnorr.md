@@ -84,6 +84,14 @@ Note that this aggregation scheme is vulnerable to rogue-key attacks[^musig2-pap
 In order to prevent such attacks, it **MUST** be verified that participating
 public keys own the corresponding private key.
 
+Note further that this aggregation scheme is vulnerable to public keys with
+linear relationships. A set of public keys `A` leaking the sum of their private
+keys would allow the creation of a second set of public keys `B` with
+`aggPubKey(A) = aggPubKey(B)`. This would make signatures created by set `A`
+indistinguishable from signatures created by set `B`.
+However, this specification assumes that participants do not share private key
+material leading to negligible probability for such cases to happen.
+
 
 ## Other Security Considerations
 
