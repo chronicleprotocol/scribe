@@ -4,10 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Common Changelog](https://common-changelog.org/).
 
+[2.0.1]: https://github.com/chronicleprotocol/scribe/releases/tag/v2.0.1
 [2.0.0]: https://github.com/chronicleprotocol/scribe/releases/tag/v2.0.0
 [1.2.0]: https://github.com/chronicleprotocol/scribe/releases/tag/v1.2.0
 [1.1.0]: https://github.com/chronicleprotocol/scribe/releases/tag/v1.1.0
 [1.0.0]: https://github.com/chronicleprotocol/scribe/releases/tag/v1.0.0
+
+## [2.0.1] - 2024-10-03
+
+### Added
+
+- Security notice about rogue key vulnerability during lift and requirement for additional external verification ([0ef985b](https://github.com/chronicleprotocol/scribe/commit/0ef985baebc2945017bff811bb65a883f565fc4f))
 
 ## [2.0.0] - 2023-11-27
 
