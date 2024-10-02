@@ -12,9 +12,12 @@ import {LibSecp256k1} from "./libs/LibSecp256k1.sol";
 
 /**
  * @title Scribe
- * @custom:version 2.0.0
+ * @custom:version 2.0.1
  *
  * @notice Efficient Schnorr multi-signature based Oracle
+ *
+ * @author Chronicle Labs, Inc
+ * @custom:security-contact security@chroniclelabs.org
  */
 contract Scribe is IScribe, Auth, Toll {
     using LibSchnorr for LibSecp256k1.Point;

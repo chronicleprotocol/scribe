@@ -15,6 +15,9 @@ import {LibSecp256k1} from "./libs/LibSecp256k1.sol";
  * @title ScribeOptimistic
  *
  * @notice Scribe based optimistic Oracle with onchain fault resolution
+ *
+ * @author Chronicle Labs, Inc
+ * @custom:security-contact security@chroniclelabs.org
  */
 contract ScribeOptimistic is IScribeOptimistic, Scribe {
     using LibSchnorr for LibSecp256k1.Point;
