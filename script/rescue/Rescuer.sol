@@ -77,6 +77,29 @@ contract Rescuer is Auth {
         uint32 pokeDataAge,
         IScribe.ECDSAData memory opPokeSig
     ) external auth {
+        _suck(opScribe, pubKey, registrationSig, pokeDataAge, opPokeSig);
+    }
+
+    /// @notice Rescues ETH from multiple ScribeOptimistic instances `opScribes`.
+    function suck(
+        address[] memory opScribes,
+        LibSecp256k1.Point memory pubKey,
+        IScribe.ECDSAData memory registrationSig,
+        uint32 pokeDataAge,
+        IScribe.ECDSAData memory opPokeSig
+    ) external auth {
+        for (uint i = 0; i < opScribes.length; i++) {
+            _suck(opScribes[i], pubKey, registrationSig, pokeDataAge, opPokeSig);
+        }
+    }
+
+    function _suck(
+        address opScribe,
+        LibSecp256k1.Point memory pubKey,
+        IScribe.ECDSAData memory registrationSig,
+        uint32 pokeDataAge,
+        IScribe.ECDSAData memory opPokeSig
+    ) internal {
         require(IAuth(opScribe).authed(address(this)));
 
         address validator = pubKey.toAddress();
@@ -117,4 +140,6 @@ contract Rescuer is Auth {
         // Emit event.
         emit Recovered(msg.sender, opScribe, amount);
     }
+
+
 }
