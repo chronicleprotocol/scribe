@@ -36,13 +36,14 @@ contract RescuerTest is Test {
         rescuer = new Rescuer(address(this));
     }
 
-    function test_suck() public {
+    function testFuzz_suck(uint privKey) public {
+        privKey = _bound(privKey, 1, LibSecp256k1.Q() - 1);
         // Auth the recover contract on scribe
         IAuth(address(scribe)).rely(address(rescuer));
         // Send some Eth to the scribe contract
         vm.deal(address(scribe), 1 ether);
         // Create a new feed
-        LibFeed.Feed memory feed = LibFeed.newFeed(1);
+        LibFeed.Feed memory feed = LibFeed.newFeed(privKey);
         // Create registration sig
         IScribe.ECDSAData memory registrationSig;
         registrationSig =
@@ -64,10 +65,10 @@ contract RescuerTest is Test {
             emit Withdrawed(address(this), recipient, withdraw_amount);
         rescuer.withdraw(payable(recipient), withdraw_amount);
         assertEq(recipient.balance, withdraw_amount);
-
     }
 
-    function test_suckMultiple() public {
+    function testFuzz_suckMultiple(uint privKey) public {
+        privKey = _bound(privKey, 1, LibSecp256k1.Q() - 1);
         address[] memory scribes = new address[](10);
         for (uint i = 0; i < 10; i++) {
             scribes[i] = address(new ScribeOptimistic(address(this), bytes32("TEST/TEST")));
@@ -77,7 +78,7 @@ contract RescuerTest is Test {
             vm.deal(address(scribes[i]), 1 ether);
         }
         // Create a new feed
-        LibFeed.Feed memory feed = LibFeed.newFeed(1);
+        LibFeed.Feed memory feed = LibFeed.newFeed(privKey);
         // Create registration sig
         IScribe.ECDSAData memory registrationSig;
         registrationSig =
@@ -123,9 +124,11 @@ contract RescuerTest is Test {
         );
     }
 
-    function test_suck_FailsIf_feedsLengthNotZero() public {
+    function testFuzz_suck_FailsIf_feedsLengthNotZero(uint privKey, uint privKeyExisting) public {
+        privKey = _bound(privKey, 1, LibSecp256k1.Q() - 1);
+        privKeyExisting = _bound(privKeyExisting, 1, LibSecp256k1.Q() - 1);
         // Create a new feed to lift on scribe
-        LibFeed.Feed memory existing_feed = LibFeed.newFeed(1);
+        LibFeed.Feed memory existing_feed = LibFeed.newFeed(privKeyExisting);
         IScribe.ECDSAData memory registrationSig;
         registrationSig =
             existing_feed.signECDSA(scribe.feedRegistrationMessage());
@@ -135,9 +138,8 @@ contract RescuerTest is Test {
         IAuth(address(scribe)).rely(address(rescuer));
         // Send some Eth to the scribe contract
         vm.deal(address(scribe), 1 ether);
-        // Create a new feed
-        LibFeed.Feed memory feed = LibFeed.newFeed(2);
         // Create registration sig
+        LibFeed.Feed memory feed = LibFeed.newFeed(privKey);
         registrationSig =
             feed.signECDSA(scribe.feedRegistrationMessage());
         // Construct opPokeSignature, (with invalid schnorr sig)
@@ -186,13 +188,11 @@ contract RescuerTest is Test {
         assertEq(withdraw_amount, amount);
     }
 
-    // Auth tests
+    // ---------- Auth tests ----------
 
     function test_suck_isAuthed() public {
         // Deauth this on the rescuer contract
         IAuth(address(rescuer)).deny(address(this));
-        // Send some Eth to the scribe contract
-        vm.deal(address(scribe), 1 ether);
         // Create a new feed
         LibFeed.Feed memory feed = LibFeed.newFeed(1);
         // Create registration sig
@@ -208,7 +208,6 @@ contract RescuerTest is Test {
                 IAuth.NotAuthorized.selector, address(this)
             )
         );
-        // TODO correct revert
         rescuer.suck(
             address(scribe), feed.pubKey, registrationSig, pokeDataAge, opPokeSig
         );
@@ -217,16 +216,13 @@ contract RescuerTest is Test {
     function test_withdraw_isAuthed() public {
         // Deauth this on the rescuer contract
         IAuth(address(rescuer)).deny(address(this));
-        // Send some Eth to the rescuer contract
-        vm.deal(address(rescuer), 1 ether);
-        uint withdraw_amount = address(rescuer).balance;
         address recipient = address(0x1234567890123456789012345678901234567890);
         vm.expectRevert(
             abi.encodeWithSelector(
                 IAuth.NotAuthorized.selector, address(this)
             )
         );
-        rescuer.withdraw(payable(recipient), withdraw_amount);
+        rescuer.withdraw(payable(recipient), 0);
     }
 
 
