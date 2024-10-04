@@ -81,6 +81,12 @@ contract Rescuer is Auth {
     }
 
     /// @notice Rescues ETH from multiple ScribeOptimistic instances `opScribes`.
+    ///
+    /// @dev Note that `opScribes` MUST be deactivated.
+    /// @dev Note that validator key pair SHALL be only used once and generated
+    ///      via a CSPRNG.
+    ///
+    /// @dev Only callable by auth'ed address.
     function suck(
         address[] memory opScribes,
         LibSecp256k1.Point memory pubKey,

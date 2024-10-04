@@ -34,7 +34,11 @@ contract RescuerTest is Test {
         scribe = new ScribeOptimistic(address(this), bytes32("TEST/TEST"));
         IScribeOptimistic(scribe).setMaxChallengeReward(type(uint).max);
         rescuer = new Rescuer(address(this));
+        // Auth the recover contract on scribe
+        IAuth(address(scribe)).rely(address(rescuer));
     }
+
+    // -- Test: Suck --
 
     function testFuzz_suck(uint privKey) public {
         privKey = _bound(privKey, 1, LibSecp256k1.Q() - 1);
@@ -65,12 +69,13 @@ contract RescuerTest is Test {
             emit Withdrawed(address(this), recipient, withdraw_amount);
         rescuer.withdraw(payable(recipient), withdraw_amount);
         assertEq(recipient.balance, withdraw_amount);
+        assertEq(recipient.balance, 1 ether);
     }
 
     function testFuzz_suckMultiple(uint privKey) public {
         privKey = _bound(privKey, 1, LibSecp256k1.Q() - 1);
         address[] memory scribes = new address[](10);
-        for (uint i = 0; i < 10; i++) {
+        for (uint i; i < scribes.len; i++) {
             scribes[i] = address(new ScribeOptimistic(address(this), bytes32("TEST/TEST")));
             IScribeOptimistic(scribes[i]).setMaxChallengeReward(type(uint).max);
             // Auth the recover contract on scribe
@@ -87,7 +92,7 @@ contract RescuerTest is Test {
         uint32 pokeDataAge = uint32(block.timestamp);
         IScribe.ECDSAData memory opPokeSig = _construct_opPokeSignature(feed, pokeDataAge);
         // Rescue ETH via rescuer contract.
-        for (uint i = 0; i < 10; i++) {
+        for (uint i; i < scribes.len; i++) {
              vm.expectEmit();
             emit Recovered(address(this), address(scribes[i]), 1 ether);
         }
@@ -95,13 +100,16 @@ contract RescuerTest is Test {
             scribes, feed.pubKey, registrationSig, pokeDataAge, opPokeSig
         );
         // Withdraw the eth
-        uint current_balance = address(this).balance;
-        uint withdraw_amount = address(rescuer).balance;
         address recipient = address(0x1234567890123456789012345678901234567890);
-        vm.expectEmit();
-            emit Withdrawed(address(this), recipient, withdraw_amount);
-        rescuer.withdraw(payable(recipient), withdraw_amount);
-        assertEq(recipient.balance, withdraw_amount);
+        for (uint i; i < scribes.len; i++){
+            uint current_balance = address(this).balance;
+            uint withdraw_amount = address(rescuer).balance;
+            vm.expectEmit();
+                emit Withdrawed(address(this), recipient, withdraw_amount);
+            rescuer.withdraw(payable(recipient), withdraw_amount);
+            assertEq(recipient.balance, withdraw_amount);
+        }
+        assertEq(recipient.balance, scribes.len * (1 ether));
 
     }
 
@@ -174,6 +182,7 @@ contract RescuerTest is Test {
         );
     }
 
+    // -- Test: Withdraw --
 
     function testFuzz_withdraw(uint amount) public {
         amount = _bound(amount, 0, 1000 ether);
@@ -188,7 +197,7 @@ contract RescuerTest is Test {
         assertEq(withdraw_amount, amount);
     }
 
-    // ---------- Auth tests ----------
+    // -- Test: Auth --
 
     function test_suck_isAuthed() public {
         // Deauth this on the rescuer contract
@@ -225,6 +234,7 @@ contract RescuerTest is Test {
         rescuer.withdraw(payable(recipient), 0);
     }
 
+    // -- Helpers --
 
     function _construct_opPokeSignature(LibFeed.Feed memory feed, uint32 pokeDataAge) private returns (IScribe.ECDSAData memory) {
         IScribe.PokeData memory pokeData = IScribe.PokeData(0, pokeDataAge);
