@@ -77,39 +77,7 @@ contract Rescuer is Auth {
         uint32 pokeDataAge,
         IScribe.ECDSAData memory opPokeSig
     ) external auth {
-        _suck(opScribe, pubKey, registrationSig, pokeDataAge, opPokeSig);
-    }
-
-    /// @notice Rescues ETH from multiple ScribeOptimistic instances `opScribes`.
-    ///
-    /// @dev Note that `opScribes` MUST be deactivated.
-    /// @dev Note that validator key pair SHALL be only used once and generated
-    ///      via a CSPRNG.
-    ///
-    /// @dev Only callable by auth'ed address.
-    function suck(
-        address[] memory opScribes,
-        LibSecp256k1.Point memory pubKey,
-        IScribe.ECDSAData memory registrationSig,
-        uint32 pokeDataAge,
-        IScribe.ECDSAData memory opPokeSig
-    ) external auth {
-        for (uint i = 0; i < opScribes.length; i++) {
-            _suck(opScribes[i], pubKey, registrationSig, pokeDataAge, opPokeSig);
-        }
-    }
-
-    function _suck(
-        address opScribe,
-        LibSecp256k1.Point memory pubKey,
-        IScribe.ECDSAData memory registrationSig,
-        uint32 pokeDataAge,
-        IScribe.ECDSAData memory opPokeSig
-    ) internal {
         require(IAuth(opScribe).authed(address(this)));
-
-        address validator = pubKey.toAddress();
-        uint8 validatorId = uint8(uint(uint160(validator)) >> 152);
 
         uint balanceBefore = address(this).balance;
 
@@ -134,11 +102,7 @@ contract Rescuer is Auth {
         IScribeOptimistic(opScribe).opPoke(pokeData, schnorrSig, opPokeSig);
 
         // Perform opChallenge.
-        bool ok = IScribeOptimistic(opScribe).opChallenge(schnorrSig);
-        require(ok);
-
-        // Drop validator again.
-        IScribe(opScribe).drop(validatorId);
+        IScribeOptimistic(opScribe).opChallenge(schnorrSig);
 
         // Compute amount of ETH received as challenge reward.
         uint amount = address(this).balance - balanceBefore;
@@ -146,6 +110,4 @@ contract Rescuer is Auth {
         // Emit event.
         emit Recovered(msg.sender, opScribe, amount);
     }
-
-
 }

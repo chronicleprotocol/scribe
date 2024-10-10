@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.16;
 
-import {console2} from "forge-std/console2.sol";
 import {Test} from "forge-std/Test.sol";
+import {console2} from "forge-std/console2.sol";
 
 import {IAuth} from "chronicle-std/auth/IAuth.sol";
 
@@ -20,6 +20,7 @@ contract RescuerTest is Test {
     using LibSecp256k1 for LibSecp256k1.Point;
     using LibFeed for LibFeed.Feed;
 
+    // Events copied from Rescuer.
     event Recovered(
         address indexed caller, address indexed opScribe, uint amount
     );
@@ -27,226 +28,218 @@ contract RescuerTest is Test {
         address indexed caller, address indexed receiver, uint amount
     );
 
-    IScribeOptimistic private scribe;
     Rescuer private rescuer;
+    IScribeOptimistic private opScribe;
+
+    bytes32 internal FEED_REGISTRATION_MESSAGE;
 
     function setUp() public {
-        scribe = new ScribeOptimistic(address(this), bytes32("TEST/TEST"));
-        IScribeOptimistic(scribe).setMaxChallengeReward(type(uint).max);
+        opScribe = new ScribeOptimistic(address(this), bytes32("TEST/TEST"));
+
         rescuer = new Rescuer(address(this));
-        // Auth the recover contract on scribe
-        IAuth(address(scribe)).rely(address(rescuer));
+
+        // Note to auth rescuer on opScribe.
+        IAuth(address(opScribe)).rely(address(rescuer));
+
+        // Note to let opScribe have a non-zero ETH balance.
+        vm.deal(address(opScribe), 1 ether);
+
+        // Cache constants.
+        FEED_REGISTRATION_MESSAGE = opScribe.feedRegistrationMessage();
     }
 
     // -- Test: Suck --
 
-    function testFuzz_suck(uint privKey) public {
-        privKey = _bound(privKey, 1, LibSecp256k1.Q() - 1);
-        // Auth the recover contract on scribe
-        IAuth(address(scribe)).rely(address(rescuer));
-        // Send some Eth to the scribe contract
-        vm.deal(address(scribe), 1 ether);
-        // Create a new feed
-        LibFeed.Feed memory feed = LibFeed.newFeed(privKey);
-        // Create registration sig
-        IScribe.ECDSAData memory registrationSig;
-        registrationSig =
-            feed.signECDSA(scribe.feedRegistrationMessage());
-        // Construct opPokeSignature, (with invalid schnorr sig)
+    function testFuzz_suck(uint privKeySeed) public {
+        // Create new feed from privKeySeed.
+        LibFeed.Feed memory feed =
+            LibFeed.newFeed(_bound(privKeySeed, 1, LibSecp256k1.Q() - 1));
+
+        // Construct opPoke signature with invalid Schnorr signature.
         uint32 pokeDataAge = uint32(block.timestamp);
-        IScribe.ECDSAData memory opPokeSig = _construct_opPokeSignature(feed, pokeDataAge);
-        // Rescue ETH via rescuer contract.
+        IScribe.ECDSAData memory opPokeSig =
+            _constructOpPokeSig(feed, pokeDataAge);
+
         vm.expectEmit();
-            emit Recovered(address(this), address(scribe), 1 ether);
+        emit Recovered(address(this), address(opScribe), 1 ether);
+
         rescuer.suck(
-            address(scribe), feed.pubKey, registrationSig, pokeDataAge, opPokeSig
+            address(opScribe),
+            feed.pubKey,
+            feed.signECDSA(FEED_REGISTRATION_MESSAGE),
+            pokeDataAge,
+            opPokeSig
         );
-        // Withdraw the eth
-        uint current_balance = address(this).balance;
-        uint withdraw_amount = address(rescuer).balance;
-        address recipient = address(0x1234567890123456789012345678901234567890);
-        vm.expectEmit();
-            emit Withdrawed(address(this), recipient, withdraw_amount);
-        rescuer.withdraw(payable(recipient), withdraw_amount);
-        assertEq(recipient.balance, withdraw_amount);
-        assertEq(recipient.balance, 1 ether);
+
+        // Verify balances.
+        assertEq(address(opScribe).balance, 0);
+        assertEq(address(rescuer).balance, 1 ether);
+
+        // Verify feed got kicked.
+        assertFalse(opScribe.feeds(feed.pubKey.toAddress()));
     }
 
-    function testFuzz_suckMultiple(uint privKey) public {
-        privKey = _bound(privKey, 1, LibSecp256k1.Q() - 1);
-        address[] memory scribes = new address[](10);
-        for (uint i; i < scribes.len; i++) {
-            scribes[i] = address(new ScribeOptimistic(address(this), bytes32("TEST/TEST")));
-            IScribeOptimistic(scribes[i]).setMaxChallengeReward(type(uint).max);
-            // Auth the recover contract on scribe
-            IAuth(address(scribes[i])).rely(address(rescuer));
-            vm.deal(address(scribes[i]), 1 ether);
-        }
-        // Create a new feed
-        LibFeed.Feed memory feed = LibFeed.newFeed(privKey);
-        // Create registration sig
-        IScribe.ECDSAData memory registrationSig;
-        registrationSig =
-            feed.signECDSA(scribe.feedRegistrationMessage());
-        // Construct opPokeSignature, (with invalid schnorr sig)
-        uint32 pokeDataAge = uint32(block.timestamp);
-        IScribe.ECDSAData memory opPokeSig = _construct_opPokeSignature(feed, pokeDataAge);
-        // Rescue ETH via rescuer contract.
-        for (uint i; i < scribes.len; i++) {
-             vm.expectEmit();
-            emit Recovered(address(this), address(scribes[i]), 1 ether);
-        }
-        rescuer.suck(
-            scribes, feed.pubKey, registrationSig, pokeDataAge, opPokeSig
-        );
-        // Withdraw the eth
-        address recipient = address(0x1234567890123456789012345678901234567890);
-        for (uint i; i < scribes.len; i++){
-            uint current_balance = address(this).balance;
-            uint withdraw_amount = address(rescuer).balance;
-            vm.expectEmit();
-                emit Withdrawed(address(this), recipient, withdraw_amount);
-            rescuer.withdraw(payable(recipient), withdraw_amount);
-            assertEq(recipient.balance, withdraw_amount);
-        }
-        assertEq(recipient.balance, scribes.len * (1 ether));
+    function testFuzz_suck_FailsIf_RescuerNotAuthedOnOpScribe(uint privKeySeed)
+        public
+    {
+        // Create new feed from privKeySeed.
+        LibFeed.Feed memory feed =
+            LibFeed.newFeed(_bound(privKeySeed, 1, LibSecp256k1.Q() - 1));
 
-    }
-
-    function test_suck_FailsIf_rescuerNotAuthed() public {
-        // Send some Eth to the scribe contract
-        vm.deal(address(scribe), 1 ether);
-        // Create a new feed
-        LibFeed.Feed memory feed = LibFeed.newFeed(1);
-        // Create registration sig
-        IScribe.ECDSAData memory registrationSig;
-        registrationSig =
-            feed.signECDSA(scribe.feedRegistrationMessage());
-        // Construct opPokeSignature, (with invalid schnorr sig)
+        // Construct opPoke signature with invalid Schnorr signature.
         uint32 pokeDataAge = uint32(block.timestamp);
-        IScribe.ECDSAData memory opPokeSig = _construct_opPokeSignature(feed, pokeDataAge);
-        // Rescue ETH via rescuer contract.
+        IScribe.ECDSAData memory opPokeSig =
+            _constructOpPokeSig(feed, pokeDataAge);
+
+        // Deny rescuer on opScribe.
+        IAuth(address(opScribe)).deny(address(rescuer));
+
+        // Expect rescue to fail.
         vm.expectRevert();
         rescuer.suck(
-            address(scribe), feed.pubKey, registrationSig, pokeDataAge, opPokeSig
+            address(opScribe),
+            feed.pubKey,
+            feed.signECDSA(FEED_REGISTRATION_MESSAGE),
+            pokeDataAge,
+            opPokeSig
         );
     }
 
-    function testFuzz_suck_FailsIf_feedsLengthNotZero(uint privKey, uint privKeyExisting) public {
-        privKey = _bound(privKey, 1, LibSecp256k1.Q() - 1);
-        privKeyExisting = _bound(privKeyExisting, 1, LibSecp256k1.Q() - 1);
-        // Create a new feed to lift on scribe
-        LibFeed.Feed memory existing_feed = LibFeed.newFeed(privKeyExisting);
-        IScribe.ECDSAData memory registrationSig;
-        registrationSig =
-            existing_feed.signECDSA(scribe.feedRegistrationMessage());
-        // Lift validator.
-        scribe.lift(existing_feed.pubKey, registrationSig);
-        // Auth the recover contract on scribe
-        IAuth(address(scribe)).rely(address(rescuer));
-        // Send some Eth to the scribe contract
-        vm.deal(address(scribe), 1 ether);
-        // Create registration sig
-        LibFeed.Feed memory feed = LibFeed.newFeed(privKey);
-        registrationSig =
-            feed.signECDSA(scribe.feedRegistrationMessage());
-        // Construct opPokeSignature, (with invalid schnorr sig)
+    function testFuzz_suck_FailsIf_OpScribeNotDeactivated(
+        uint privKeySeed,
+        uint privKeyLiftedSeed
+    ) public {
+        // Create new feeds from seeds
+        LibFeed.Feed memory feed =
+            LibFeed.newFeed(_bound(privKeySeed, 1, LibSecp256k1.Q() - 1));
+        LibFeed.Feed memory feedLifted =
+            LibFeed.newFeed(_bound(privKeyLiftedSeed, 1, LibSecp256k1.Q() - 1));
+
+        // Lift feedLifted.
+        opScribe.lift(
+            feedLifted.pubKey,
+            feedLifted.signECDSA(opScribe.feedRegistrationMessage())
+        );
+
+        // Construct opPoke signature with invalid Schnorr signature.
         uint32 pokeDataAge = uint32(block.timestamp);
-        IScribe.ECDSAData memory opPokeSig = _construct_opPokeSignature(feed, pokeDataAge);
-        // Rescue ETH via rescuer contract.
+        IScribe.ECDSAData memory opPokeSig =
+            _constructOpPokeSig(feed, pokeDataAge);
+
+        // Expect rescue to fail.
         vm.expectRevert();
         rescuer.suck(
-            address(scribe), feed.pubKey, registrationSig, pokeDataAge, opPokeSig
+            address(opScribe),
+            feed.pubKey,
+            feed.signECDSA(FEED_REGISTRATION_MESSAGE),
+            pokeDataAge,
+            opPokeSig
         );
     }
 
-    function test_suck_FailsIf_challengeFails() public {
-        // Auth the recover contract on scribe
-        IAuth(address(scribe)).rely(address(rescuer));
-        // Send some Eth to the scribe contract
-        vm.deal(address(scribe), 1 ether);
-        // Create a new feed
-        LibFeed.Feed memory feed = LibFeed.newFeed(1);
-        // Create registration sig
-        IScribe.ECDSAData memory registrationSig;
-        registrationSig =
-            feed.signECDSA(scribe.feedRegistrationMessage());
-        // Construct opPokeSignature using a different feed private key, (with invalid schnorr sig)
-        uint32 pokeDataAge = uint32(block.timestamp);
-        LibFeed.Feed memory unlifted_feed = LibFeed.newFeed(2);
-        IScribe.ECDSAData memory opPokeSig = _construct_opPokeSignature(unlifted_feed, pokeDataAge);
-        // Rescue ETH via rescuer contract.
-        vm.expectRevert();
+    function test_suck_isAuthProtected() public {
+        vm.prank(address(0xbeef));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAuth.NotAuthorized.selector, address(0xbeef)
+            )
+        );
         rescuer.suck(
-            address(scribe), feed.pubKey, registrationSig, pokeDataAge, opPokeSig
+            address(opScribe),
+            LibSecp256k1.ZERO_POINT(),
+            IScribe.ECDSAData(uint8(0), bytes32(0), bytes32(0)),
+            uint32(0),
+            IScribe.ECDSAData(uint8(0), bytes32(0), bytes32(0))
         );
     }
 
     // -- Test: Withdraw --
 
-    function testFuzz_withdraw(uint amount) public {
-        amount = _bound(amount, 0, 1000 ether);
-        // Send some Eth to the rescuer contract
-        vm.deal(address(rescuer), amount);
-        uint withdraw_amount = address(rescuer).balance;
-        address recipient = address(0x1234567890123456789012345678901234567890);
+    function testFuzz_withdraw_ToEOA(
+        address payable receiver,
+        uint balance,
+        uint withdrawal
+    ) public {
+        vm.assume(receiver.code.length == 0);
+        vm.assume(balance >= withdrawal);
+
+        // Let rescuer have ETH balance.
+        vm.deal(address(rescuer), balance);
+
         vm.expectEmit();
-            emit Withdrawed(address(this), recipient, withdraw_amount);
-        rescuer.withdraw(payable(recipient), withdraw_amount);
-        assertEq(recipient.balance, withdraw_amount);
-        assertEq(withdraw_amount, amount);
+        emit Withdrawed(address(this), receiver, withdrawal);
+
+        rescuer.withdraw(receiver, withdrawal);
+
+        assertEq(address(rescuer).balance, balance - withdrawal);
+        assertEq(receiver.balance, withdrawal);
     }
 
-    // -- Test: Auth --
+    function test_withdraw_ToContract(uint balance, uint withdrawal) public {
+        vm.assume(balance >= withdrawal);
 
-    function test_suck_isAuthed() public {
-        // Deauth this on the rescuer contract
-        IAuth(address(rescuer)).deny(address(this));
-        // Create a new feed
-        LibFeed.Feed memory feed = LibFeed.newFeed(1);
-        // Create registration sig
-        IScribe.ECDSAData memory registrationSig;
-        registrationSig =
-            feed.signECDSA(scribe.feedRegistrationMessage());
-        // Construct opPokeSignature, (with invalid schnorr sig)
-        uint32 pokeDataAge = uint32(block.timestamp);
-        IScribe.ECDSAData memory opPokeSig = _construct_opPokeSignature(feed, pokeDataAge);
-        // Rescue ETH via rescuer contract.
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IAuth.NotAuthorized.selector, address(this)
-            )
-        );
-        rescuer.suck(
-            address(scribe), feed.pubKey, registrationSig, pokeDataAge, opPokeSig
-        );
+        // Let rescuer have ETH balance.
+        vm.deal(address(rescuer), balance);
+
+        // Deploy ETH receiver.
+        ETHReceiver receiver = new ETHReceiver();
+
+        vm.expectEmit();
+        emit Withdrawed(address(this), address(receiver), withdrawal);
+
+        rescuer.withdraw(payable(address(receiver)), withdrawal);
+
+        assertEq(address(rescuer).balance, balance - withdrawal);
+        assertEq(address(receiver).balance, withdrawal);
     }
 
-    function test_withdraw_isAuthed() public {
-        // Deauth this on the rescuer contract
-        IAuth(address(rescuer)).deny(address(this));
-        address recipient = address(0x1234567890123456789012345678901234567890);
+    function test_withdraw_FailsIf_ETHTransferFails(uint balance, uint withdrawal) public {
+        vm.assume(balance >= withdrawal);
+
+        // Let rescuer have ETH balance.
+        vm.deal(address(rescuer), balance);
+
+        // Deploy non ETH receiver.
+        NotETHReceiver receiver = new NotETHReceiver();
+
+        vm.expectRevert();
+        rescuer.withdraw(payable(address(receiver)), withdrawal);
+    }
+
+    function test_withdraw_isAuthProtected() public {
+        vm.prank(address(0xbeef));
         vm.expectRevert(
             abi.encodeWithSelector(
-                IAuth.NotAuthorized.selector, address(this)
+                IAuth.NotAuthorized.selector, address(0xbeef)
             )
         );
-        rescuer.withdraw(payable(recipient), 0);
+        rescuer.withdraw(payable(address(this)), 0);
     }
 
     // -- Helpers --
 
-    function _construct_opPokeSignature(LibFeed.Feed memory feed, uint32 pokeDataAge) private returns (IScribe.ECDSAData memory) {
+    function _constructOpPokeSig(LibFeed.Feed memory feed, uint32 pokeDataAge)
+        internal
+        view
+        returns (IScribe.ECDSAData memory)
+    {
+        // Construct pokeData with zero val and given age.
         IScribe.PokeData memory pokeData = IScribe.PokeData(0, pokeDataAge);
+
+        // Construct invalid Schnorr signature.
         IScribe.SchnorrData memory schnorrData =
             IScribe.SchnorrData(bytes32(0), address(0), hex"");
-        // Construct opPokeMessage.
-        bytes32 opPokeMessage = scribe.constructOpPokeMessage(
-            pokeData, schnorrData
-        );
-        // Let feed sign opPokeMessage.
-        IScribe.ECDSAData memory opPokeSig = feed.signECDSA(opPokeMessage);
-        return opPokeSig;
-    }
 
+        // Construct opPokeMessage.
+        bytes32 opPokeMessage =
+            opScribe.constructOpPokeMessage(pokeData, schnorrData);
+
+        // Let feed sign opPokeMessage.
+        return feed.signECDSA(opPokeMessage);
+    }
+}
+
+contract NotETHReceiver {}
+contract ETHReceiver {
+    receive() external payable {}
 }
