@@ -193,7 +193,10 @@ contract RescuerTest is Test {
         assertEq(address(receiver).balance, withdrawal);
     }
 
-    function test_withdraw_FailsIf_ETHTransferFails(uint balance, uint withdrawal) public {
+    function test_withdraw_FailsIf_ETHTransferFails(
+        uint balance,
+        uint withdrawal
+    ) public {
         vm.assume(balance >= withdrawal);
 
         // Let rescuer have ETH balance.
@@ -240,6 +243,7 @@ contract RescuerTest is Test {
 }
 
 contract NotETHReceiver {}
+
 contract ETHReceiver {
     receive() external payable {}
 }
