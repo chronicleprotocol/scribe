@@ -189,10 +189,10 @@ contract ScribeScript is Script {
     ///      pokes with an already fully constructed payload.
     ///
     /// @dev Call via:
-    ///
     ///      ```bash
     ///      $ forge script \
-    ///           --private-key $PRIVATE_KEY \
+    ///           --keystore $KEYSTORE \
+    ///           --password $KEYSTORE_PASSWORD \
     ///           --broadcast \
     ///           --rpc-url $RPC_URL \
     ///           --sig $(cast calldata "pokeRaw(address,bytes)" $SCRIBE $PAYLOAD) \
