@@ -79,7 +79,7 @@ library LibSchnorr {
         }
 
         // Set r = Pₓ
-        uint r = pubKey.x;
+        uint r = pubKey.x % LibSecp256k1.Q();
 
         // Compute s = Q - (e * Pₓ) (mod Q)
         //
