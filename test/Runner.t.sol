@@ -28,6 +28,19 @@ contract ScribeInvariantTest is IScribeInvariantTest {
 
 // -- Extensions
 
+// - hScribe
+
+import {HScribe} from "src/extensions/HScribe.sol";
+import {IHScribeTest} from "./extensions/IHScribeTest.sol";
+
+contract HScribeTest is IHScribeTest {
+    function setUp() public {
+        setUp(address(new HScribe(address(this), "ETH/USD", 10)));
+    }
+}
+
+// - ScribeLST
+
 import {ScribeLST} from "src/extensions/ScribeLST.sol";
 import {IScribeLSTTest} from "./extensions/IScribeLSTTest.sol";
 
@@ -51,6 +64,8 @@ contract ScribeOptimisticTest is IScribeOptimisticTest {
 }
 
 // -- Extensions
+
+// - ScribeOptimisticLST
 
 import {ScribeOptimisticLST} from "src/extensions/ScribeOptimisticLST.sol";
 import {IScribeOptimisticLSTTest} from
@@ -79,3 +94,4 @@ contract LibSchnorrTest is LibSchnorrTest_ {}
 import {EVMTest} from "./EVMTest.sol";
 
 contract EVMTest_ is EVMTest {}
+
