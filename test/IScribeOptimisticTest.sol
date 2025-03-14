@@ -7,6 +7,7 @@ import {IAuth} from "chronicle-std/auth/IAuth.sol";
 
 import {IScribe} from "src/IScribe.sol";
 import {IScribeOptimistic} from "src/IScribeOptimistic.sol";
+import {ScribeOptimistic} from "src/ScribeOptimistic.sol";
 
 import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
 
@@ -73,6 +74,11 @@ abstract contract IScribeOptimisticTest is IScribeTest {
 
         // MaxChallengeRewards set to type(uint).max.
         assertEq(opScribe.maxChallengeReward(), type(uint).max);
+    }
+
+    function test_Deployment_FailsIfWatZero() public override(IScribeTest) {
+        vm.expectRevert();
+        new ScribeOptimistic(address(this), bytes32(""));
     }
 
     // -- Test: Poke --

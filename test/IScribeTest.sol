@@ -7,6 +7,7 @@ import {IAuth} from "chronicle-std/auth/IAuth.sol";
 import {IToll} from "chronicle-std/toll/IToll.sol";
 
 import {IScribe} from "src/IScribe.sol";
+import {Scribe} from "src/Scribe.sol";
 
 import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
 
@@ -190,6 +191,11 @@ abstract contract IScribeTest is Test {
         // latestAnswer()(int) returns zero.
         // Note that latestAnswer()(int) is deprecated.
         assertEq(scribe.latestAnswer(), int(0));
+    }
+
+    function test_Deployment_FailsIfWatZero() public virtual {
+        vm.expectRevert();
+        new Scribe(address(this), bytes32(""));
     }
 
     // -- Test: Schnorr Verification --
