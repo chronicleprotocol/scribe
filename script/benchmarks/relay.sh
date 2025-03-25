@@ -22,7 +22,7 @@ run_Scribe () {
     # Deploy Scribe
     forge script script/benchmarks/ScribeBenchmark.s.sol --rpc-url http://127.0.0.1:8545 --broadcast --sig "deploy()" > /dev/null 2>&1
     # Set bar
-    forge script script/benchmarks/ScribeBenchmark.s.sol --rpc-url http://127.0.0.1:8545 --broadcast --sig $(cast calldata "setBar(uint8)" $bar) > /dev/null 2>&1
+    forge script script/benchmarks/ScribeBenchmark.s.sol --rpc-url http://127.0.0.1:8545 --broadcast --sig "setBar(uint8)" --args $bar > /dev/null 2>&1
     # Lift feeds
     forge script script/benchmarks/ScribeBenchmark.s.sol --rpc-url http://127.0.0.1:8545 --broadcast --sig "liftFeeds()" > /dev/null 2>&1
     # Poke once
