@@ -61,4 +61,3 @@ rule onlyLiftAndDropCanMutatePubKeys(method f, env e, calldataarg args, uint8 fe
     assert ghostPubKeysX[feedId] == pubKeyXBefore;
     assert ghostPubKeysY[feedId] == pubKeyYBefore;
 }
-
