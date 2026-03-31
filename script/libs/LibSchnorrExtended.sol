@@ -175,8 +175,9 @@ library LibSchnorrExtended {
         returns (uint)
     {
         // k = H(x ‖ m) mod Q
-        return uint(keccak256(abi.encodePacked(privKey, message)))
-            % LibSecp256k1.Q();
+        return
+            uint(keccak256(abi.encodePacked(privKey, message)))
+                % LibSecp256k1.Q();
     }
 
     function computeNoncePublicKey(uint nonce)

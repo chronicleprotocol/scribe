@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.16;
+// forgefmt: disable-start
 
 import {IChronicle} from "chronicle-std/IChronicle.sol";
 
@@ -243,3 +244,5 @@ interface IScribe is IChronicle {
     /// @return isValid True if value exists, false otherwise.
     function peep() external view returns (uint value, bool isValid);
 }
+
+// forgefmt: disable-end

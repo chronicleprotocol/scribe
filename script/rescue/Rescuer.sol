@@ -90,9 +90,7 @@ contract Rescuer is Auth {
 
         // Construct invalid Schnorr signature.
         IScribe.SchnorrData memory schnorrSig = IScribe.SchnorrData({
-            signature: bytes32(0),
-            commitment: address(0),
-            feedIds: hex""
+            signature: bytes32(0), commitment: address(0), feedIds: hex""
         });
 
         // Lift validator.

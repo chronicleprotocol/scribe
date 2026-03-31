@@ -318,9 +318,9 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         opScribe.opPoke(pokeData, schnorrData, ecdsaData);
     }
 
-    function testFuzz_opPoke_FailsIf_opPokeDataInChallengePeriodExists(
-        uint warpSeed
-    ) public {
+    function testFuzz_opPoke_FailsIf_opPokeDataInChallengePeriodExists(uint warpSeed)
+        public
+    {
         LibFeed.Feed[] memory feeds = _liftFeeds(opScribe.bar());
 
         IScribe.PokeData memory pokeData;
@@ -349,9 +349,9 @@ abstract contract IScribeOptimisticTest is IScribeTest {
     }
 
     // See audits/Cantina@v2.0.0.pdf.
-    function testFuzz_opPoke_FailsIf_BarNotReached_DueTo_GasAttack(
-        uint feedIdsLengthSeed
-    ) public {
+    function testFuzz_opPoke_FailsIf_BarNotReached_DueTo_GasAttack(uint feedIdsLengthSeed)
+        public
+    {
         // Note to stay reasonable with calldata load.
         uint feedIdsLength =
             _bound(feedIdsLengthSeed, uint(type(uint8).max) + 1, 1_000);
@@ -647,8 +647,8 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         // 0000000000000000000000000000000000000000000000000000000000000060 // offset(feedIds)
         // 0000000000000000000000000000000000000000000000000000000000000002 // length(feedIds)
         // 2b68000000000000000000000000000000000000000000000000000000000000 // feedIds
-        bytes memory customCalldata = (
-            hex"8928a1f8" // selector
+        bytes memory customCalldata =
+            (hex"8928a1f8" // selector
             hex"0000000000000000000000000000000000000000000000000000000000000020" // struct offset
             hex"fecd661c0731ca99672edb7303a072da3c2b8342e714c2f2a90639b966298958" // signature
             hex"000000000000000000000000026428bf84a659a2d371be1e705613d89d93f78f" // commitment
@@ -656,8 +656,7 @@ abstract contract IScribeOptimisticTest is IScribeTest {
             hex"0000000000000000000000000000000000000000000000000000000000000002" // injected(feedIds).length
             hex"2b2b000000000000000000000000000000000000000000000000000000000000" // injected(feedIds) (double sign)
             hex"0000000000000000000000000000000000000000000000000000000000000002" // length(feedIds)
-            hex"2b68000000000000000000000000000000000000000000000000000000000000"
-        ); // feedIds
+            hex"2b68000000000000000000000000000000000000000000000000000000000000"); // feedIds
 
         (bool success, bytes memory retData) =
             address(opScribe).call(customCalldata);
@@ -737,8 +736,9 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         opScribe.setOpChallengePeriod(0);
     }
 
-    function test_setOpChallengePeriod_DropsFinalizedOpPoke_If_NonFinalizedAfterUpdate(
-    ) public {
+    function test_setOpChallengePeriod_DropsFinalizedOpPoke_If_NonFinalizedAfterUpdate()
+        public
+    {
         LibFeed.Feed[] memory feeds = _liftFeeds(opScribe.bar());
 
         // Execute opPoke.
@@ -807,9 +807,9 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         return feeds;
     }
 
-    function testFuzz_setOpChallengePeriod_IsAfterAuthedActionProtected(
-        bool opPokeFinalized
-    ) public {
+    function testFuzz_setOpChallengePeriod_IsAfterAuthedActionProtected(bool opPokeFinalized)
+        public
+    {
         IScribe.PokeData memory pokeData;
         pokeData.val = 1;
         pokeData.age = uint32(block.timestamp);
@@ -826,9 +826,9 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         opScribe.setOpChallengePeriod(1);
     }
 
-    function testFuzz_drop_Single_IsAfterAuthedActionProtected(
-        bool opPokeFinalized
-    ) public {
+    function testFuzz_drop_Single_IsAfterAuthedActionProtected(bool opPokeFinalized)
+        public
+    {
         IScribe.PokeData memory pokeData;
         pokeData.val = 1;
         pokeData.age = uint32(block.timestamp);
@@ -845,9 +845,9 @@ abstract contract IScribeOptimisticTest is IScribeTest {
         opScribe.drop(feeds[0].id);
     }
 
-    function testFuzz_drop_Multiple_IsAfterAuthedActionProtected(
-        bool opPokeFinalized
-    ) public {
+    function testFuzz_drop_Multiple_IsAfterAuthedActionProtected(bool opPokeFinalized)
+        public
+    {
         IScribe.PokeData memory pokeData;
         pokeData.val = 1;
         pokeData.age = uint32(block.timestamp);
@@ -901,9 +901,9 @@ abstract contract IScribeOptimisticTest is IScribeTest {
     ///      4: finalized opPoke()     + poke()                 -> val is poke()'s val
     ///      5: finalized opPoke()     + finalized opPoke()     -> val is second finalized opPoke()'s val
     ///      6: non-finalized opPoke() + poke()                 -> val is poke()'s val
-    function testFuzz_afterAuthedAction_ProvidesValue_If_MoreThanOncePoked(
-        uint pathSeed
-    ) public {
+    function testFuzz_afterAuthedAction_ProvidesValue_If_MoreThanOncePoked(uint pathSeed)
+        public
+    {
         LibFeed.Feed[] memory feeds = _liftFeeds(opScribe.bar());
 
         uint path = _bound(pathSeed, 0, 6);

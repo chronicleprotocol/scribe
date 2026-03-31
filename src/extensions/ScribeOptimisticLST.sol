@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.16;
+// forgefmt: disable-start
 
 import {IScribeOptimisticLST} from "./IScribeOptimisticLST.sol";
 import {IRateSource} from "./external_/interfaces/IRateSource.sol";
@@ -36,3 +37,5 @@ contract Chronicle_BASE_QUOTE_COUNTER is ScribeOptimisticLST {
         ScribeOptimisticLST(initialAuthed, wat_)
     {}
 }
+
+// forgefmt: disable-end

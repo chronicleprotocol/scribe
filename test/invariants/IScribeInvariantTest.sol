@@ -36,7 +36,9 @@ abstract contract IScribeInvariantTest is Test {
 
         // Set handler as target contract.
         targetSelector(
-            FuzzSelector({addr: address(handler), selectors: _targetSelectors()})
+            FuzzSelector({
+                addr: address(handler), selectors: _targetSelectors()
+            })
         );
         targetContract(address(handler));
     }

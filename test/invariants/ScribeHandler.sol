@@ -96,8 +96,7 @@ contract ScribeHandler is CommonBase, StdUtils {
 
         // Create pokeData.
         IScribe.PokeData memory pokeData = IScribe.PokeData({
-            val: _randPokeDataVal(valSeed),
-            age: _randPokeDataAge(ageSeed)
+            val: _randPokeDataVal(valSeed), age: _randPokeDataAge(ageSeed)
         });
 
         bytes32 pokeMessage = scribe.constructPokeMessage(pokeData);

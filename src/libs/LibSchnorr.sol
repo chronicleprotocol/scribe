@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.16;
+// forgefmt: disable-start
 
 import {LibSecp256k1} from "./LibSecp256k1.sol";
 
@@ -101,3 +102,5 @@ library LibSchnorr {
         return commitment == recovered;
     }
 }
+
+// forgefmt: disable-end

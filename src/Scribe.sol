@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.16;
+// forgefmt: disable-start
 
 import {IChronicle} from "chronicle-std/IChronicle.sol";
 import {Auth} from "chronicle-std/auth/Auth.sol";
@@ -150,7 +151,7 @@ contract Scribe is IScribe, Auth, Toll {
     function _verifySchnorrSignature(
         bytes32 message,
         SchnorrData calldata schnorrData
-    ) internal view returns (bool, bytes memory) {
+    ) internal virtual view returns (bool, bytes memory) {
         // Let feedPubKey be the currently processed feed's public key.
         LibSecp256k1.Point memory feedPubKey;
         // Let feedId be the currently processed feed's id.
@@ -526,3 +527,5 @@ contract Chronicle_BASE_QUOTE_COUNTER is Scribe {
         Scribe(initialAuthed, wat_)
     {}
 }
+
+// forgefmt: disable-end

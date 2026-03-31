@@ -273,7 +273,9 @@ abstract contract IScribeTest is Test {
         LibFeed.Feed memory feed = LibFeed.newFeed({privKey: privKey});
 
         // Don't run test if bad luck and feed already lifted.
-        (bool isFeed, /*feedAddr*/ ) = scribe.feeds(feed.id);
+        (
+            bool isFeed, /*feedAddr*/
+        ) = scribe.feeds(feed.id);
         if (isFeed) return;
 
         // Let index ∊ [0, bar).
@@ -290,9 +292,9 @@ abstract contract IScribeTest is Test {
         assertFalse(ok);
     }
 
-    function testFuzz_isAcceptableSchnorrSignatureNow_FailsIf_SignatureInvalid(
-        uint barSeed
-    ) public {
+    function testFuzz_isAcceptableSchnorrSignatureNow_FailsIf_SignatureInvalid(uint barSeed)
+        public
+    {
         // Let bar ∊ [1, 256).
         uint8 bar = uint8(_bound(barSeed, 1, 256 - 1));
         scribe.setBar(bar);
