@@ -151,7 +151,7 @@ contract Scribe is IScribe, Auth, Toll {
     function _verifySchnorrSignature(
         bytes32 message,
         SchnorrData calldata schnorrData
-    ) internal virtual view returns (bool, bytes memory) {
+    ) internal view returns (bool, bytes memory) {
         // Let feedPubKey be the currently processed feed's public key.
         LibSecp256k1.Point memory feedPubKey;
         // Let feedId be the currently processed feed's id.
