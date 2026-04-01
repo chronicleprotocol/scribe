@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity >=0.8.0;
 
+// forgefmt: disable-start
+
 /**
  * @dev Interest rate oracle interface from [Spark](https://spark.fi/).
  *
@@ -11,3 +13,5 @@ interface IRateSource {
     /// @return The oracle's current APR value.
     function getAPR() external view returns (uint);
 }
+
+// forgefmt: disable-end

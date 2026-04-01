@@ -10,9 +10,9 @@ abstract contract EVMTest is Test {
     ///      index returns 0.
     ///      Note that ScribeOptimistic::opChallenge() requires such an
     ///      expression to _not revert_.
-    function testFuzz_calldataload_ReadingNonExistingCalldataReturnsZero(
-        uint index
-    ) public {
+    function testFuzz_calldataload_ReadingNonExistingCalldataReturnsZero(uint index)
+        public
+    {
         uint minIndex;
         assembly ("memory-safe") {
             minIndex := calldatasize()

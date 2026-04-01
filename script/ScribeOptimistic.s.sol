@@ -7,8 +7,9 @@ import {IToll} from "chronicle-std/toll/IToll.sol";
 
 import {IScribe} from "src/IScribe.sol";
 import {IScribeOptimistic} from "src/IScribeOptimistic.sol";
-import {Chronicle_BASE_QUOTE_COUNTER as ScribeOptimistic} from
-    "src/ScribeOptimistic.sol";
+import {
+    Chronicle_BASE_QUOTE_COUNTER as ScribeOptimistic
+} from "src/ScribeOptimistic.sol";
 // @todo          ^^^^ ^^^^^ ^^^^^^^ Adjust name of Scribe instance.
 
 import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
@@ -134,7 +135,9 @@ contract ScribeOptimisticScript is ScribeScript {
         // Require self to be deactivated.
         {
             vm.prank(address(0));
-            (bool ok, /*val*/ ) = IScribe(self).tryRead();
+            (
+                bool ok, /*val*/
+            ) = IScribe(self).tryRead();
             require(!ok, "Instance not deactivated: read() does not fail");
 
             require(
@@ -173,16 +176,14 @@ contract ScribeOptimisticScript is ScribeScript {
             IScribe.SchnorrData(bytes32(0), address(0), hex"");
 
         // Construct opPokeMessage.
-        bytes32 opPokeMessage = IScribeOptimistic(self).constructOpPokeMessage(
-            pokeData, schnorrData
-        );
+        bytes32 opPokeMessage = IScribeOptimistic(self)
+            .constructOpPokeMessage(pokeData, schnorrData);
 
         // Let feed sign opPokeMessage.
         IScribe.ECDSAData memory opPokeSig = feed.signECDSA(opPokeMessage);
 
         // Rescue ETH via rescuer contract.
-        Rescuer(payable(rescuer)).suck(
-            self, feed.pubKey, registrationSig, pokeDataAge, opPokeSig
-        );
+        Rescuer(payable(rescuer))
+            .suck(self, feed.pubKey, registrationSig, pokeDataAge, opPokeSig);
     }
 }

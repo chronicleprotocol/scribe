@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.16;
+// forgefmt: disable-start
 
 import {IScribe} from "./IScribe.sol";
 
@@ -174,3 +175,5 @@ interface IScribeOptimistic is IScribe {
     /// @param maxChallengeReward The value to update maxChallengeReward to.
     function setMaxChallengeReward(uint maxChallengeReward) external;
 }
+
+// forgefmt: disable-end

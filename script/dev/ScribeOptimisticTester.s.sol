@@ -78,9 +78,8 @@ contract ScribeOptimisticTesterScript is ScribeTesterScript {
 
         IScribe.ECDSAData memory ecdsaData;
         ecdsaData = signer.signECDSA(
-            IScribeOptimistic(self).constructOpPokeMessage(
-                pokeData, schnorrData
-            )
+            IScribeOptimistic(self)
+                .constructOpPokeMessage(pokeData, schnorrData)
         );
 
         vm.startBroadcast();
@@ -155,9 +154,8 @@ contract ScribeOptimisticTesterScript is ScribeTesterScript {
 
         IScribe.ECDSAData memory ecdsaData;
         ecdsaData = signer.signECDSA(
-            IScribeOptimistic(self).constructOpPokeMessage(
-                pokeData, schnorrData
-            )
+            IScribeOptimistic(self)
+                .constructOpPokeMessage(pokeData, schnorrData)
         );
 
         vm.startBroadcast();
@@ -210,9 +208,8 @@ contract ScribeOptimisticTesterScript is ScribeTesterScript {
         bytes32 pokeMessage = IScribe(self).constructPokeMessage(pokeData);
 
         // Check whether schnorrData is not acceptable.
-        bool ok = IScribe(self).isAcceptableSchnorrSignatureNow(
-            pokeMessage, schnorrData
-        );
+        bool ok = IScribe(self)
+            .isAcceptableSchnorrSignatureNow(pokeMessage, schnorrData);
         if (ok) {
             console2.log(
                 "Schnorr signature is acceptable: expecting opChallenge to be unsuccessful"

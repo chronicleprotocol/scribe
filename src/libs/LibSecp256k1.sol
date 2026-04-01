@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.16;
 
+// forgefmt: disable-start
+
 /**
  * @title LibSecp256k1
  *
@@ -359,3 +361,5 @@ library LibSecp256k1 {
         return t;
     }
 }
+
+// forgefmt: disable-end

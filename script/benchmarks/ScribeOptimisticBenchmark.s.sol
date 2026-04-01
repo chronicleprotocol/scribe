@@ -113,8 +113,7 @@ contract ScribeOptimisticBenchmark is Script {
         // Create pokeData.
         // Note to use max value for val to have highest possible gas costs.
         IScribe.PokeData memory pokeData = IScribe.PokeData({
-            val: type(uint128).max,
-            age: uint32(block.timestamp)
+            val: type(uint128).max, age: uint32(block.timestamp)
         });
 
         // Create schnorrData.
@@ -135,8 +134,7 @@ contract ScribeOptimisticBenchmark is Script {
         // Create pokeData.
         // Note to use max value for val to have highest possible gas costs.
         IScribe.PokeData memory pokeData = IScribe.PokeData({
-            val: type(uint128).max,
-            age: uint32(block.timestamp)
+            val: type(uint128).max, age: uint32(block.timestamp)
         });
 
         // Create schnorrData.
@@ -164,8 +162,7 @@ contract ScribeOptimisticBenchmark is Script {
         // Create pokeData.
         // Note to use max value for val to have highest possible gas costs.
         IScribe.PokeData memory pokeData = IScribe.PokeData({
-            val: type(uint128).max,
-            age: uint32(block.timestamp)
+            val: type(uint128).max, age: uint32(block.timestamp)
         });
 
         // Create schnorrData.

@@ -53,8 +53,9 @@ contract ScribeOptimisticTest is IScribeOptimisticTest {
 // -- Extensions
 
 import {ScribeOptimisticLST} from "src/extensions/ScribeOptimisticLST.sol";
-import {IScribeOptimisticLSTTest} from
-    "./extensions/IScribeOptimisticLSTTest.sol";
+import {
+    IScribeOptimisticLSTTest
+} from "./extensions/IScribeOptimisticLSTTest.sol";
 
 contract ScribeOptimisticLSTTest is IScribeOptimisticLSTTest {
     function setUp() public {

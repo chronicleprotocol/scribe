@@ -357,7 +357,9 @@ contract ScribeScript is Script {
         // Require self to be deactivated.
         {
             vm.prank(address(0));
-            (bool ok, /*val*/ ) = IScribe(self).tryRead();
+            (
+                bool ok, /*val*/
+            ) = IScribe(self).tryRead();
             require(!ok, "Instance not deactivated: read() does not fail");
 
             require(
