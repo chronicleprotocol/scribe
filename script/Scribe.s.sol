@@ -17,6 +17,8 @@ import {LibSecp256k1} from "src/libs/LibSecp256k1.sol";
 import {LibRandom} from "./libs/LibRandom.sol";
 import {LibFeed} from "./libs/LibFeed.sol";
 
+import {ScribeOffboarder} from "./offboard/ScribeOffboarder.sol";
+
 /**
  * @notice Scribe Management Script
  */
@@ -268,6 +270,36 @@ contract ScribeScript is Script {
     }
 
     // -- Offboarding Functions --
+
+    /// @dev Offboards instance `scribe` via `ScribeOffboarder` instance
+    ///      `offboarder` in a single transaction.
+    ///
+    /// @dev Offboarding drops every currently-lifted feed, sets bar to 1,
+    ///      and pokes value 0. After the call `scribe.read()` reverts and
+    ///      no feed is lifted, so no future poke can verify.
+    ///
+    /// @dev Expects:
+    ///      - `offboarder` to hold `auth` on `scribe`
+    ///      - `msg.sender` to hold `auth` on `offboarder`
+    ///
+    /// @dev Note that `auth`'ed addresses on `scribe` are untouched. To make
+    ///      the deactivation permanent, follow up with `kill(scribe)`.
+    function offboard(address offboarder, address scribe) public {
+        (
+            uint8[] memory feedIds,
+            uint32 pokeAge,
+            bytes32 signature,
+            address commitment
+        ) = ScribeOffboarder(offboarder).computeOffboardArgs(scribe);
+
+        vm.startBroadcast();
+        ScribeOffboarder(offboarder).offboard(
+            scribe, feedIds, pokeAge, signature, commitment
+        );
+        vm.stopBroadcast();
+
+        console2.log("Offboarded", scribe);
+    }
 
     /// @dev Step 1 of deactivating instance `self`.
     ///

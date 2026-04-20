@@ -20,6 +20,7 @@ This document describes how to manage deployed `Scribe` and `ScribeOptimistic` i
     - [`IToll::kiss`](#itollkiss)
     - [`IToll::diss`](#itolldiss)
   - [Offboarding](#offboarding)
+    - [Offboard via `ScribeOffboarder`](#offboard-via-scribeoffboarder)
     - [Deactivation](#deactivation)
     - [Fund Rescue](#fund-resuce)
     - [Killing](#killing)
@@ -285,6 +286,39 @@ $ forge script \
 Offboarding a Scribe(Optimistic) instance simply means _Chronicle Protocol_ is not guaranteeing pokes anymore, ie the oracle is not being updated anymore.
 
 However, to ensure an offboarded Scribe(Optimistic) instance may not behave unexpectedly it needs to be deactivated. Furthermore, if the contract is a ScribeOptimistic instance ETH held by the contract may need to be rescued. If its certain the contract will never be used again it is recommended to kill it.
+
+A Scribe(Optimistic) instance can be deactivated in two ways:
+
+- In a single transaction via a deployed [`ScribeOffboarder`](#offboard-via-scribeoffboarder) contract that holds `auth` on the instance.
+- Via two distinct `forge script` [deactivation](#deactivation) commands signed by an `auth`'ed EOA.
+
+### Offboard via `ScribeOffboarder`
+
+Offboarding through a `ScribeOffboarder` instance drops every currently-lifted feed, sets `bar` to `1`, and pokes value `0` in a single transaction. After the call, `read()` reverts and no feed is lifted, so no future poke can verify.
+
+Expects:
+
+- `OFFBOARDER` is a deployed `ScribeOffboarder` instance that holds `auth` on `SCRIBE`.
+- The caller holds `auth` on `OFFBOARDER`.
+
+Set the additional environment variable:
+
+- `OFFBOARDER`: The `ScribeOffboarder` instance to offboard `SCRIBE` with.
+
+Run:
+
+```bash
+$ forge script \
+    --keystore "$KEYSTORE" \
+    --password "$KEYSTORE_PASSWORD" \
+    --broadcast \
+    --rpc-url "$RPC_URL" \
+    --sig $(cast calldata "offboard(address,address)" "$OFFBOARDER" "$SCRIBE") \
+    -vvv \
+    script/${SCRIBE_FLAVOUR}.s.sol:${SCRIBE_FLAVOUR}Script
+```
+
+Note that `auth`'ed addresses on `SCRIBE` are untouched by `offboard` — to make the deactivation permanent, follow up with [`kill`](#killing).
 
 ### Deactivation
 
