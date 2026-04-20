@@ -105,10 +105,6 @@ contract ScribeOffboarderTest is Test {
     // -----------------------------------------------------------------------------
     // Value zeroing
 
-    /// @dev After offboard, the scribe's stored value MUST be zero — this
-    ///      is what makes `read()` revert permanently. The offboarder
-    ///      contract also has a runtime paranoia check for this, so this
-    ///      test doubles as coverage for that check's success path.
     function testFuzz_offboard_zeroesValue(uint8 nFeeds, uint64 seedSalt)
         public
     {
