@@ -108,7 +108,7 @@ contract ScribeOffboarder is Auth {
     ///         offboarder feed, and raises bar = 255.
     function offboard(address scribe) external auth {
         require(IAuth(scribe).authed(address(this)));
-        
+
         IScribe target = IScribe(scribe);
 
         // Drop every currently-lifted feed.
