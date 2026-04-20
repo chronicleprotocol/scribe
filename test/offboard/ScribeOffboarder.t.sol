@@ -32,19 +32,12 @@ contract ScribeOffboarderTest is Test {
     }
 
     // -----------------------------------------------------------------------------
-    // Pre-signed offboard (computeSchnorrSig + offboard(scribe, pokeAge, sig, com))
+    // Offboard
 
     function test_offboard() public {
         _liftRandomFeeds(3, 0xBEEF);
 
-        (
-            uint8[] memory feedIds,
-            uint32 pokeAge,
-            bytes32 sig,
-            address commitment
-        ) = offboarder.computeOffboardArgs(address(scribe));
-
-        offboarder.offboard(address(scribe), feedIds, pokeAge, sig, commitment);
+        offboarder.offboard(address(scribe));
 
         assertEq(scribe.feeds().length, 0);
         assertEq(scribe.bar(), type(uint8).max);
@@ -63,14 +56,7 @@ contract ScribeOffboarderTest is Test {
         _liftRandomFeeds(nFeeds, uint(seedSalt) | 1);
         vm.warp(block.timestamp + timeAdvance);
 
-        (
-            uint8[] memory feedIds,
-            uint32 pokeAge,
-            bytes32 sig,
-            address commitment
-        ) = offboarder.computeOffboardArgs(address(scribe));
-
-        offboarder.offboard(address(scribe), feedIds, pokeAge, sig, commitment);
+        offboarder.offboard(address(scribe));
 
         assertEq(scribe.feeds().length, 0);
         assertEq(scribe.bar(), type(uint8).max);
@@ -83,23 +69,14 @@ contract ScribeOffboarderTest is Test {
     // -----------------------------------------------------------------------------
     // Auth Protection
 
-    function testFuzz_offboard_presigned_isAuthProtected(address caller)
-        public
-    {
+    function testFuzz_offboard_isAuthProtected(address caller) public {
         vm.assume(!IAuth(address(offboarder)).authed(caller));
-
-        (
-            uint8[] memory feedIds,
-            uint32 pokeAge,
-            bytes32 sig,
-            address commitment
-        ) = offboarder.computeOffboardArgs(address(scribe));
 
         vm.prank(caller);
         vm.expectRevert(
             abi.encodeWithSelector(IAuth.NotAuthorized.selector, caller)
         );
-        offboarder.offboard(address(scribe), feedIds, pokeAge, sig, commitment);
+        offboarder.offboard(address(scribe));
     }
 
     // -----------------------------------------------------------------------------
@@ -111,9 +88,7 @@ contract ScribeOffboarderTest is Test {
         nFeeds = uint8(bound(nFeeds, 0, 32));
         _liftRandomFeeds(nFeeds, uint(seedSalt) | 1);
 
-        (uint8[] memory feedIds, uint32 pokeAge, bytes32 sig, address com) =
-            offboarder.computeOffboardArgs(address(scribe));
-        offboarder.offboard(address(scribe), feedIds, pokeAge, sig, com);
+        offboarder.offboard(address(scribe));
 
         (bool ok, uint val) = scribe.tryRead();
         assertFalse(ok, "tryRead should report invalid");

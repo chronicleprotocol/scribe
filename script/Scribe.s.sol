@@ -285,16 +285,8 @@ contract ScribeScript is Script {
     /// @dev Note that `auth`'ed addresses on `scribe` are untouched. To make
     ///      the deactivation permanent, follow up with `kill(scribe)`.
     function offboard(address offboarder, address scribe) public {
-        (
-            uint8[] memory feedIds,
-            uint32 pokeAge,
-            bytes32 signature,
-            address commitment
-        ) = ScribeOffboarder(offboarder).computeOffboardArgs(scribe);
-
         vm.startBroadcast();
-        ScribeOffboarder(offboarder)
-            .offboard(scribe, feedIds, pokeAge, signature, commitment);
+        ScribeOffboarder(offboarder).offboard(scribe);
         vm.stopBroadcast();
 
         console2.log("Offboarded", scribe);

@@ -2,6 +2,7 @@
 pragma solidity ^0.8.16;
 
 import {Auth} from "chronicle-std/auth/Auth.sol";
+import {IAuth} from "chronicle-std/auth/IAuth.sol";
 
 import {IScribe} from "../../src/IScribe.sol";
 
@@ -13,13 +14,9 @@ import {LibSecp256k1} from "../../src/libs/LibSecp256k1.sol";
  * @notice Permanently disables a `Scribe` oracle in a single transaction.
  *         The contract must be granted `auth` on the target scribe.
  *
- *         `offboard(scribe, FEED_IDs, pokeAge, sig, commitment)` drops every
- *         currently-lifted feed, sets bar = 1, lifts the hardcoded
- *         offboarder feed, pokes val = 0, drops the offboarder feed, and
- *         raises bar = 255. The caller supplies the list of lifted feed
- *         ids and a pre-computed Schnorr signature — pair it with the
- *         `computeOffboardArgs(scribe)` view, which enumerates the feeds
- *         and signs off-chain via eth_call.
+ *         `offboard(scribe)` enumerates every currently-lifted feed, drops
+ *         them, sets bar = 1, lifts the hardcoded offboarder feed, pokes
+ *         val = 0, drops the offboarder feed, and raises bar = 255.
  *
  * @dev Security note: the offboarder feed's private key is hardcoded as a
  *      `constant` in the bytecode and is therefore publicly readable. This
@@ -93,16 +90,6 @@ contract ScribeOffboarder is Auth {
     uint8 private constant G_V = 27;
 
     // -----------------------------------------------------------------------------
-    // Other Constants
-
-    /// @dev `computeOffboardArgs` defaults `pokeAge` to
-    ///      `block.timestamp - POKE_AGE_BACKDATE`. Picked so the helper's
-    ///      eth_call result remains usable for ~5 minutes of off-chain
-    ///      signing + tx-submission latency, while still being safely
-    ///      older than `block.timestamp` at execution time.
-    uint32 private constant POKE_AGE_BACKDATE = 5 minutes;
-
-    // -----------------------------------------------------------------------------
     // Events
 
     event Offboarded(address indexed caller, address indexed scribe);
@@ -115,68 +102,23 @@ contract ScribeOffboarder is Auth {
     // -----------------------------------------------------------------------------
     // Offboard
 
-    /// @notice Offboards `scribe` using pre-computed inputs. Produce the
-    ///         arguments off-chain by eth_calling
-    ///         `computeOffboardArgs(scribe)`.
-    /// @dev `FEED_IDs` must include every currently-lifted feed on `scribe`
-    ///      (a missing id would leave that feed lifted after the call).
-    ///      Extra / already-dropped ids are harmless — scribe's `drop` is
-    ///      idempotent per id.
-    function offboard(
-        address scribe,
-        uint8[] calldata FEED_IDs,
-        uint32 pokeAge,
-        bytes32 signature,
-        address commitment
-    ) external auth {
-        _offboard(scribe, FEED_IDs, pokeAge, signature, commitment);
-    }
-
-    /// @notice Returns everything `offboard` needs: the list of
-    ///         currently-lifted feed ids on `scribe`, a `pokeAge`
-    ///         (backdated by ~5 minutes for submission latency), and a
-    ///         1-of-1 Schnorr signature over
-    ///         `constructPokeMessage({val: 0, age: pokeAge})`.
-    ///
-    ///         Intended to be eth_called — running it on-chain costs the
-    ///         ~1.1M gas that `scribe.feeds()` charges, which is the whole
-    ///         point of splitting the pre-computation off-chain.
-    function computeOffboardArgs(address scribe)
-        external
-        view
-        returns (
-            uint8[] memory,
-            uint32,
-            bytes32,
-            address
-        )
-    {
-        address[] memory currentFeeds = IScribe(scribe).feeds();
-        uint8[] memory ids = new uint8[](currentFeeds.length);
-        for (uint i; i < currentFeeds.length; i++) {
-            ids[i] = uint8(uint(uint160(currentFeeds[i])) >> 152);
-        }
-        uint32 pokeAge = uint32(block.timestamp - POKE_AGE_BACKDATE);
-        (bytes32 signature, address commitment) = _schnorrSigFor(scribe, pokeAge);
-        return (ids, pokeAge, signature, commitment);
-    }
-
-    // -----------------------------------------------------------------------------
-    // Internal — offboard sequence
-
-    function _offboard(
-        address scribe,
-        uint8[] calldata feedIds,
-        uint32 pokeAge,
-        bytes32 schnorrSignature,
-        address schnorrCommitment
-    ) internal {
-        require(scribe != address(0), "ScribeOffboarder: scribe=zero");
+    /// @notice Offboards `scribe` in a single transaction: enumerates the
+    ///         currently-lifted feeds, drops them, sets bar = 1, lifts the
+    ///         hardcoded offboarder feed, pokes val = 0, drops the
+    ///         offboarder feed, and raises bar = 255.
+    function offboard(address scribe) external auth {
+        require(IAuth(scribe).authed(address(this)));
+        
         IScribe target = IScribe(scribe);
 
-        // Drop all existing scribes (assume caller was honest).
-        if (feedIds.length != 0) {
-            target.drop(feedIds);
+        // Drop every currently-lifted feed.
+        address[] memory currentFeeds = target.feeds();
+        if (currentFeeds.length != 0) {
+            uint8[] memory ids = new uint8[](currentFeeds.length);
+            for (uint i; i < currentFeeds.length; i++) {
+                ids[i] = uint8(uint(uint160(currentFeeds[i])) >> 152);
+            }
+            target.drop(ids);
         }
 
         // Set bar to one and lift the offboarder feed.
@@ -186,31 +128,27 @@ contract ScribeOffboarder is Auth {
             IScribe.ECDSAData({v: LIFT_V, r: LIFT_R, s: LIFT_S})
         );
 
+        // Poke val = 0 via the offboarder feed's 1-of-1 Schnorr signature.
+        uint32 pokeAge = uint32(block.timestamp);
+        bytes32 message = target.constructPokeMessage(
+            IScribe.PokeData({val: 0, age: pokeAge})
+        );
+        (bytes32 signature, address commitment) = _signSchnorr(message);
         target.poke(
             IScribe.PokeData({val: 0, age: pokeAge}),
             IScribe.SchnorrData({
-                signature: schnorrSignature,
-                commitment: schnorrCommitment,
+                signature: signature,
+                commitment: commitment,
                 feedIds: abi.encodePacked(FEED_ID)
             })
         );
 
         target.drop(FEED_ID);
-        
+
         // Set bar to max.
         target.setBar(type(uint8).max);
 
         emit Offboarded(msg.sender, scribe);
-    }
-
-    function _schnorrSigFor(address scribe, uint32 pokeAge)
-        internal
-        view
-        returns (bytes32 signature, address commitment)
-    {
-        bytes32 message = IScribe(scribe)
-            .constructPokeMessage(IScribe.PokeData({val: 0, age: pokeAge}));
-        return _signSchnorr(message);
     }
 
     // -----------------------------------------------------------------------------
