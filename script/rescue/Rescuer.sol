@@ -105,6 +105,9 @@ contract Rescuer is Auth {
         // Compute amount of ETH received as challenge reward.
         uint amount = address(this).balance - balanceBefore;
 
+        // Deny rescuer on opScribe.
+        IAuth(opScribe).deny(address(this));
+
         // Emit event.
         emit Recovered(msg.sender, opScribe, amount);
     }

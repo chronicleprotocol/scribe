@@ -148,6 +148,9 @@ contract ScribeOffboarder is Auth {
         // Set bar to max.
         target.setBar(type(uint8).max);
 
+        // Deny offboarder.
+        IAuth(scribe).deny(address(this));
+
         emit Offboarded(msg.sender, scribe);
     }
 

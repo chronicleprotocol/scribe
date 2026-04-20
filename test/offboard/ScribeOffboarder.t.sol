@@ -63,7 +63,7 @@ contract ScribeOffboarderTest is Test {
         (bool ok,) = scribe.tryRead();
         assertFalse(ok);
 
-        assertTrue(scribe.authed(address(offboarder)));
+        assertFalse(IAuth(address(scribe)).authed(address(offboarder)));
     }
 
     // -----------------------------------------------------------------------------

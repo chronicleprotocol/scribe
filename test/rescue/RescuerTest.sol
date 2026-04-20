@@ -77,6 +77,9 @@ contract RescuerTest is Test {
 
         // Verify feed got kicked.
         assertFalse(opScribe.feeds(feed.pubKey.toAddress()));
+
+        // Verify rescuer renounced auth on opScribe.
+        assertFalse(IAuth(address(opScribe)).authed(address(rescuer)));
     }
 
     function testFuzz_suck_FailsIf_RescuerNotAuthedOnOpScribe(uint privKeySeed)
