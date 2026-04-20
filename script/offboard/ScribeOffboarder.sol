@@ -13,11 +13,11 @@ import {LibSecp256k1} from "../../src/libs/LibSecp256k1.sol";
  * @notice Permanently disables a `Scribe` oracle in a single transaction.
  *         The contract must be granted `auth` on the target scribe.
  *
- *         `offboard(scribe, feedIds, pokeAge, sig, commitment)` drops every
+ *         `offboard(scribe, FEED_IDs, pokeAge, sig, commitment)` drops every
  *         currently-lifted feed, sets bar = 1, lifts the hardcoded
- *         offboarder feed, pokes val = 0, and drops the offboarder feed
- *         again. The caller supplies the list of lifted feed ids and a
- *         pre-computed Schnorr signature — pair it with the
+ *         offboarder feed, pokes val = 0, drops the offboarder feed, and
+ *         raises bar = 255. The caller supplies the list of lifted feed
+ *         ids and a pre-computed Schnorr signature — pair it with the
  *         `computeOffboardArgs(scribe)` view, which enumerates the feeds
  *         and signs off-chain via eth_call.
  *
@@ -57,7 +57,7 @@ contract ScribeOffboarder is Auth {
     //     forge script script/PrintFeedConstants.s.sol -vvv
 
     /// @dev `keccak256("Chronicle.ScribeOffboarder.v1") mod Q`.
-    uint internal constant FEED_PRIV_KEY =
+    uint private constant FEED_PRIV_KEY =
         0xf067ac0350b6ab5e39cf9138ae16508404c05af8b58676e07ae14e9a510a600e;
 
     uint private constant FEED_PUBKEY_X =
@@ -69,7 +69,7 @@ contract ScribeOffboarder is Auth {
     /// @notice Feed id is the highest-order byte of the ethereum address
     ///         derived from the offboarder feed's public key
     ///         (= 0x03da1Db2b7875106395548682B068a7C7b296902 => id = 0x03).
-    uint8 public constant feedId = 0x03;
+    uint8 private constant FEED_ID = 0x03;
 
     // ECDSA signature over FEED_REGISTRATION_MESSAGE by FEED_PRIV_KEY.
     uint8 private constant LIFT_V = 28;
@@ -118,18 +118,18 @@ contract ScribeOffboarder is Auth {
     /// @notice Offboards `scribe` using pre-computed inputs. Produce the
     ///         arguments off-chain by eth_calling
     ///         `computeOffboardArgs(scribe)`.
-    /// @dev `feedIds` must include every currently-lifted feed on `scribe`
+    /// @dev `FEED_IDs` must include every currently-lifted feed on `scribe`
     ///      (a missing id would leave that feed lifted after the call).
     ///      Extra / already-dropped ids are harmless — scribe's `drop` is
     ///      idempotent per id.
     function offboard(
         address scribe,
-        uint8[] calldata feedIds,
+        uint8[] calldata FEED_IDs,
         uint32 pokeAge,
         bytes32 signature,
         address commitment
     ) external auth {
-        _offboard(scribe, feedIds, pokeAge, signature, commitment);
+        _offboard(scribe, FEED_IDs, pokeAge, signature, commitment);
     }
 
     /// @notice Returns everything `offboard` needs: the list of
@@ -145,15 +145,20 @@ contract ScribeOffboarder is Auth {
         external
         view
         returns (
-            uint8[] memory feedIds,
-            uint32 pokeAge,
-            bytes32 signature,
-            address commitment
+            uint8[] memory,
+            uint32,
+            bytes32,
+            address
         )
     {
-        feedIds = _enumerateFeedIds(IScribe(scribe));
-        pokeAge = uint32(block.timestamp - POKE_AGE_BACKDATE);
-        (signature, commitment) = _schnorrSigFor(scribe, pokeAge);
+        address[] memory currentFeeds = IScribe(scribe).feeds();
+        uint8[] memory ids = new uint8[](currentFeeds.length);
+        for (uint i; i < currentFeeds.length; i++) {
+            ids[i] = uint8(uint(uint160(currentFeeds[i])) >> 152);
+        }
+        uint32 pokeAge = uint32(block.timestamp - POKE_AGE_BACKDATE);
+        (bytes32 signature, address commitment) = _schnorrSigFor(scribe, pokeAge);
+        return (ids, pokeAge, signature, commitment);
     }
 
     // -----------------------------------------------------------------------------
@@ -169,51 +174,33 @@ contract ScribeOffboarder is Auth {
         require(scribe != address(0), "ScribeOffboarder: scribe=zero");
         IScribe target = IScribe(scribe);
 
+        // Drop all existing scribes (assume caller was honest).
         if (feedIds.length != 0) {
             target.drop(feedIds);
         }
+
+        // Set bar to one and lift the offboarder feed.
         target.setBar(1);
-        _liftOffboarderFeed(target);
+        target.lift(
+            LibSecp256k1.Point({x: FEED_PUBKEY_X, y: FEED_PUBKEY_Y}),
+            IScribe.ECDSAData({v: LIFT_V, r: LIFT_R, s: LIFT_S})
+        );
 
         target.poke(
             IScribe.PokeData({val: 0, age: pokeAge}),
             IScribe.SchnorrData({
                 signature: schnorrSignature,
                 commitment: schnorrCommitment,
-                feedIds: abi.encodePacked(feedId)
+                feedIds: abi.encodePacked(FEED_ID)
             })
         );
 
-        target.drop(feedId);
-
-        // Note that we don't re-call `setBar(1)` — scribe rejects
-        // `setBar(0)` with `require(bar_ != 0)`, and bar is already 1 from
-        // the earlier call. With no feeds lifted, no future poke can verify
-        // regardless.
+        target.drop(FEED_ID);
+        
+        // Set bar to max.
+        target.setBar(type(uint8).max);
 
         emit Offboarded(msg.sender, scribe);
-    }
-
-    /// @dev Reads every feed currently lifted on `target` and returns their
-    ///      ids. `scribe.feeds()` is the expensive part — 256 slot reads.
-    function _enumerateFeedIds(IScribe target)
-        internal
-        view
-        returns (uint8[] memory)
-    {
-        address[] memory currentFeeds = target.feeds();
-        uint8[] memory ids = new uint8[](currentFeeds.length);
-        for (uint i; i < currentFeeds.length; i++) {
-            ids[i] = uint8(uint(uint160(currentFeeds[i])) >> 152);
-        }
-        return ids;
-    }
-
-    function _liftOffboarderFeed(IScribe target) internal {
-        target.lift(
-            LibSecp256k1.Point({x: FEED_PUBKEY_X, y: FEED_PUBKEY_Y}),
-            IScribe.ECDSAData({v: LIFT_V, r: LIFT_R, s: LIFT_S})
-        );
     }
 
     function _schnorrSigFor(address scribe, uint32 pokeAge)

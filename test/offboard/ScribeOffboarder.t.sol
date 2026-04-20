@@ -47,7 +47,7 @@ contract ScribeOffboarderTest is Test {
         offboarder.offboard(address(scribe), feedIds, pokeAge, sig, commitment);
 
         assertEq(scribe.feeds().length, 0);
-        assertEq(scribe.bar(), 1);
+        assertEq(scribe.bar(), type(uint8).max);
         (bool ok,) = scribe.tryRead();
         assertFalse(ok);
     }
@@ -73,7 +73,7 @@ contract ScribeOffboarderTest is Test {
         offboarder.offboard(address(scribe), feedIds, pokeAge, sig, commitment);
 
         assertEq(scribe.feeds().length, 0);
-        assertEq(scribe.bar(), 1);
+        assertEq(scribe.bar(), type(uint8).max);
         (bool ok,) = scribe.tryRead();
         assertFalse(ok);
 
@@ -121,13 +121,6 @@ contract ScribeOffboarderTest is Test {
 
         vm.expectRevert();
         scribe.read();
-    }
-
-    // -----------------------------------------------------------------------------
-    // View Sanity
-
-    function test_constants() public {
-        assertEq(offboarder.feedId(), OFFBOARDER_FEED_ID);
     }
 
     // -----------------------------------------------------------------------------
