@@ -293,9 +293,8 @@ contract ScribeScript is Script {
         ) = ScribeOffboarder(offboarder).computeOffboardArgs(scribe);
 
         vm.startBroadcast();
-        ScribeOffboarder(offboarder).offboard(
-            scribe, feedIds, pokeAge, signature, commitment
-        );
+        ScribeOffboarder(offboarder)
+            .offboard(scribe, feedIds, pokeAge, signature, commitment);
         vm.stopBroadcast();
 
         console2.log("Offboarded", scribe);
