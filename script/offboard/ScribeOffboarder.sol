@@ -48,10 +48,6 @@ contract ScribeOffboarder is Auth {
     // FEED_REGISTRATION_MESSAGE is a Scribe protocol constant (see
     // `Scribe.feedRegistrationMessage`), so the ECDSA signature below is
     // valid against every Scribe deployment.
-    //
-    // To regenerate / verify these values, run:
-    //
-    //     forge script script/offboard/PrintFeedConstants.s.sol -vvv
 
     /// @dev `keccak256("Chronicle.ScribeOffboarder.v1") mod Q`.
     uint private constant FEED_PRIV_KEY =
