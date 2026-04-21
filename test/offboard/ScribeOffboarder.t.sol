@@ -119,8 +119,6 @@ contract ScribeOffboarderTest is Test {
         bytes32 reg = scribe.feedRegistrationMessage();
 
         uint bloom;
-        bloom |= 1 << OFFBOARDER_FEED_ID; // reserve
-
         uint pk = seed;
         uint tried;
         while (lifted < n && tried < 1024) {

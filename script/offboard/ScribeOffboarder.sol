@@ -51,7 +51,7 @@ contract ScribeOffboarder is Auth {
     //
     // To regenerate / verify these values, run:
     //
-    //     forge script script/PrintFeedConstants.s.sol -vvv
+    //     forge script script/offboard/PrintFeedConstants.s.sol -vvv
 
     /// @dev `keccak256("Chronicle.ScribeOffboarder.v1") mod Q`.
     uint private constant FEED_PRIV_KEY =
