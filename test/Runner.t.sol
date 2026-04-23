@@ -26,6 +26,31 @@ contract ScribeInvariantTest is IScribeInvariantTest {
     }
 }
 
+// -- Test: ScribeRouter --
+
+import {ScribeRouter} from "src/ScribeRouter.sol";
+import {IScribeRouter} from "src/IScribeRouter.sol";
+
+import {IScribeRouterTest} from "./IScribeRouterTest.sol";
+
+contract ScribeRouterTest is IScribeRouterTest {
+    function setUp() public {
+        setUp(address(new ScribeRouter(address(this), "ETH/USD")));
+    }
+}
+
+// -- Test: ScribeFactory --
+
+import {ScribeFactory} from "src/ScribeFactory.sol";
+
+import {IScribeFactoryTest} from "./IScribeFactoryTest.sol";
+
+contract ScribeFactoryTest is IScribeFactoryTest {
+    function setUp() public {
+        setUp(address(new ScribeFactory(address(this))));
+    }
+}
+
 // -- Extensions
 
 import {ScribeLST} from "src/extensions/ScribeLST.sol";
