@@ -160,6 +160,10 @@ abstract contract IScribeFactoryTest is Test {
 
         // Factory denied.
         assertFalse(IAuth(scribe).authed(address(factory)));
+
+        // Tracked as scribe, not as router.
+        assertTrue(factory.isScribe(scribe));
+        assertFalse(factory.isRouter(scribe));
     }
 
     // -- Test: plantRouter --
@@ -192,6 +196,10 @@ abstract contract IScribeFactoryTest is Test {
 
         // Scribe not set.
         assertEq(IScribeRouter(router).scribe(), address(0));
+
+        // Tracked as router, not as scribe.
+        assertTrue(factory.isRouter(router));
+        assertFalse(factory.isScribe(router));
     }
 
     // -- Test: plantScribeWithRouter --
@@ -236,6 +244,10 @@ abstract contract IScribeFactoryTest is Test {
         // Factory denied.
         assertFalse(IAuth(scribe).authed(address(factory)));
 
+        // Tracked as scribe, not as router.
+        assertTrue(factory.isScribe(scribe));
+        assertFalse(factory.isRouter(scribe));
+
         // -- ScribeRouter Checks
 
         // Name set.
@@ -254,6 +266,10 @@ abstract contract IScribeFactoryTest is Test {
 
         // Factory denied.
         assertFalse(IAuth(router).authed(address(factory)));
+
+        // Tracked as router, not as scribe.
+        assertTrue(factory.isRouter(router));
+        assertFalse(factory.isScribe(router));
     }
 
     // -- Test: Toll Protection --

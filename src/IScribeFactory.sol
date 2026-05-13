@@ -66,4 +66,16 @@ interface IScribeFactory {
     function plantRouter(ScribeRouterConfig calldata cfg)
         external
         returns (address);
+
+    /// @notice Returns whether `addr` is a Scribe instance deployed by this
+    ///         factory.
+    /// @param addr The address to query.
+    /// @return True if `addr` was deployed as a Scribe by this factory.
+    function isScribe(address addr) external view returns (bool);
+
+    /// @notice Returns whether `addr` is a ScribeRouter instance deployed by
+    ///         this factory.
+    /// @param addr The address to query.
+    /// @return True if `addr` was deployed as a ScribeRouter by this factory.
+    function isRouter(address addr) external view returns (bool);
 }

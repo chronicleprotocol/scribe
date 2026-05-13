@@ -21,6 +21,12 @@ import {LibSecp256k1} from "./libs/LibSecp256k1.sol";
  * @custom:security-contact security@chroniclelabs.org
  */
 contract ScribeFactory is IScribeFactory, Auth, Toll {
+    /// @inheritdoc IScribeFactory
+    mapping(address => bool) public isScribe;
+
+    /// @inheritdoc IScribeFactory
+    mapping(address => bool) public isRouter;
+
     constructor(address initialAuthed) payable Auth(initialAuthed) {}
 
     /// @inheritdoc IScribeFactory
@@ -71,6 +77,7 @@ contract ScribeFactory is IScribeFactory, Auth, Toll {
     function _plantScribe(ScribeConfig calldata cfg) internal returns (Scribe) {
         // Deploy scribe.
         Scribe scribe = new Scribe(address(this), cfg.wat);
+        isScribe[address(scribe)] = true;
         emit ScribeDeployed(msg.sender, address(scribe), cfg.name);
 
         // Lift validators and set bar.
@@ -97,6 +104,7 @@ contract ScribeFactory is IScribeFactory, Auth, Toll {
     {
         // Deploy router.
         ScribeRouter router = new ScribeRouter(address(this), cfg.name);
+        isRouter[address(router)] = true;
         emit ScribeRouterDeployed(msg.sender, address(router), cfg.name);
 
         // Rely authed and kiss tolled.
