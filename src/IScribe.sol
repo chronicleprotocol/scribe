@@ -155,7 +155,12 @@ interface IScribe is IChronicle {
     /// @notice Returns the message expected to be signed via Schnorr for
     ///         `pokeData`.
     /// @dev The message is defined as:
-    ///         H(tag ‖ H(wat ‖ pokeData)), where H() is the keccak256 function.
+    ///         H(tag ‖ H(this ‖ chainid ‖ wat ‖ pokeData)), where H() is the
+    ///         keccak256 function.
+    ///
+    ///      `this` and `chainid` provide domain separation so that a signature
+    ///      produced for one Scribe instance cannot be replayed against another
+    ///      instance sharing the same `wat`, on this or any other chain.
     /// @param pokeData The pokeData to create the message for.
     /// @return pokeMessage Message for `pokeData`.
     function constructPokeMessage(PokeData calldata pokeData)

@@ -125,10 +125,27 @@ contract Scribe is IScribe, Auth, Toll {
         view
         returns (bytes32)
     {
+        // Note the domain separation via `address(this)` and `block.chainid`.
+        //
+        // Without them the signed payload is fully determined by
+        // (wat, val, age), which is identical for every Scribe instance sharing
+        // the same `wat` on every chain. A Schnorr signature produced for one
+        // instance could then be replayed verbatim against any other deployment
+        // of the same feed set — including on a different chain, where the
+        // validator set and governance may be entirely different. Binding the
+        // message to this contract and chain makes such a replay impossible.
         return keccak256(
             abi.encodePacked(
                 "\x19Ethereum Signed Message:\n32",
-                keccak256(abi.encodePacked(wat, pokeData.val, pokeData.age))
+                keccak256(
+                    abi.encodePacked(
+                        address(this),
+                        block.chainid,
+                        wat,
+                        pokeData.val,
+                        pokeData.age
+                    )
+                )
             )
         );
     }
@@ -398,7 +415,23 @@ contract Scribe is IScribe, Auth, Toll {
         returns (uint8)
     {
         address feed = pubKey.toAddress();
-        // assert(feed != address(0));
+
+        // Reject signature malleability.
+        //
+        // `ecrecover` accepts both (r, s) and (r, Q - s) for the same signer, so
+        // without this guard a single valid feed registration has two distinct
+        // on-chain encodings. This is the standard defence-in-depth check for
+        // ECDSA verification and preserves a unique byte encoding per feed.
+        //
+        // Note that `ecrecover` reverts on r == 0 or s == 0 and returns
+        // address(0) on any other invalid input; the `feed == recovered` check
+        // below already rejects that, because a valid on-curve public key never
+        // hashes to address(0).
+        require(
+            ecdsaData.s
+                <= 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0,
+            "Scribe: signature s not canonical"
+        );
 
         // forgefmt: disable-next-item
         address recovered = ecrecover(
