@@ -139,6 +139,7 @@ contract ScribeOffboarder is Auth {
             })
         );
 
+        // Drop offboarder again.
         target.drop(FEED_ID);
 
         // Set bar to max.

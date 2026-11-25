@@ -21,6 +21,7 @@ This document describes how to manage deployed `Scribe` and `ScribeOptimistic` i
     - [`IToll::diss`](#itolldiss)
   - [Offboarding](#offboarding)
     - [Offboard via `ScribeOffboarder`](#offboard-via-scribeoffboarder)
+    - [Offboard via `ScribeOptimisticOffboarder`](#offboard-via-scribeoptimisticoffboarder)
     - [Deactivation](#deactivation)
     - [Fund Rescue](#fund-resuce)
     - [Killing](#killing)
@@ -287,14 +288,19 @@ Offboarding a Scribe(Optimistic) instance simply means _Chronicle Protocol_ is n
 
 However, to ensure an offboarded Scribe(Optimistic) instance may not behave unexpectedly it needs to be deactivated. Furthermore, if the contract is a ScribeOptimistic instance ETH held by the contract may need to be rescued. If its certain the contract will never be used again it is recommended to kill it.
 
-A Scribe(Optimistic) instance can be deactivated in two ways:
+A Scribe(Optimistic) instance can be deactivated in three ways:
 
-- In a single transaction via a deployed [`ScribeOffboarder`](#offboard-via-scribeoffboarder) contract that holds `auth` on the instance.
+- In a single transaction via a deployed [`ScribeOffboarder`](#offboard-via-scribeoffboarder) contract that holds `auth` on the instance. Note that this is only supported for Scribe instances.
+- In two transactions via a deployed [`ScribeOptimisticOffboarder`](#offboard-via-scribeoptimisticoffboarder) contract that holds `auth` on the instance. Note that this is only supported for ScribeOptimistic instances.
 - Via two distinct `forge script` [deactivation](#deactivation) commands signed by an `auth`'ed EOA.
 
 ### Offboard via `ScribeOffboarder`
 
 Offboarding through a `ScribeOffboarder` instance drops every currently-lifted feed, sets `bar` to `1`, and pokes value `0` in a single transaction. After the call, `read()` reverts and no feed is lifted, so no future poke can verify.
+
+> [!IMPORTANT]
+>
+> `ScribeOffboarder` only supports Scribe instances. ScribeOptimistic instances set their value's age to the current timestamp on every `drop` and `setBar`, leading the value `0` poke in the same transaction to revert. Use [`ScribeOptimisticOffboarder`](#offboard-via-scribeoptimisticoffboarder) instead.
 
 Expects:
 
@@ -319,6 +325,57 @@ $ forge script \
 ```
 
 Note that `auth`'ed addresses on `SCRIBE` are untouched by `offboard` — to make the deactivation permanent, follow up with [`kill`](#killing).
+
+### Offboard via `ScribeOptimisticOffboarder`
+
+Offboarding through a `ScribeOptimisticOffboarder` instance drops every currently-lifted feed and sets `bar` to `1` in a first transaction, and pokes value `0` in a second transaction. After the second call, `read()` reverts and no feed is lifted, so no future poke can verify.
+
+Note that no feed is lifted between both transactions, so no poke or opPoke can verify. However, between both transactions the instance still provides its last value with the first transaction's timestamp as age. Therefore, the second transaction should be executed in the next block.
+
+> [!IMPORTANT]
+>
+> Offboarding requires running two distinct `forge script` commands, with step 2 being executed in a later block than step 1.
+>
+> It is of utmost importance to run both commands and NOT leave the ScribeOptimistic instance in an undefined state.
+
+Expects:
+
+- `OFFBOARDER` is a deployed `ScribeOptimisticOffboarder` instance that holds `auth` on `SCRIBE`.
+- The caller holds `auth` on `OFFBOARDER`.
+
+Set the additional environment variable:
+
+- `OFFBOARDER`: The `ScribeOptimisticOffboarder` instance to offboard `SCRIBE` with.
+
+Step 1:
+
+```bash
+$ forge script \
+    --keystore "$KEYSTORE" \
+    --password "$KEYSTORE_PASSWORD" \
+    --broadcast \
+    --rpc-url "$RPC_URL" \
+    --sig $(cast calldata "offboard_Step1(address,address)" "$OFFBOARDER" "$SCRIBE") \
+    -vvv \
+    script/ScribeOptimistic.s.sol:ScribeOptimisticScript
+```
+
+Step 2:
+
+```bash
+$ forge script \
+    --keystore "$KEYSTORE" \
+    --password "$KEYSTORE_PASSWORD" \
+    --broadcast \
+    --rpc-url "$RPC_URL" \
+    --sig $(cast calldata "offboard_Step2(address,address)" "$OFFBOARDER" "$SCRIBE") \
+    -vvv \
+    script/ScribeOptimistic.s.sol:ScribeOptimisticScript
+```
+
+Note that ETH held by `SCRIBE` is not rescued by offboarding — follow up with [fund rescue](#fund-rescue).
+
+Note that `auth`'ed addresses on `SCRIBE` are untouched by `offboard_Step2` — to make the deactivation permanent, follow up with [`kill`](#killing).
 
 ### Deactivation
 

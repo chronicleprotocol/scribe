@@ -21,6 +21,10 @@ import {LibFeed} from "./libs/LibFeed.sol";
 
 import {Rescuer} from "./rescue/Rescuer.sol";
 
+import {
+    ScribeOptimisticOffboarder
+} from "./offboard/ScribeOptimisticOffboarder.sol";
+
 /**
  * @title ScribeOptimistic Management Script
  */
@@ -116,6 +120,51 @@ contract ScribeOptimisticScript is ScribeScript {
         vm.startBroadcast();
         IScribeOptimistic(self).opPoke(pokeData, schnorrData, ecdsaData);
         vm.stopBroadcast();
+    }
+
+    // -- Offboarding Functions --
+
+    /// @dev Note that `ScribeOffboarder` cannot offboard a ScribeOptimistic
+    ///      instance. Use `offboard_Step1` and `offboard_Step2` instead.
+    function offboard(address, address) public pure override(ScribeScript) {
+        revert("Use offboard_Step1 and offboard_Step2");
+    }
+
+    /// @dev Step 1 of offboarding instance `scribe` via
+    ///      `ScribeOptimisticOffboarder` instance `offboarder`.
+    ///
+    /// @dev Step 1 drops every currently-lifted feed and sets bar to 1.
+    ///
+    /// @dev Expects:
+    ///      - `offboarder` to hold `auth` on `scribe`
+    ///      - `msg.sender` to hold `auth` on `offboarder`
+    ///
+    /// @dev Note that offboarding MUST be executed via two distinct
+    ///      `forge script` commands with step 2 being executed in a later
+    ///      block than step 1.
+    function offboard_Step1(address offboarder, address scribe) public {
+        vm.startBroadcast();
+        ScribeOptimisticOffboarder(offboarder).offboard_Step1(scribe);
+        vm.stopBroadcast();
+
+        console2.log("Offboarded Step 1", scribe);
+    }
+
+    /// @dev Step 2 of offboarding instance `scribe` via
+    ///      `ScribeOptimisticOffboarder` instance `offboarder`.
+    ///
+    /// @dev Step 2 pokes value 0, sets bar to type(uint8).max, and denies
+    ///      `offboarder` on `scribe`. After the call `scribe.read()` reverts
+    ///      and no feed is lifted, so no future poke can verify.
+    ///
+    /// @dev Note that `auth`'ed addresses on `scribe` are untouched. To make
+    ///      the deactivation permanent, follow up with `kill(scribe)`.
+    function offboard_Step2(address offboarder, address scribe) public {
+        vm.startBroadcast();
+        ScribeOptimisticOffboarder(offboarder).offboard_Step2(scribe);
+        vm.stopBroadcast();
+
+        console2.log("Offboarded Step 2", scribe);
     }
 
     /// @dev Rescues ETH held in deactivated `self`.

@@ -284,7 +284,7 @@ contract ScribeScript is Script {
     ///
     /// @dev Note that `auth`'ed addresses on `scribe` are untouched. To make
     ///      the deactivation permanent, follow up with `kill(scribe)`.
-    function offboard(address offboarder, address scribe) public {
+    function offboard(address offboarder, address scribe) public virtual {
         vm.startBroadcast();
         ScribeOffboarder(offboarder).offboard(scribe);
         vm.stopBroadcast();
