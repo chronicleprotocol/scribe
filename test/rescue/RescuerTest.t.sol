@@ -165,6 +165,7 @@ contract RescuerTest is Test {
     ) public {
         vm.assume(receiver.code.length == 0);
         vm.assume(uint160(address(receiver)) > 100); // Ensure no precompile
+        vm.assume(receiver.balance == 0); // Ensure no pre-funded account
         vm.assume(balance >= withdrawal);
 
         // Let rescuer have ETH balance.
